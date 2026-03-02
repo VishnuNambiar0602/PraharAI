@@ -1,0 +1,8 @@
+{
+  "name": "Prahar AI",
+  "description": "A proactive digital safety and government scheme assistant for Indian citizens, providing multi-lingual voice-first support.",
+  "requestFramePermissions": [
+    "microphone",
+    "geolocation"
+  ]
+}

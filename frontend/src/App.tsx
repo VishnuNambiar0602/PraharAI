@@ -1,79 +1,49 @@
-import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
-import { Header } from './components/common/Header';
-import { ConnectionStatus } from './components/common/ConnectionStatus';
-import { LoginPage } from './components/auth/LoginPage';
-import { RegisterPage } from './components/auth/RegisterPage';
-import { DashboardPage } from './components/dashboard/DashboardPage';
-import { SchemeList } from './components/schemes/SchemeList';
-import { ChatInterface } from './components/chat/ChatInterface';
-import { ProtectedRoute } from './components/ProtectedRoute';
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
+import DashboardPage from './pages/DashboardPage';
+import SchemesPage from './pages/SchemesPage';
+import SchemeDetailPage from './pages/SchemeDetailPage';
+import ChatPage from './pages/ChatPage';
+import ProfilePage from './pages/ProfilePage';
+import LandingPage from './pages/LandingPage';
+import ProtectedRoute from './components/ProtectedRoute';
 import './App.css';
 
 function App() {
-  // State-based routing that updates on navigation
-  const [path, setPath] = useState(window.location.pathname);
-
-  useEffect(() => {
-    // Listen for popstate events (back/forward navigation)
-    const handlePopState = () => {
-      setPath(window.location.pathname);
-    };
-
-    window.addEventListener('popstate', handlePopState);
-
-    // Custom event for programmatic navigation
-    const handleNavigate = () => {
-      setPath(window.location.pathname);
-    };
-
-    window.addEventListener('navigate', handleNavigate);
-
-    return () => {
-      window.removeEventListener('popstate', handlePopState);
-      window.removeEventListener('navigate', handleNavigate);
-    };
-  }, []);
-
-  const renderPage = () => {
-    switch (path) {
-      case '/login':
-        return <LoginPage />;
-      case '/register':
-        return <RegisterPage />;
-      case '/schemes':
-        return <SchemeList />;
-      case '/dashboard':
-        return (
-          <ProtectedRoute>
-            <DashboardPage />
-          </ProtectedRoute>
-        );
-      case '/chat':
-        return (
-          <ProtectedRoute>
-            <ChatInterface />
-          </ProtectedRoute>
-        );
-      default:
-        return (
-          <div className="home">
-            <h1>Personalized Scheme Recommendation System</h1>
-            <p>Find government schemes tailored to your needs</p>
-            <a href="/schemes">Browse Schemes</a>
-            <a href="/register">Get Started</a>
-          </div>
-        );
-    }
-  };
-
   return (
     <ErrorBoundary>
-      <div className="app">
-        <ConnectionStatus />
-        <Header />
-        <main>{renderPage()}</main>
-      </div>
+      <Router>
+        <Routes>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          
+          <Route path="/dashboard" element={
+            <ProtectedRoute>
+              <DashboardPage />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/schemes" element={<SchemesPage />} />
+          <Route path="/schemes/:schemeId" element={<SchemeDetailPage />} />
+          
+          <Route path="/assistant" element={
+            <ProtectedRoute>
+              <ChatPage />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/profile" element={
+            <ProtectedRoute>
+              <ProfilePage />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Router>
     </ErrorBoundary>
   );
 }
