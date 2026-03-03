@@ -13,6 +13,8 @@ import { similarityAgent } from '../agents/similarity-agent';
 import { findMatchingIntent, getResponseForIntent } from '../utils/training-data';
 import { ReActAgent } from '../react-agent/react-agent';
 import { ConversationContext, Tool, ToolResult } from '../react-agent/types';
+import { mlService } from '../services/ml.service';
+import { llmService } from '../services/llm.service';
 
 interface ChatResponse {
   response: string;
@@ -27,6 +29,7 @@ class ChatService {
     // Initialize ReAct agent with tools
     this.agent = new ReActAgent([
       this.createSearchSchemesTool(),
+      this.createGetSchemeDetailsTool(),
       this.createCheckEligibilityTool(),
       this.createGetProfileTool(),
       this.createUpdateProfileTool(),
@@ -58,6 +61,13 @@ class ChatService {
 
       // Update user profile in context
       context.userProfile = userProfile;
+
+      // T-13: Extract entities from message and auto-update profile context
+      const extractedEntities = this.extractEntities(message, userProfile);
+      if (extractedEntities && Object.keys(extractedEntities).length > 0) {
+        context.userProfile = { ...context.userProfile, ...extractedEntities };
+        console.log('Extracted entities from message:', extractedEntities);
+      }
 
       // Import and sync conversation history from frontend if provided
       if (conversationHistory && conversationHistory.length > 0) {
@@ -97,75 +107,26 @@ class ChatService {
   }
 
   /**
-   * Handle quick responses for common queries
+   * Handle quick responses — ONLY greetings, profile view, simple profile field queries.
+   * All scheme queries, eligibility, application info go to the ReAct agent.
    */
   private async handleQuickResponses(
     message: string,
     userProfile: any
   ): Promise<ChatResponse | null> {
-    const lowerMessage = message.toLowerCase();
+    const lowerMessage = message.toLowerCase().trim();
 
-    // Scheme information queries
-    if (
-      lowerMessage.includes('tell me about') ||
-      lowerMessage.includes('what is') ||
-      lowerMessage.includes('info about') ||
-      lowerMessage.includes('details about')
-    ) {
-      // Extract scheme name from message
-      const schemeInfo = SchemeInformationService.getSchemeInfo(message);
-      if (schemeInfo) {
-        return {
-          response: schemeInfo.info,
-          suggestions: schemeInfo.suggestions,
-        };
-      }
-    }
-
-    // Eligibility check queries
-    if (
-      lowerMessage.includes('am i eligible') ||
-      lowerMessage.includes('can i apply') ||
-      lowerMessage.includes('do i qualify')
-    ) {
-      // Extract scheme name from message
-      let schemeName = '';
-      const schemeMatch = message.match(/(for|to)\s+(.+?)(?:\?|$)/i);
-      if (schemeMatch) {
-        schemeName = schemeMatch[2];
-      }
-
-      if (schemeName) {
-        return {
-          response: SchemeInformationService.checkEligibility(userProfile, schemeName),
-          suggestions: ['How to apply', 'Required documents', 'Find other schemes'],
-        };
-      }
-    }
-
-    // How to apply queries
-    if (
-      lowerMessage.includes('how to apply') ||
-      lowerMessage.includes('apply for') ||
-      lowerMessage.includes('application process')
-    ) {
-      const schemeMatch = message.match(/(for|to)\s+(.+?)(?:\?|$)/i);
-      if (schemeMatch) {
-        const schemeName = schemeMatch[2];
-        return {
-          response: SchemeInformationService.getApplicationInfo(schemeName),
-          suggestions: ['Check eligibility', 'Required documents', 'Find more schemes'],
-        };
-      }
-    }
-
-    // Browse all schemes — use database
-    if (
-      lowerMessage.includes('show all') ||
-      lowerMessage.includes('list all') ||
-      lowerMessage.includes('available schemes')
-    ) {
-      return await this.handleSchemeQuery(userProfile, message);
+    // Greetings only (strict match)
+    if (/^(hello|hi|hey|good morning|good afternoon|good evening|namaste|namaskar)[!.,?]*$/i.test(lowerMessage)) {
+      return {
+        response: `Hello! 👋 I'm your personalized scheme recommendation assistant. I can help you:\n\n` +
+          `• Find government schemes you're eligible for\n` +
+          `• Check eligibility for specific schemes\n` +
+          `• Get application details for any scheme\n` +
+          `• View and update your profile\n\n` +
+          `What would you like to know?`,
+        suggestions: ['Show my profile', 'Find schemes for me', 'What schemes am I eligible for?'],
+      };
     }
 
     // Profile viewing
@@ -178,69 +139,33 @@ class ChatService {
       return this.formatProfileResponse(userProfile);
     }
 
-    // Greetings
-    if (
-      lowerMessage.match(/^(hello|hi|hey|good morning|good afternoon|good evening)$/i)
-    ) {
-      return {
-        response: `Hello! 👋 I'm your personalized scheme recommendation assistant. I can help you:\n\n` +
-          `• Find government schemes you're eligible for\n` +
-          `• View and update your profile\n` +
-          `• Answer questions about schemes\n` +
-          `• Check eligibility criteria\n\n` +
-          `What would you like to know?`,
-        suggestions: ['Show my profile', 'Find schemes for me', 'What schemes am I eligible for?'],
-      };
-    }
-
-    // Profile field queries
-    if (lowerMessage.includes('my name')) {
+    // Simple profile field queries
+    if (lowerMessage === 'my name' || lowerMessage.startsWith('what is my name')) {
       return {
         response: `Your name is ${userProfile.name || 'not set'}.`,
         suggestions: ['Show full profile', 'Find schemes for me'],
       };
     }
-
-    if (lowerMessage.includes('my age')) {
+    if (lowerMessage === 'my age' || lowerMessage.startsWith('what is my age')) {
       return {
-        response: userProfile.age
-          ? `You are ${userProfile.age} years old.`
-          : "Your age is not set. Tell me your age by saying 'my age is 25'",
+        response: userProfile.age ? `You are ${userProfile.age} years old.` : "Your age is not set. Tell me your age by saying 'my age is 25'",
+        suggestions: ['Show full profile', 'Find schemes for me'],
+      };
+    }
+    if (lowerMessage === 'my income' || lowerMessage.startsWith('what is my income')) {
+      return {
+        response: userProfile.income ? `Your annual income is ₹${userProfile.income.toLocaleString()}.` : "Your income is not set. Tell me by saying 'my income is 500000'",
+        suggestions: ['Show full profile', 'Find schemes for me'],
+      };
+    }
+    if (lowerMessage === 'my state' || lowerMessage.startsWith('what is my state') || lowerMessage.startsWith('where am i from')) {
+      return {
+        response: userProfile.state ? `You are from ${userProfile.state}.` : "Your state is not set. Tell me by saying 'I live in Maharashtra'",
         suggestions: ['Show full profile', 'Find schemes for me'],
       };
     }
 
-    if (lowerMessage.includes('my income')) {
-      return {
-        response: userProfile.income
-          ? `Your annual income is ₹${userProfile.income}.`
-          : "Your income is not set. Tell me by saying 'my income is 500000'",
-        suggestions: ['Show full profile', 'Find schemes for me'],
-      };
-    }
-
-    if (lowerMessage.includes('my state')) {
-      return {
-        response: userProfile.state
-          ? `You are from ${userProfile.state}.`
-          : "Your state is not set. Tell me by saying 'I live in Maharashtra'",
-        suggestions: ['Show full profile', 'Find schemes for me'],
-      };
-    }
-
-    // Scheme queries - use training data
-    if (
-      lowerMessage.includes('scheme') ||
-      lowerMessage.includes('eligible') ||
-      lowerMessage.includes('recommend') ||
-      lowerMessage.includes('find') ||
-      lowerMessage.includes('scholarship') ||
-      lowerMessage.includes('benefit') ||
-      lowerMessage.includes('grant')
-    ) {
-      return await this.handleSchemeQuery(userProfile, message);
-    }
-
+    // Everything else → ReAct agent
     return null;
   }
 
@@ -385,6 +310,113 @@ class ChatService {
   }
 
   /**
+   * T-13: Extract entities from user message and return profile fields to update
+   */
+  private extractEntities(message: string, currentProfile: any): Record<string, any> {
+    const entities: Record<string, any> = {};
+    const lower = message.toLowerCase();
+
+    // Age: "my age is 25", "I am 25 years old", "I'm 25"
+    const ageMatch = message.match(/(?:my age is|i am|i'm|age[:\s]+)\s*(\d{1,3})\s*(?:years?(?:\s+old)?)?/i);
+    if (ageMatch) {
+      const age = parseInt(ageMatch[1]);
+      if (age >= 5 && age <= 120 && age !== currentProfile.age) entities.age = age;
+    }
+
+    // Income: "my income is 500000", "earning 5 lakhs", "income: 3.5 lakh"
+    const incomeMatch = message.match(/(?:my income is|earning|income[:\s]+)\s*([\d.,]+)\s*(lakh|lakhs|k|cr)?/i);
+    if (incomeMatch) {
+      let income = parseFloat(incomeMatch[1].replace(/,/g, ''));
+      const unit = (incomeMatch[2] || '').toLowerCase();
+      if (unit === 'lakh' || unit === 'lakhs') income *= 100000;
+      else if (unit === 'k') income *= 1000;
+      else if (unit === 'cr') income *= 10000000;
+      if (income > 0 && income !== currentProfile.income) entities.income = Math.round(income);
+    }
+
+    // State: "I live in Maharashtra", "from Rajasthan", "I'm in Delhi"
+    const statePatterns = [
+      'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh',
+      'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka',
+      'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram',
+      'Nagaland', 'Odisha', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu',
+      'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttarakhand', 'West Bengal',
+      'Delhi', 'Jammu', 'Kashmir', 'Puducherry', 'Chandigarh', 'UP', 'MP',
+    ];
+    for (const stateName of statePatterns) {
+      if (lower.includes(stateName.toLowerCase()) && stateName !== currentProfile.state) {
+        entities.state = stateName;
+        break;
+      }
+    }
+
+    // Employment: "I am a farmer", "I work as a teacher", "I'm unemployed", "I'm a student"
+    const employmentMap: Record<string, string> = {
+      'farmer': 'Farmer', 'agriculture': 'Farmer',
+      'salaried': 'Salaried', 'job': 'Salaried', 'employee': 'Salaried', 'office': 'Salaried',
+      'self-employed': 'Self-Employed', 'business': 'Self-Employed', 'entrepreneur': 'Self-Employed',
+      'unemployed': 'Unemployed', 'no job': 'Unemployed', 'jobless': 'Unemployed',
+      'student': 'Student', 'studying': 'Student',
+      'retired': 'Retired',
+    };
+    for (const [keyword, value] of Object.entries(employmentMap)) {
+      if (lower.includes(keyword) && value !== currentProfile.employment) {
+        entities.employment = value;
+        break;
+      }
+    }
+
+    return entities;
+  }
+
+  /**
+   * Create get scheme details tool — T-07
+   */
+  private createGetSchemeDetailsTool(): Tool {
+    return {
+      name: 'get_scheme_details',
+      description: 'Get detailed information about a specific government scheme by name or ID',
+      parameters: {
+        query: { type: 'string', required: true },
+      },
+      requiresAuth: false,
+      execute: async (params: any, _context: ConversationContext): Promise<ToolResult> => {
+        try {
+          const results = await similarityAgent.searchSchemes(params.query, 3);
+          if (!results || results.length === 0) {
+            return {
+              success: false,
+              error: { code: 'NOT_FOUND', message: `No scheme found matching "${params.query}"` },
+              metadata: { executionTime: 0, cacheHit: false, toolVersion: '1.0' },
+            };
+          }
+          const scheme = results[0];
+          const appUrl = (scheme as any).schemeUrl || `https://www.myscheme.gov.in/schemes/${scheme.schemeId}`;
+          return {
+            success: true,
+            data: {
+              id: scheme.schemeId,
+              name: scheme.name,
+              description: scheme.description,
+              ministry: scheme.ministry,
+              tags: scheme.tags,
+              applicationUrl: appUrl,
+              otherMatches: results.slice(1).map((s: any) => s.name),
+            },
+            metadata: { executionTime: 0, cacheHit: false, toolVersion: '1.0' },
+          };
+        } catch (error: any) {
+          return {
+            success: false,
+            error: { code: 'LOOKUP_ERROR', message: error.message },
+            metadata: { executionTime: 0, cacheHit: false, toolVersion: '1.0' },
+          };
+        }
+      },
+    };
+  }
+
+  /**
    * Create search schemes tool
    */
   private createSearchSchemesTool(): Tool {
@@ -449,21 +481,20 @@ class ChatService {
   }
 
   /**
-   * Create check eligibility tool
+   * Create check eligibility tool — T-11: calls ML service for detailed scoring
    */
   private createCheckEligibilityTool(): Tool {
     return {
       name: 'check_eligibility',
-      description: 'Check user eligibility for schemes',
+      description: 'Check user eligibility for schemes with detailed ML scoring',
       parameters: {
         schemeId: { type: 'string', required: false },
+        query: { type: 'string', required: false },
       },
       requiresAuth: true,
       execute: async (params: any, context: ConversationContext): Promise<ToolResult> => {
         try {
           const userProfile = context.userProfile || {};
-          
-          // Build profile for matching
           const profileForMatching = {
             userId: context.userId!,
             employment: userProfile.employment,
@@ -474,38 +505,50 @@ class ChatService {
             povertyLine: this.mapIncomeToPovertyLine(userProfile.income),
             state: userProfile.state,
             age: userProfile.age,
+            interests: params.query ? [params.query] : [],
           };
 
-          // Get top eligible schemes
-          const matches = await similarityAgent.findMatchingSchemes(
-            profileForMatching,
-            10
-          );
+          const matches = await similarityAgent.findMatchingSchemes(profileForMatching, 10);
+          const candidateSchemes = matches.filter((m: any) => m.eligibilityScore >= 50);
+
+          // T-11: Call ML eligibility engine for each candidate
+          const mlScores: Map<string, number> = new Map();
+          try {
+            const mlAvailable = await mlService.isAvailable();
+            if (mlAvailable && candidateSchemes.length > 0) {
+              const mlResults = await Promise.all(
+                candidateSchemes.slice(0, 5).map(async (s: any) => {
+                  const result = await mlService.eligibility(userProfile, {
+                    id: s.schemeId, name: s.name, description: s.description,
+                    tags: s.tags, state: s.state,
+                  });
+                  return { id: s.schemeId, score: result?.percentage ?? s.eligibilityScore };
+                })
+              );
+              mlResults.forEach(r => mlScores.set(r.id, r.score));
+            }
+          } catch { /* ML is optional */ }
+
+          // Merge ML scores
+          const enriched = candidateSchemes.map((s: any) => ({
+            ...s,
+            eligibilityScore: mlScores.get(s.schemeId) ?? s.eligibilityScore,
+          })).sort((a: any, b: any) => b.eligibilityScore - a.eligibilityScore);
 
           return {
             success: true,
             data: {
-              eligibleSchemes: matches.filter((m: any) => m.eligibilityScore >= 60),
+              eligibleSchemes: enriched,
               totalChecked: matches.length,
+              mlEnhanced: mlScores.size > 0,
             },
-            metadata: {
-              executionTime: 0,
-              cacheHit: false,
-              toolVersion: '1.0',
-            },
+            metadata: { executionTime: 0, cacheHit: false, toolVersion: '2.0' },
           };
         } catch (error: any) {
           return {
             success: false,
-            error: {
-              code: 'ELIGIBILITY_ERROR',
-              message: error.message,
-            },
-            metadata: {
-              executionTime: 0,
-              cacheHit: false,
-              toolVersion: '1.0',
-            },
+            error: { code: 'ELIGIBILITY_ERROR', message: error.message },
+            metadata: { executionTime: 0, cacheHit: false, toolVersion: '2.0' },
           };
         }
       },

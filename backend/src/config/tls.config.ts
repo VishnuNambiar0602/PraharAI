@@ -1,4 +1,5 @@
 import * as https from 'https';
+import * as tls from 'tls';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -11,8 +12,8 @@ export interface TLSConfig {
   key: Buffer;
   cert: Buffer;
   ca?: Buffer;
-  minVersion: string;
-  maxVersion: string;
+  minVersion: tls.SecureVersion;
+  maxVersion: tls.SecureVersion;
   ciphers: string;
   honorCipherOrder: boolean;
   secureOptions: number;

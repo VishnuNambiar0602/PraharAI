@@ -31,6 +31,7 @@ export async function registerUser(data: {
   age?: number;
   income?: number;
   state?: string;
+  gender?: string;
 }) {
   const res = await fetch(`${API_BASE}/auth/register`, {
     method: 'POST',

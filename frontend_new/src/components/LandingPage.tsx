@@ -1,4 +1,5 @@
 import { motion } from 'motion/react';
+import { useState, useEffect } from 'react';
 import { 
   Home, 
   Search, 
@@ -22,6 +23,14 @@ interface LandingPageProps {
 }
 
 export default function LandingPage({ onNavigate }: LandingPageProps) {
+  const [schemeCount, setSchemeCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    fetch('/api/schemes/stats')
+      .then((r) => r.json())
+      .then((d) => { if (d.totalSchemes) setSchemeCount(d.totalSchemes); })
+      .catch(() => {/* silent */});
+  }, []);
   return (
     <div className="flex flex-col min-h-screen">
       {/* Hero Section */}
@@ -48,7 +57,11 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
               </h1>
               
               <p className="text-lg md:text-xl text-slate-500 max-w-xl">
-                Unlock government benefits tailored for you. Our AI scans thousands of schemes to find exactly what you qualify for in seconds.
+                Unlock government benefits tailored for you. Our AI scans{' '}
+                <span className="font-bold text-primary">
+                  {schemeCount ? `${schemeCount.toLocaleString('en-IN')}+` : 'thousands of'}
+                </span>{' '}
+                schemes to find exactly what you qualify for in seconds.
               </p>
               
               <div className="flex flex-col sm:flex-row gap-4">
@@ -126,7 +139,7 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
             
             {[
               { icon: Search, title: "Tell us about yourself", desc: "Share basic details securely like age, location, and occupation." },
-              { icon: Zap, title: "AI matches you", desc: "Our engine scans 10,000+ schemes to find your perfect matches." },
+              { icon: Zap, title: "AI matches you", desc: `Our engine scans ${schemeCount ? schemeCount.toLocaleString('en-IN') + '+' : '10,000+'} schemes to find your perfect matches.` },
               { icon: CheckCircle2, title: "Apply with ease", desc: "Get step-by-step guidance and document support for every application." }
             ].map((step, i) => (
               <div key={i} className="flex flex-col items-center text-center group relative z-10">

@@ -1,5 +1,5 @@
 import dotenv from 'dotenv';
-import app from './api/server';
+import app, { seedAdminUser } from './api/server';
 import { schemeSyncAgent } from './agents/scheme-sync-agent';
 import { sqliteService } from './db/sqlite.service';
 
@@ -17,6 +17,7 @@ app.listen(PORT, async () => {
   console.log('\n🤖 Starting Scheme Sync Agent...');
   try {
     await schemeSyncAgent.start();
+    seedAdminUser(); // ensure admin exists after DB init
     console.log('✅ Scheme Sync Agent started successfully\n');
   } catch (error) {
     console.error('❌ Failed to start Scheme Sync Agent:', error);

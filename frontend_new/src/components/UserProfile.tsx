@@ -14,6 +14,7 @@ export default function UserProfile({ onNavigate }: UserProfileProps) {
   const displayAge = user?.age ?? '—';
   const displayState = user?.state || '—';
   const displayIncome = user?.income ? `₹${(user.income / 100000).toFixed(1)}L` : '—';
+  const displayGender = (user as any)?.gender || '—';
 
   return (
     <div className="flex flex-col min-h-screen bg-background-light">
@@ -71,6 +72,12 @@ export default function UserProfile({ onNavigate }: UserProfileProps) {
                   <div className="flex items-center gap-1">
                     <MapPin className="size-3" />
                     {displayState}
+                  </div>
+                )}
+                {displayGender !== '—' && (
+                  <div className="flex items-center gap-1">
+                    <User className="size-3" />
+                    {displayGender}
                   </div>
                 )}
               </div>

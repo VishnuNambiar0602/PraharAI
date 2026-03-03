@@ -13,18 +13,37 @@ import AboutPage from './components/AboutPage';
 import PartnerPortal from './components/PartnerPortal';
 import ContactPage from './components/ContactPage';
 import LoginPage from './components/LoginPage';
+import OnboardingWizard from './components/OnboardingWizard';
 
 function AppContent() {
   const [currentView, setCurrentView] = useState<View>('home');
-  const { isAuthenticated } = useAuth();
+  const [intendedView, setIntendedView] = useState<View | null>(null);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const { isAuthenticated, user } = useAuth();
+
+  // Protected views — require login
+  const PROTECTED: View[] = ['assistant', 'profile', 'schemes', 'partner'];
 
   // Redirect to login for protected views
   const navigate = (view: View) => {
-    if ((view === 'assistant' || view === 'profile') && !isAuthenticated) {
+    if (PROTECTED.includes(view) && !isAuthenticated) {
+      setIntendedView(view);  // remember where user wanted to go
       setCurrentView('login');
       return;
     }
+    setIntendedView(null);
     setCurrentView(view);
+  };
+
+  // After login, redirect to intended view — show onboarding if profile not completed
+  const handlePostLogin = () => {
+    const dest = intendedView || 'home';
+    setIntendedView(null);
+    setCurrentView(dest);
+    // Show onboarding wizard for new users who haven't completed it
+    if (!user?.onboardingComplete) {
+      setShowOnboarding(true);
+    }
   };
 
   const renderView = () => {
@@ -44,7 +63,7 @@ function AppContent() {
       case 'contact':
         return <ContactPage onNavigate={navigate} />;
       case 'login':
-        return <LoginPage onNavigate={navigate} />;
+        return <LoginPage onNavigate={navigate} onLoginSuccess={handlePostLogin} />;
       default:
         return <LandingPage onNavigate={navigate} />;
     }
@@ -60,6 +79,16 @@ function AppContent() {
 
   return (
     <div className="min-h-screen bg-background-light flex flex-col">
+      {/* Onboarding Wizard Overlay */}
+      <AnimatePresence>
+        {showOnboarding && isAuthenticated && (
+          <OnboardingWizard
+            onComplete={() => setShowOnboarding(false)}
+            onSkip={() => setShowOnboarding(false)}
+          />
+        )}
+      </AnimatePresence>
+
       <main className="flex-1">
         <AnimatePresence mode="wait">
           <motion.div

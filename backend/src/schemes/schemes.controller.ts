@@ -30,6 +30,7 @@ export class SchemesController {
           category: s.rawCategory || s.categories?.[0]?.type || 'General',
           benefits: s.ministry || 'Government of India',
           eligibility: s.tags?.join(', ') || 'Check official website',
+          applicationUrl: s.schemeUrl ?? `https://www.myscheme.gov.in/schemes/${s.schemeId}`,
         })));
       } catch (dbError) {
         console.log('SQLite not ready, using sample data');
@@ -78,6 +79,7 @@ export class SchemesController {
           eligibility: scheme.tags?.join(', ') || 'Check official website',
           applicationProcess: 'Visit the official government portal to apply',
           requiredDocuments: ['Aadhaar Card', 'Income Certificate', 'Residence Proof'],
+          applicationUrl: scheme.schemeUrl ?? `https://www.myscheme.gov.in/schemes/${scheme.schemeId}`,
         });
       } catch (dbError) {
         const scheme = sampleSchemes.find((s) => s.schemeId === schemeId);
@@ -92,6 +94,7 @@ export class SchemesController {
           eligibility: Array.isArray(scheme.tags) ? scheme.tags.join(', ') : 'Check official website',
           applicationProcess: 'Visit the official government portal to apply',
           requiredDocuments: ['Aadhaar Card', 'Income Certificate', 'Residence Proof'],
+          applicationUrl: `https://www.myscheme.gov.in/schemes/${scheme.schemeId}`,
         });
       }
     } catch (error: any) {
@@ -143,6 +146,7 @@ export class SchemesController {
         category: m.categories?.[0]?.type || 'General',
         benefits: m.ministry || 'Government of India',
         eligibilityScore: m.eligibilityScore,
+        applicationUrl: m.schemeUrl ?? `https://www.myscheme.gov.in/schemes/${m.schemeId}`,
       })));
     } catch (error: any) {
       console.error('Error in getRecommendations:', error);

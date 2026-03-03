@@ -6,9 +6,10 @@ import { View } from '../types';
 
 interface LoginPageProps {
   onNavigate: (view: View) => void;
+  onLoginSuccess?: () => void;  // optional callback after successful login/register
 }
 
-export default function LoginPage({ onNavigate }: LoginPageProps) {
+export default function LoginPage({ onNavigate, onLoginSuccess }: LoginPageProps) {
   const { login, register } = useAuth();
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [showPassword, setShowPassword] = useState(false);
@@ -22,6 +23,7 @@ export default function LoginPage({ onNavigate }: LoginPageProps) {
     age: '',
     state: '',
     income: '',
+    gender: '',
   });
 
   const update = (field: string, value: string) =>
@@ -42,9 +44,11 @@ export default function LoginPage({ onNavigate }: LoginPageProps) {
           age: form.age ? Number(form.age) : undefined,
           state: form.state || undefined,
           income: form.income ? Number(form.income) : undefined,
+          gender: form.gender || undefined,
         });
       }
-      onNavigate('home');
+      if (onLoginSuccess) onLoginSuccess();
+      else onNavigate('home');
     } catch (err: any) {
       setError(err.message || 'Something went wrong');
     } finally {
@@ -184,6 +188,19 @@ export default function LoginPage({ onNavigate }: LoginPageProps) {
                     placeholder="300000"
                     className="w-full bg-white border border-primary/15 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                   />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1.5">Gender</label>
+                  <select
+                    value={form.gender}
+                    onChange={(e) => update('gender', e.target.value)}
+                    className="w-full bg-white border border-primary/15 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 text-slate-700"
+                  >
+                    <option value="">Prefer not to say</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
                 </div>
               </>
             )}

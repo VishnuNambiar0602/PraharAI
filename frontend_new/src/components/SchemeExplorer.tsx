@@ -182,10 +182,16 @@ export default function SchemeExplorer() {
                 </div>
               </div>
 
-              <button className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3 rounded-lg transition-all flex items-center justify-center gap-2">
+              {/* Apply Now — links directly to myscheme.gov.in */}
+              <a
+                href={scheme.applicationUrl || `https://www.myscheme.gov.in/search?q=${encodeURIComponent(scheme.id)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3 rounded-lg transition-all flex items-center justify-center gap-2"
+              >
                 Apply Now
                 <ExternalLink className="size-4" />
-              </button>
+              </a>
             </motion.div>
           ))}
         </div>

@@ -4,12 +4,13 @@
  * Responsibilities:
  * 1. Match user profiles with schemes based on categories
  * 2. Calculate eligibility scores
- * 3. Rank and recommend schemes
+ * 3. Rank and recommend schemes — with optional ML re-ranking (T-10)
  * 
  * Reads from SQLite (persistent) as the primary data source.
  */
 
 import { sqliteService, CategoryMapping, SchemeRow } from '../db/sqlite.service';
+import { mlService } from '../services/ml.service';
 
 interface UserProfile {
   userId: string;
@@ -32,6 +33,7 @@ interface SchemeMatch {
   state: string | null;
   tags: string[];
   categories: CategoryMapping[];
+  schemeUrl: string | null;
   similarityScore: number;
   eligibilityScore: number;
   matchedCategories: string[];
@@ -57,7 +59,41 @@ class SimilarityAgent {
       );
 
       matches.sort((a, b) => b.eligibilityScore - a.eligibilityScore);
-      return matches.slice(0, limit);
+      const topMatches = matches.slice(0, limit);
+
+      // T-10: Optional ML re-ranking — fire and forget, use result if fast enough
+      try {
+        const mlAvailable = await mlService.isAvailable();
+        if (mlAvailable) {
+          const schemesForML = topMatches.map(m => ({
+            id: m.schemeId, name: m.name, description: m.description,
+            tags: m.tags, state: m.state, ministry: m.ministry,
+          }));
+          const mlResult = await mlService.recommend(profile as any, schemesForML, limit);
+          if (mlResult && mlResult.recommendations.length > 0) {
+            // Build a score map from ML results and merge into matches
+            const mlScores = new Map<string, number>();
+            mlResult.recommendations.forEach((r, idx) => {
+              const id = r.id || r.schemeId || '';
+              mlScores.set(id, mlResult.recommendations.length - idx); // higher = better rank
+            });
+            topMatches.forEach(m => {
+              const mlScore = mlScores.get(m.schemeId);
+              if (mlScore !== undefined) {
+                // Blend ML rank (40%) with original score (60%)
+                m.eligibilityScore = Math.round(m.eligibilityScore * 0.6 + (mlScore / limit) * 100 * 0.4);
+              }
+            });
+            topMatches.sort((a, b) => b.eligibilityScore - a.eligibilityScore);
+            console.log('✅ ML re-ranking applied');
+          }
+        }
+      } catch (mlErr) {
+        // ML re-ranking is best-effort — never block the response
+        console.debug('ML re-ranking skipped:', (mlErr as Error).message);
+      }
+
+      return topMatches;
     } catch (error) {
       console.error('Error finding matching schemes:', error);
       throw error;
@@ -137,6 +173,7 @@ class SimilarityAgent {
       state: row.state,
       tags: JSON.parse(row.tags || '[]'),
       categories: schemeCategories,
+      schemeUrl: row.scheme_url ?? null,
       similarityScore: Math.round(similarityScore * 100) / 100,
       eligibilityScore: Math.round(eligibilityScore),
       matchedCategories,

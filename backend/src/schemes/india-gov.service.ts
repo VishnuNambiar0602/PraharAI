@@ -39,6 +39,7 @@ export interface Scheme {
   ministry: string | null;
   tags: string[];
   state: string | null;
+  schemeUrl: string | null;  // Link to myscheme.gov.in application page
 }
 
 class IndiaGovService {
@@ -81,7 +82,7 @@ class IndiaGovService {
         throw new Error(`API returned ${response.status}: ${response.statusText}`);
       }
 
-      const data: IndiaGovResponse = await response.json();
+      const data = await response.json() as IndiaGovResponse;
 
       return {
         total: data.schemesResponse.total,
@@ -194,14 +195,17 @@ class IndiaGovService {
    * Transform API scheme to internal format
    */
   private transformScheme(apiScheme: IndiaGovScheme): Scheme {
+    const slug = apiScheme.slug;
     return {
-      schemeId: apiScheme.slug,
+      schemeId: slug,
       name: apiScheme.title,
       description: apiScheme.description.trim(),
       category: apiScheme.schemeCategory,
       ministry: apiScheme.ministry,
       tags: apiScheme.tags,
       state: apiScheme.beneficiaryState,
+      // Construct direct application URL from slug
+      schemeUrl: slug ? `https://www.myscheme.gov.in/schemes/${slug}` : null,
     };
   }
 

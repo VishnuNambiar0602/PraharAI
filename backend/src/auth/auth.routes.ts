@@ -8,7 +8,9 @@ import { AuthService } from './auth.service';
 import { ProfileService } from '../profile/profile.service';
 
 const router = Router();
-const authService = new AuthService();
+// NOTE: This file is currently unused — auth is handled directly in server.ts with SQLite.
+// These types are kept for reference / future migration.
+let authService: AuthService;
 const profileService = new ProfileService();
 
 /**
@@ -25,7 +27,7 @@ router.post('/register', async (req, res) => {
     }
 
     // Register user
-    const result = await authService.register(email, password, profile);
+    const result = await authService.register({ email, password, profile });
 
     res.status(201).json(result);
   } catch (error: any) {
@@ -48,7 +50,7 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Email and password are required' });
     }
 
-    const result = await authService.login(email, password);
+    const result = await authService.login({ email, password });
 
     res.json(result);
   } catch (error: any) {

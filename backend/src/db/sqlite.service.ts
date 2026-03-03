@@ -19,6 +19,7 @@ export interface SchemeRow {
   tags: string;           // JSON array string
   state: string | null;
   categories_json: string; // JSON array of {type,value}
+  scheme_url: string | null; // direct application URL
   last_updated: string;
 }
 
@@ -140,6 +141,7 @@ class SqliteService {
         tags        TEXT NOT NULL DEFAULT '[]',
         state       TEXT,
         categories_json TEXT NOT NULL DEFAULT '[]',
+        scheme_url  TEXT,
         last_updated TEXT NOT NULL DEFAULT (datetime('now'))
       );
 
@@ -160,10 +162,48 @@ class SqliteService {
       -- Ensure exactly one row in sync_meta
       INSERT OR IGNORE INTO sync_meta (id, last_sync, total_schemes) VALUES (1, NULL, 0);
 
+      CREATE TABLE IF NOT EXISTS users (
+        user_id     TEXT PRIMARY KEY,
+        email       TEXT UNIQUE NOT NULL,
+        password    TEXT NOT NULL,
+        name        TEXT,
+        age         INTEGER,
+        income      TEXT,
+        state       TEXT,
+        gender      TEXT,
+        employment  TEXT,
+        education   TEXT,
+        interests   TEXT,
+        onboarding_complete INTEGER NOT NULL DEFAULT 0,
+        created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+
       -- Indexes for fast search
       CREATE INDEX IF NOT EXISTS idx_schemes_name ON schemes(name);
       CREATE INDEX IF NOT EXISTS idx_scheme_categories_type ON scheme_categories(cat_type, cat_value);
+      CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
     `);
+
+    // Migrate: add scheme_url column if it doesn't exist yet (for existing DBs)
+    try {
+      this.db.exec('ALTER TABLE schemes ADD COLUMN scheme_url TEXT');
+    } catch {
+      // Column already exists – ignore
+    }
+
+    // Backfill scheme_url for any rows where it's NULL (scheme_id IS the slug)
+    const backfilled = this.db.prepare(
+      `UPDATE schemes SET scheme_url = 'https://www.myscheme.gov.in/schemes/' || scheme_id WHERE scheme_url IS NULL AND scheme_id IS NOT NULL`
+    ).run();
+    if (backfilled.changes > 0) {
+      console.log(`✅ Backfilled scheme_url for ${backfilled.changes} existing schemes`);
+    }
+
+    // Migrate: add gender/employment/education/interests/onboarding to users if they don't exist
+    const userCols = ['gender TEXT', 'employment TEXT', 'education TEXT', 'interests TEXT', 'onboarding_complete INTEGER NOT NULL DEFAULT 0'];
+    for (const col of userCols) {
+      try { this.db.exec(`ALTER TABLE users ADD COLUMN ${col}`); } catch { /* already exists */ }
+    }
   }
 
   // ─── Sync Meta ──────────────────────────────────────────────────────────────
@@ -196,10 +236,10 @@ class SqliteService {
    * Replace all schemes in one transaction.
    * This is called by the sync agent after a successful API fetch.
    */
-  storeSchemes(schemes: { schemeId: string; name: string; description: string; category: string[]; ministry: string | null; tags: string[]; state: string | null }[]): void {
+  storeSchemes(schemes: { schemeId: string; name: string; description: string; category: string[]; ministry: string | null; tags: string[]; state: string | null; schemeUrl?: string | null }[]): void {
     const insertScheme = this.db.prepare(`
-      INSERT OR REPLACE INTO schemes (scheme_id, name, description, category, ministry, tags, state, categories_json, last_updated)
-      VALUES (@scheme_id, @name, @description, @category, @ministry, @tags, @state, @categories_json, datetime('now'))
+      INSERT OR REPLACE INTO schemes (scheme_id, name, description, category, ministry, tags, state, categories_json, scheme_url, last_updated)
+      VALUES (@scheme_id, @name, @description, @category, @ministry, @tags, @state, @categories_json, @scheme_url, datetime('now'))
     `);
 
     const insertCat = this.db.prepare(`
@@ -224,6 +264,7 @@ class SqliteService {
           tags: JSON.stringify(s.tags),
           state: s.state,
           categories_json: JSON.stringify(cats),
+          scheme_url: s.schemeUrl ?? null,
         });
 
         for (const c of cats) {
@@ -316,7 +357,51 @@ class SqliteService {
       tags: JSON.parse(row.tags) as string[],
       state: row.state,
       categories: JSON.parse(row.categories_json) as CategoryMapping[],
+      schemeUrl: row.scheme_url ?? null,
     };
+  }
+
+  // ─── User CRUD ───────────────────────────────────────────────────────────────
+
+  createUser(user: {
+    userId: string; email: string; password: string;
+    name?: string; age?: number; income?: string; state?: string; gender?: string;
+  }): void {
+    this.db.prepare(`
+      INSERT INTO users (user_id, email, password, name, age, income, state, gender)
+      VALUES (@userId, @email, @password, @name, @age, @income, @state, @gender)
+    `).run({
+      userId: user.userId,
+      email: user.email,
+      password: user.password,
+      name: user.name ?? null,
+      age: user.age ?? null,
+      income: user.income ?? null,
+      state: user.state ?? null,
+      gender: user.gender ?? null,
+    });
+  }
+
+  getUserByEmail(email: string): any | undefined {
+    return this.db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+  }
+
+  getUserById(userId: string): any | undefined {
+    return this.db.prepare('SELECT * FROM users WHERE user_id = ?').get(userId);
+  }
+
+  getAllUsers(): any[] {
+    return this.db.prepare('SELECT * FROM users').all();
+  }
+
+  updateUserProfile(userId: string, fields: Record<string, any>): void {
+    const allowed = ['name', 'age', 'income', 'state', 'gender', 'employment', 'education', 'interests', 'onboarding_complete'];
+    const updates = Object.entries(fields)
+      .filter(([k]) => allowed.includes(k))
+      .map(([k]) => `${k} = @${k}`);
+    if (updates.length === 0) return;
+    this.db.prepare(`UPDATE users SET ${updates.join(', ')} WHERE user_id = @userId`)
+      .run({ ...fields, userId });
   }
 
   /** Graceful close */

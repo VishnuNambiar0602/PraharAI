@@ -7,6 +7,7 @@ export interface Scheme {
   category: string;
   benefits?: string;
   eligibility: string;
+  applicationUrl?: string;  // Direct link to apply on myscheme.gov.in
   /** @deprecated kept for backwards compat with mock data */
   benefit?: string;
   deadline?: string;

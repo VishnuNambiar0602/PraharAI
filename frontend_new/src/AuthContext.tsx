@@ -10,6 +10,8 @@ interface User {
   state?: string;
   employment?: string;
   education?: string;
+  gender?: string;
+  onboardingComplete?: boolean;
   completeness?: number;
 }
 
@@ -18,7 +20,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (data: { email: string; password: string; name: string; age?: number; income?: number; state?: string }) => Promise<void>;
+  register: (data: { email: string; password: string; name: string; age?: number; income?: number; state?: string; gender?: string }) => Promise<void>;
   logout: () => void;
   refreshProfile: () => Promise<void>;
 }
@@ -59,7 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch { /* profile fetch is optional */ }
   };
 
-  const register = async (regData: { email: string; password: string; name: string; age?: number; income?: number; state?: string }) => {
+  const register = async (regData: { email: string; password: string; name: string; age?: number; income?: number; state?: string; gender?: string }) => {
     const data = await registerUser(regData);
     localStorage.setItem('accessToken', data.accessToken);
     localStorage.setItem('refreshToken', data.refreshToken);

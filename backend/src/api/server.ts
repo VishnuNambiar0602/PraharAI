@@ -1,12 +1,13 @@
 /**
  * Main API Server
  * Sets up Express server with all routes and middleware
- * MOCK VERSION - No database required for testing
+ * Users persisted in SQLite; schemes served from SQLite via SchemeSyncAgent
  */
 
 import express from 'express';
 import cors from 'cors';
 import { ProfileExtractor } from '../utils/profile-extractor';
+import { sqliteService } from '../db/sqlite.service';
 
 const app = express();
 
@@ -19,103 +20,97 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// In-memory user storage for testing (without database)
-const users: any[] = [
-  {
-    userId: 'admin123',
-    email: 'admin@example.com',
-    password: 'password', // In production, this would be hashed
-    name: 'Admin User',
-    role: 'admin',
-  },
-];
+// ─── Seed admin user (called after sqliteService.init()) ──────────────────────
+export function seedAdminUser() {
+  const admin = sqliteService.getUserByEmail('admin@example.com');
+  if (!admin) {
+    sqliteService.createUser({
+      userId: 'admin123',
+      email: 'admin@example.com',
+      password: 'password',
+      name: 'Admin User',
+    });
+    console.log('✅ Admin user seeded');
+  }
+}
+
+// ─── Helper: profile completeness ─────────────────────────────────────────────
+function calculateProfileCompleteness(user: any): number {
+  const fields = ['name', 'email', 'age', 'income', 'state', 'employment', 'education', 'gender'];
+  const filledFields = fields.filter(field => user[field] != null && user[field] !== '');
+  return Math.round((filledFields.length / fields.length) * 100);
+}
 
 // Mock authentication routes
 app.post('/api/auth/register', (req, res) => {
   try {
     console.log('=== REGISTRATION REQUEST ===');
-    console.log('Headers:', req.headers);
     console.log('Body:', JSON.stringify(req.body, null, 2));
-    
-    const { email, password, name, age, income, state } = req.body;
 
+    const { email, password, name, age, income, state, gender } = req.body;
     console.log('Registration attempt:', { email, name });
 
     // Check if user already exists
-    const existingUser = users.find(u => u.email === email);
+    const existingUser = sqliteService.getUserByEmail(email);
     if (existingUser) {
       console.log('User already exists:', email);
       return res.status(409).json({ error: 'User already exists' });
     }
 
-    // Create new user
-    const newUser = {
-      userId: `user_${Date.now()}`,
+    const userId = `user_${Date.now()}`;
+    sqliteService.createUser({
+      userId,
       email,
-      password, // In production, hash this
+      password,
       name: name || 'User',
-      age: age || null,
-      income: income || null,
-      state: state || null,
-      createdAt: new Date().toISOString(),
-    };
+      age: age ? Number(age) : undefined,
+      income: income || undefined,
+      state: state || undefined,
+      gender: gender || undefined,
+    });
 
-    users.push(newUser);
+    console.log('User registered successfully:', userId);
 
-    console.log('User registered successfully:', newUser.userId);
-
-    // Generate mock tokens
-    const accessToken = `mock_access_token_${newUser.userId}`;
-    const refreshToken = `mock_refresh_token_${newUser.userId}`;
+    const accessToken = `mock_access_token_${userId}`;
+    const refreshToken = `mock_refresh_token_${userId}`;
 
     const response = {
-      user: {
-        userId: newUser.userId,
-        email: newUser.email,
-        name: newUser.name,
-      },
+      user: { userId, email, name: name || 'User' },
       accessToken,
       refreshToken,
     };
-    
+
     console.log('Sending response:', response);
-    res.status(201).json(response);
+    return res.status(201).json(response);
   } catch (error: any) {
     console.error('Registration error:', error);
-    res.status(500).json({ error: 'Registration failed', details: error.message });
+    return res.status(500).json({ error: 'Registration failed', details: error.message });
   }
 });
 
 app.post('/api/auth/login', (req, res) => {
   try {
     const { email, password } = req.body;
-
     console.log('Login attempt:', { email });
 
-    // Find user
-    const user = users.find(u => u.email === email && u.password === password);
-    if (!user) {
+    const user = sqliteService.getUserByEmail(email);
+    if (!user || user.password !== password) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    console.log('Login successful:', user.userId);
+    console.log('Login successful:', user.user_id);
 
-    // Generate mock tokens
-    const accessToken = `mock_access_token_${user.userId}`;
-    const refreshToken = `mock_refresh_token_${user.userId}`;
+    const accessToken = `mock_access_token_${user.user_id}`;
+    const refreshToken = `mock_refresh_token_${user.user_id}`;
 
-    res.json({
-      user: {
-        userId: user.userId,
-        email: user.email,
-        name: user.name,
-      },
+    return res.json({
+      user: { userId: user.user_id, email: user.email, name: user.name },
       accessToken,
       refreshToken,
     });
   } catch (error: any) {
     console.error('Login error:', error);
-    res.status(500).json({ error: 'Login failed', details: error.message });
+    return res.status(500).json({ error: 'Login failed', details: error.message });
   }
 });
 
@@ -125,55 +120,74 @@ app.post('/api/auth/logout', (req, res) => {
 
 // Mock profile endpoints for testing (without database)
 app.get('/api/users/:userId/profile', (req, res) => {
-  const user = users.find(u => u.userId === req.params.userId || u.userId === 'admin123');
+  const user = sqliteService.getUserById(req.params.userId);
   if (!user) {
     return res.status(404).json({ error: 'User not found' });
   }
 
-  res.json({
-    userId: user.userId,
+  return res.json({
+    userId: user.user_id,
     name: user.name,
     email: user.email,
-    age: user.age || null,
-    income: user.income || null,
-    state: user.state || null,
-    employment: user.employment || null,
-    education: user.education || null,
+    age: user.age ?? null,
+    income: user.income ?? null,
+    state: user.state ?? null,
+    employment: user.employment ?? null,
+    education: user.education ?? null,
+    gender: user.gender ?? null,
+    onboardingComplete: !!user.onboarding_complete,
     completeness: calculateProfileCompleteness(user),
   });
 });
 
 app.put('/api/users/:userId/profile', (req, res) => {
-  const userIndex = users.findIndex(u => u.userId === req.params.userId || u.userId === 'admin123');
-  if (userIndex === -1) {
+  const user = sqliteService.getUserById(req.params.userId);
+  if (!user) {
     return res.status(404).json({ error: 'User not found' });
   }
 
-  // Update user with new data
-  users[userIndex] = { ...users[userIndex], ...req.body };
+  // Map camelCase keys to snake_case columns
+  const mappedFields: Record<string, any> = {};
+  const fieldMap: Record<string, string> = {
+    name: 'name', age: 'age', income: 'income', state: 'state',
+    employment: 'employment', education: 'education', gender: 'gender',
+    interests: 'interests', onboardingComplete: 'onboarding_complete',
+  };
+  for (const [k, col] of Object.entries(fieldMap)) {
+    if (req.body[k] !== undefined) mappedFields[col] = req.body[k];
+  }
+  sqliteService.updateUserProfile(req.params.userId, mappedFields);
 
-  res.json({
-    userId: users[userIndex].userId,
-    name: users[userIndex].name,
-    email: users[userIndex].email,
-    age: users[userIndex].age,
-    income: users[userIndex].income,
-    state: users[userIndex].state,
-    employment: users[userIndex].employment,
-    education: users[userIndex].education,
-    completeness: calculateProfileCompleteness(users[userIndex]),
+  const updated = sqliteService.getUserById(req.params.userId)!;
+  return res.json({
+    userId: updated.user_id,
+    name: updated.name,
+    email: updated.email,
+    age: updated.age ?? null,
+    income: updated.income ?? null,
+    state: updated.state ?? null,
+    employment: updated.employment ?? null,
+    education: updated.education ?? null,
+    gender: updated.gender ?? null,
+    onboardingComplete: !!updated.onboarding_complete,
+    completeness: calculateProfileCompleteness(updated),
   });
 });
 
-// Helper function to calculate profile completeness
-function calculateProfileCompleteness(user: any): number {
-  const fields = ['name', 'email', 'age', 'income', 'state', 'employment', 'education'];
-  const filledFields = fields.filter(field => user[field] != null && user[field] !== '');
-  return Math.round((filledFields.length / fields.length) * 100);
-}
-
 // Real schemes endpoints using India.gov.in API
 import { schemesController } from '../schemes/schemes.controller';
+
+app.get('/api/schemes/stats', (_req, res) => {
+  try {
+    const meta = sqliteService.getSyncMeta();
+    res.json({
+      totalSchemes: meta.total_schemes,
+      lastSync: meta.last_sync,
+    });
+  } catch {
+    res.json({ totalSchemes: 0, lastSync: null });
+  }
+});
 
 app.get('/api/schemes', (req, res) => schemesController.getSchemes(req, res));
 app.get('/api/schemes/categories', (req, res) => schemesController.getCategories(req, res));
@@ -207,7 +221,7 @@ app.post('/api/chat', async (req, res) => {
     // Get user info from token (mock)
     const token = req.headers.authorization?.replace('Bearer ', '');
     const userId = token?.split('_').pop() || 'admin123';
-    const user = users.find(u => u.userId === userId);
+    const user = sqliteService.getUserById(userId);
 
     if (!user) {
       return res.status(401).json({ error: 'User not found' });
@@ -224,57 +238,43 @@ app.post('/api/chat', async (req, res) => {
     const historyContext = ProfileExtractor.extractFromHistory(conversationHistory);
     console.log('Context extracted from history:', historyContext);
 
-    // Apply updates to user profile
-    let profileUpdated = false;
+    // Collect DB updates
+    const dbUpdates: Record<string, any> = {};
     const appliedUpdates: string[] = [];
 
-    if (updates.age !== undefined) {
-      user.age = updates.age;
-      profileUpdated = true;
-      appliedUpdates.push(updateMessages[updateMessages.findIndex(m => m.includes('age'))] || '');
-    }
+    if (updates.age !== undefined) { dbUpdates['age'] = updates.age; appliedUpdates.push(updateMessages[updateMessages.findIndex(m => m.includes('age'))] || ''); }
+    if (updates.income !== undefined) { dbUpdates['income'] = updates.income; appliedUpdates.push(updateMessages[updateMessages.findIndex(m => m.includes('income'))] || ''); }
+    if (updates.state !== undefined) { dbUpdates['state'] = updates.state; appliedUpdates.push(updateMessages[updateMessages.findIndex(m => m.includes('state'))] || ''); }
+    if (updates.employment !== undefined) { dbUpdates['employment'] = updates.employment; appliedUpdates.push(updateMessages[updateMessages.findIndex(m => m.includes('employment'))] || ''); }
+    if (updates.education !== undefined) { dbUpdates['education'] = updates.education; appliedUpdates.push(updateMessages[updateMessages.findIndex(m => m.includes('education'))] || ''); }
+    if (updates.disability !== undefined) { dbUpdates['is_disabled'] = updates.disability; }
+    if (updates.minority !== undefined) { dbUpdates['is_minority'] = updates.minority; }
 
-    if (updates.income !== undefined) {
-      user.income = updates.income;
-      profileUpdated = true;
-      appliedUpdates.push(updateMessages[updateMessages.findIndex(m => m.includes('income'))] || '');
-    }
-
-    if (updates.state !== undefined) {
-      user.state = updates.state;
-      profileUpdated = true;
-      appliedUpdates.push(updateMessages[updateMessages.findIndex(m => m.includes('state'))] || '');
-    }
-
-    if (updates.employment !== undefined) {
-      user.employment = updates.employment;
-      profileUpdated = true;
-      appliedUpdates.push(updateMessages[updateMessages.findIndex(m => m.includes('employment'))] || '');
-    }
-
-    if (updates.education !== undefined) {
-      user.education = updates.education;
-      profileUpdated = true;
-      appliedUpdates.push(updateMessages[updateMessages.findIndex(m => m.includes('education'))] || '');
-    }
-
-    if (updates.disability !== undefined) {
-      user.isDisabled = updates.disability;
-      profileUpdated = true;
-      appliedUpdates.push(updateMessages[updateMessages.findIndex(m => m.includes('disability'))] || '');
-    }
-
-    if (updates.minority !== undefined) {
-      user.isMinority = updates.minority;
-      profileUpdated = true;
-      appliedUpdates.push(updateMessages[updateMessages.findIndex(m => m.includes('minority'))] || '');
+    const profileUpdated = Object.keys(dbUpdates).length > 0;
+    if (profileUpdated) {
+      try { sqliteService.updateUserProfile(userId, dbUpdates); } catch (e) { console.error('Profile update error', e); }
     }
 
     console.log(`✅ Profile updated: ${profileUpdated}, Updates applied:`, appliedUpdates.filter(Boolean));
 
+    // Build enriched user object for chat context
+    const freshUser = sqliteService.getUserById(userId) || user;
+    const userForChat = {
+      userId: freshUser.user_id,
+      email: freshUser.email,
+      name: freshUser.name,
+      age: freshUser.age,
+      income: freshUser.income,
+      state: freshUser.state,
+      employment: freshUser.employment,
+      education: freshUser.education,
+      gender: freshUser.gender,
+      ...dbUpdates,
+    };
+
     // Attach user profile and conversation history to request for chat service
     (req as any).userId = userId;
-    (req as any).userProfile = user;
+    (req as any).userProfile = userForChat;
     (req as any).conversationHistory = conversationHistory;
     (req as any).extractedContext = historyContext;
 
@@ -294,7 +294,7 @@ app.post('/api/chat', async (req, res) => {
     await chatController.sendMessage(req, res);
   } catch (error: any) {
     console.error('Chat error:', error);
-    res.status(500).json({ error: 'Failed to process message', details: error.message });
+    return res.status(500).json({ error: 'Failed to process message', details: error.message });
   }
 });
 
@@ -305,12 +305,9 @@ app.get('/health', (req, res) => {
 
 // Debug endpoint to see all users
 app.get('/api/debug/users', (req, res) => {
-  res.json({ 
-    users: users.map(u => ({ 
-      userId: u.userId, 
-      email: u.email, 
-      name: u.name 
-    })),
+  const users = sqliteService.getAllUsers();
+  res.json({
+    users: users.map((u: any) => ({ userId: u.user_id, email: u.email, name: u.name })),
     count: users.length
   });
 });
