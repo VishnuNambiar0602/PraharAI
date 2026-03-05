@@ -100,9 +100,9 @@ describe('Profile Service Cache Invalidation Property Tests', () => {
 
   /**
    * Property 22: Recommendation Invalidation on Profile Update
-   * 
+   *
    * **Validates: Requirements 8.5**
-   * 
+   *
    * For any user profile update, the cached recommendations for that user
    * should be invalidated, and subsequent recommendation requests should
    * generate fresh results.
@@ -111,26 +111,24 @@ describe('Profile Service Cache Invalidation Property Tests', () => {
     it('should invalidate recommendations cache on any profile update', async () => {
       await fc.assert(
         fc.asyncProperty(
-          fc.record({
-            firstName: fc.option(fc.string({ minLength: 2, maxLength: 50 }), { nil: undefined }),
-            lastName: fc.option(fc.string({ minLength: 2, maxLength: 50 }), { nil: undefined }),
-            annualIncome: fc.option(fc.integer({ min: 0, max: 10000000 }), { nil: undefined }),
-            occupation: fc.option(fc.string({ minLength: 3, maxLength: 50 }), { nil: undefined }),
-          }).filter(updates => {
-            // Ensure at least one field is being updated
-            return Object.values(updates).some(v => v !== undefined);
-          }),
+          fc
+            .record({
+              firstName: fc.option(fc.string({ minLength: 2, maxLength: 50 }), { nil: undefined }),
+              lastName: fc.option(fc.string({ minLength: 2, maxLength: 50 }), { nil: undefined }),
+              annualIncome: fc.option(fc.integer({ min: 0, max: 10000000 }), { nil: undefined }),
+              occupation: fc.option(fc.string({ minLength: 3, maxLength: 50 }), { nil: undefined }),
+            })
+            .filter((updates) => {
+              // Ensure at least one field is being updated
+              return Object.values(updates).some((v) => v !== undefined);
+            }),
           async (updates) => {
             // Set up cached recommendations
             const cachedRecommendations = [
               { schemeId: 'scheme1', schemeName: 'Test Scheme 1', relevanceScore: 0.9 },
               { schemeId: 'scheme2', schemeName: 'Test Scheme 2', relevanceScore: 0.8 },
             ];
-            await cacheService.set(
-              `recommendations:${testUserId}`,
-              cachedRecommendations,
-              3600
-            );
+            await cacheService.set(`recommendations:${testUserId}`, cachedRecommendations, 3600);
 
             // Verify cache exists before update
             const cachedBefore = await cacheService.get(`recommendations:${testUserId}`);
@@ -194,11 +192,7 @@ describe('Profile Service Cache Invalidation Property Tests', () => {
               confidence: 0.85,
               features: [0.1, 0.2, 0.3],
             };
-            await cacheService.set(
-              `classification:${testUserId}`,
-              cachedClassification,
-              3600
-            );
+            await cacheService.set(`classification:${testUserId}`, cachedClassification, 3600);
 
             // Verify cache exists before update
             const cachedBefore = await cacheService.get(`classification:${testUserId}`);
@@ -224,15 +218,15 @@ describe('Profile Service Cache Invalidation Property Tests', () => {
           fc.record({
             familySize: fc.integer({ min: 1, max: 10 }),
             educationLevel: fc.constantFrom(
-              'no_formal',
-              'primary',
-              'secondary',
-              'higher_secondary',
-              'graduate',
-              'postgraduate'
+              'no_formal' as const,
+              'primary' as const,
+              'secondary' as const,
+              'higher_secondary' as const,
+              'graduate' as const,
+              'postgraduate' as const
             ),
           }),
-          async (updates) => {
+          async (updates: any) => {
             // Set up cached eligibility scores for multiple schemes
             const schemeIds = ['scheme1', 'scheme2', 'scheme3'];
             for (const schemeId of schemeIds) {

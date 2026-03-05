@@ -140,7 +140,7 @@ function NavBar({ current, onNavigate }: NavBarProps) {
                 </button>
               </div>
             ) : (
-              <button onClick={() => go('login')} className="btn-primary text-sm !py-2 !px-5">
+              <button onClick={() => go('login')} className="btn-primary text-sm py-2! px-5!">
                 <LogIn className="size-4" />
                 Sign In
               </button>
@@ -182,7 +182,7 @@ function NavBar({ current, onNavigate }: NavBarProps) {
                     <div className="flex gap-2">
                       <button
                         onClick={() => go('profile')}
-                        className="flex-1 btn-navy text-xs !py-2"
+                        className="flex-1 btn-navy text-xs py-2!"
                       >
                         <User className="size-4" /> My Profile
                       </button>
@@ -194,7 +194,7 @@ function NavBar({ current, onNavigate }: NavBarProps) {
                       </button>
                     </div>
                   ) : (
-                    <button onClick={() => go('login')} className="w-full btn-primary !py-2.5">
+                    <button onClick={() => go('login')} className="w-full btn-primary py-2.5!">
                       <LogIn className="size-4" /> Sign In / Register
                     </button>
                   )}
