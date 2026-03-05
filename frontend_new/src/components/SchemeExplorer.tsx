@@ -17,6 +17,7 @@ import {
   MapPin,
 } from 'lucide-react';
 import { useState, useEffect, FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Scheme } from '../types';
 import { fetchSchemes } from '../api';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
@@ -25,14 +26,14 @@ import { Button } from './ui/button';
 import { Skeleton } from './ui/skeleton';
 
 const CATEGORIES = [
-  { icon: Agriculture, label: 'Farmer' },
-  { icon: School, label: 'Student' },
-  { icon: Baby, label: 'Women' },
-  { icon: HeartPulse, label: 'Health' },
-  { icon: Map, label: 'State' },
-  { icon: Zap, label: 'Employment' },
-  { icon: BookOpen, label: 'Education' },
-  { icon: User, label: 'Social welfare' },
+  { icon: Agriculture, label: 'Farmer', labelKey: 'schemes.category_farmer' },
+  { icon: School, label: 'Student', labelKey: 'schemes.category_student' },
+  { icon: Baby, label: 'Women', labelKey: 'schemes.category_women' },
+  { icon: HeartPulse, label: 'Health', labelKey: 'schemes.category_health' },
+  { icon: Map, label: 'State', labelKey: 'schemes.category_state' },
+  { icon: Zap, label: 'Employment', labelKey: 'schemes.category_employment' },
+  { icon: BookOpen, label: 'Education', labelKey: 'schemes.category_education' },
+  { icon: User, label: 'Social welfare', labelKey: 'schemes.category_social' },
 ];
 
 const ITEMS_PER_PAGE = 12;
@@ -42,6 +43,7 @@ interface SchemeExplorerProps {
 }
 
 export default function SchemeExplorer({ onSchemeSelect }: SchemeExplorerProps = {}) {
+  const { t } = useTranslation();
   const [schemes, setSchemes] = useState<Scheme[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -66,11 +68,13 @@ export default function SchemeExplorer({ onSchemeSelect }: SchemeExplorerProps =
         : (data.schemes ?? data.data ?? data.value ?? []);
       setSchemes(list.slice(0, 100));
     } catch {
-      setError('Could not load schemes. Please try again.');
+      setError(t('chat.error'));
     } finally {
       setLoading(false);
     }
   };
+
+  const activeCategoryLabel = CATEGORIES.find((cat) => cat.label === activeCategory)?.labelKey;
 
   const handleSearch = (e: FormEvent) => {
     e.preventDefault();
@@ -103,24 +107,22 @@ export default function SchemeExplorer({ onSchemeSelect }: SchemeExplorerProps =
         <div className="max-w-7xl mx-auto px-6 py-8">
           <div className="flex flex-col lg:flex-row lg:items-center gap-6">
             <div className="flex-1">
-              <h1 className="font-display text-3xl font-bold text-ink">Government Schemes</h1>
-              <p className="text-muted text-sm mt-1">
-                Browse and search 1,200+ Central and State schemes.
-              </p>
+              <h1 className="font-display text-3xl font-bold text-ink">{t('schemes.title')}</h1>
+              <p className="text-muted text-sm mt-1">{t('schemes.subtitle')}</p>
             </div>
             {/* Search */}
             <form onSubmit={handleSearch} className="flex-1 max-w-lg">
               <div className="relative flex items-center">
                 <Search className="absolute left-4 text-muted size-5 pointer-events-none" />
                 <input
-                  className="input-base !pl-12 !pr-28"
-                  placeholder="Search by name, ministry, keyword…"
+                  className="input-base pl-12! pr-28!"
+                  placeholder={t('schemes.search_placeholder')}
                   type="text"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                 />
                 <button type="submit" className="absolute right-2 btn-navy py-1.5! px-4! text-xs!">
-                  Search
+                  {t('common.search')}
                 </button>
               </div>
             </form>
@@ -139,7 +141,7 @@ export default function SchemeExplorer({ onSchemeSelect }: SchemeExplorerProps =
                   : 'bg-white text-muted border-border hover:border-primary/40 hover:text-primary'
               }`}
             >
-              <Filter className="size-3.5" /> All Schemes
+              <Filter className="size-3.5" /> {t('schemes.all_categories')}
             </button>
             {CATEGORIES.map((cat, i) => (
               <button
@@ -152,7 +154,7 @@ export default function SchemeExplorer({ onSchemeSelect }: SchemeExplorerProps =
                 }`}
               >
                 <cat.icon className="size-3.5" />
-                {cat.label}
+                {t(cat.labelKey)}
               </button>
             ))}
           </div>
@@ -164,10 +166,11 @@ export default function SchemeExplorer({ onSchemeSelect }: SchemeExplorerProps =
         <div className="flex items-center justify-between mb-6">
           <p className="text-sm font-medium text-muted">
             {loading
-              ? 'Loading…'
-              : `Showing ${startIdx + 1}-${Math.min(endIdx, schemes.length)} of ${schemes.length} scheme${schemes.length !== 1 ? 's' : ''}${
-                  activeCategory ? ` in ${activeCategory}` : ''
-                }`}
+              ? t('schemes.loading')
+              : `${t('schemes.showing', {
+                  count: Math.min(endIdx, schemes.length),
+                  total: schemes.length,
+                })}${activeCategoryLabel ? ` (${t(activeCategoryLabel)})` : ''}`}
           </p>
         </div>
 
@@ -196,7 +199,7 @@ export default function SchemeExplorer({ onSchemeSelect }: SchemeExplorerProps =
               onClick={() => loadSchemes(query, activeCategory)}
               className="text-xs font-bold underline"
             >
-              Retry
+              {t('schemes.retry')}
             </button>
           </div>
         )}
@@ -205,7 +208,7 @@ export default function SchemeExplorer({ onSchemeSelect }: SchemeExplorerProps =
           <div className="flex flex-col items-center justify-center py-24 gap-3 text-muted">
             <BookOpen className="size-12 opacity-30" />
             <p className="text-sm font-medium">
-              No schemes found. Try a different keyword or category.
+              {t('schemes.no_results')}. {t('schemes.try_different')}.
             </p>
           </div>
         )}
@@ -233,7 +236,7 @@ export default function SchemeExplorer({ onSchemeSelect }: SchemeExplorerProps =
                         {scheme.title}
                       </CardTitle>
                       <Badge variant="secondary" className="shrink-0">
-                        {scheme.category || 'General'}
+                        {scheme.category || t('schemes.general')}
                       </Badge>
                     </div>
                     {scheme.description && (
@@ -257,10 +260,10 @@ export default function SchemeExplorer({ onSchemeSelect }: SchemeExplorerProps =
                       <User className="size-4 text-muted shrink-0 mt-0.5" />
                       <div className="min-w-0 flex-1">
                         <p className="text-[10px] font-bold text-muted uppercase tracking-wider">
-                          Eligibility
+                          {t('schemes.eligibility')}
                         </p>
                         <p className="text-xs text-ink mt-0.5 line-clamp-2">
-                          {scheme.eligibility || 'See official website'}
+                          {scheme.eligibility || t('schemes.view_details')}
                         </p>
                       </div>
                     </div>
@@ -284,7 +287,7 @@ export default function SchemeExplorer({ onSchemeSelect }: SchemeExplorerProps =
                           if (onSchemeSelect) onSchemeSelect(scheme);
                         }}
                       >
-                        View Details
+                        {t('schemes.view_details')}
                       </Button>
                       <Button asChild variant="default" className="flex-1" size="sm">
                         <a
@@ -296,7 +299,7 @@ export default function SchemeExplorer({ onSchemeSelect }: SchemeExplorerProps =
                           rel="noopener noreferrer"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          Apply <ExternalLink className="size-3.5" />
+                          {t('schemes.apply_now')} <ExternalLink className="size-3.5" />
                         </a>
                       </Button>
                     </div>
@@ -316,7 +319,7 @@ export default function SchemeExplorer({ onSchemeSelect }: SchemeExplorerProps =
               disabled={currentPage === 1}
             >
               <ChevronLeft className="size-4" />
-              Previous
+              {t('schemes.previous')}
             </Button>
 
             <div className="flex gap-1">
@@ -352,7 +355,7 @@ export default function SchemeExplorer({ onSchemeSelect }: SchemeExplorerProps =
               onClick={() => goToPage(currentPage + 1)}
               disabled={currentPage === totalPages}
             >
-              Next
+              {t('schemes.next')}
               <ChevronRight className="size-4" />
             </Button>
           </div>

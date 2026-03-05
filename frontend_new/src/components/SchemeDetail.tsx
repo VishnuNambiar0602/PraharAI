@@ -15,6 +15,7 @@ import {
   Check,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Scheme } from '../types';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -26,6 +27,7 @@ interface SchemeDetailProps {
 }
 
 export default function SchemeDetail({ scheme, onBack }: SchemeDetailProps) {
+  const { t } = useTranslation();
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [showCopySuccess, setShowCopySuccess] = useState(false);
 
@@ -54,7 +56,7 @@ export default function SchemeDetail({ scheme, onBack }: SchemeDetailProps) {
       if (navigator.share) {
         await navigator.share({
           title: scheme.title,
-          text: scheme.description || 'Check out this government scheme',
+          text: scheme.description || t('scheme_detail.help_text'),
           url: url,
         });
       } else {
@@ -76,7 +78,7 @@ export default function SchemeDetail({ scheme, onBack }: SchemeDetailProps) {
         {/* Back Button */}
         <Button variant="ghost" onClick={onBack} className="mb-6">
           <ArrowLeft className="size-4" />
-          Back to Schemes
+          {t('scheme_detail.back')}
         </Button>
 
         {/* Hero Section */}
@@ -138,7 +140,7 @@ export default function SchemeDetail({ scheme, onBack }: SchemeDetailProps) {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-lg">
                     <CheckCircle2 className="size-5 text-primary" />
-                    Eligibility Criteria
+                    {t('scheme_detail.eligibility')}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -156,7 +158,7 @@ export default function SchemeDetail({ scheme, onBack }: SchemeDetailProps) {
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-lg">
                       <BadgeCheck className="size-5 text-accent" />
-                      Benefits
+                      {t('scheme_detail.benefits')}
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
@@ -175,16 +177,14 @@ export default function SchemeDetail({ scheme, onBack }: SchemeDetailProps) {
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-lg">
                       <FileText className="size-5 text-primary" />
-                      How to Apply
+                      {t('scheme_detail.how_to_apply')}
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <p className="text-muted text-sm">
-                      You can apply for this scheme directly through the official government portal.
-                    </p>
+                    <p className="text-muted text-sm">{t('scheme_detail.help_text')}</p>
                     <Button asChild className="w-full sm:w-auto">
                       <a href={scheme.applicationUrl} target="_blank" rel="noopener noreferrer">
-                        Apply on MyScheme Portal
+                        {t('scheme_detail.apply_button')}
                         <ExternalLink className="size-4" />
                       </a>
                     </Button>
@@ -198,7 +198,7 @@ export default function SchemeDetail({ scheme, onBack }: SchemeDetailProps) {
               {/* Quick Info Card */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg">Quick Information</CardTitle>
+                  <CardTitle className="text-lg">{t('scheme_detail.quick_info')}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {/* Category */}
@@ -208,7 +208,7 @@ export default function SchemeDetail({ scheme, onBack }: SchemeDetailProps) {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs text-muted font-medium uppercase tracking-wider">
-                        Category
+                        {t('scheme_detail.category_label')}
                       </p>
                       <p className="text-sm font-semibold text-ink mt-0.5 capitalize">
                         {scheme.category}
@@ -224,7 +224,7 @@ export default function SchemeDetail({ scheme, onBack }: SchemeDetailProps) {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-xs text-muted font-medium uppercase tracking-wider">
-                          Deadline
+                          {t('scheme_detail.deadline_label')}
                         </p>
                         <p className="text-sm font-semibold text-ink mt-0.5">{scheme.deadline}</p>
                       </div>
@@ -239,7 +239,7 @@ export default function SchemeDetail({ scheme, onBack }: SchemeDetailProps) {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-xs text-muted font-medium uppercase tracking-wider">
-                          Status
+                          {t('scheme_detail.status_label')}
                         </p>
                         <p className="text-sm font-semibold text-ink mt-0.5 capitalize">
                           {scheme.status}
@@ -253,15 +253,14 @@ export default function SchemeDetail({ scheme, onBack }: SchemeDetailProps) {
               {/* Help Card */}
               <Card className="bg-primary/5 border-primary/20">
                 <CardHeader>
-                  <CardTitle className="text-base">Need Help?</CardTitle>
+                  <CardTitle className="text-base">{t('scheme_detail.need_help')}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <p className="text-sm text-muted leading-relaxed">
-                    Have questions about this scheme? Our AI assistant can help you understand
-                    eligibility and application process.
+                    {t('scheme_detail.help_text')}
                   </p>
                   <Button variant="outline" className="w-full" size="sm">
-                    Ask AI Assistant
+                    {t('scheme_detail.ask_assistant')}
                   </Button>
                 </CardContent>
               </Card>
