@@ -81,6 +81,16 @@ class ChatResponse(BaseModel):
     extracted_entities: Dict[str, Any] = {}
 
 
+class ExtractFeaturesRequest(BaseModel):
+    user_profile: Dict[str, Any]
+
+
+class ExtractFeaturesResponse(BaseModel):
+    features: List[float]
+    feature_names: List[str]
+    dimension: int
+
+
 # ─── App ─────────────────────────────────────────────────────────────────────
 
 app = FastAPI(
@@ -101,6 +111,7 @@ app.add_middleware(
 _intent_classifier = None
 _eligibility_engine = None
 _recommendation_engine = None
+_feature_extractor = None
 
 
 def get_intent_classifier():
@@ -142,6 +153,19 @@ def get_recommendation_engine():
         except Exception as e:
             logger.warning(f"RecommendationEngine not available: {e}")
     return _recommendation_engine
+
+
+def get_feature_extractor():
+    global _feature_extractor
+    if _feature_extractor is None:
+        try:
+            from feature_extractor import FeatureExtractor
+
+            _feature_extractor = FeatureExtractor()
+            logger.info("FeatureExtractor loaded")
+        except Exception as e:
+            logger.warning(f"FeatureExtractor not available: {e}")
+    return _feature_extractor
 
 
 # ─── Endpoints ────────────────────────────────────────────────────────────────
@@ -277,6 +301,27 @@ async def chat(req: ChatRequest):
         )
 
 
+@app.post("/extract_features", response_model=ExtractFeaturesResponse)
+def extract_features(req: ExtractFeaturesRequest):
+    """
+    Extract numerical feature vector from a user profile.
+    Returns a normalized feature array suitable for ML model input.
+    """
+    extractor = get_feature_extractor()
+    if extractor is None:
+        raise HTTPException(status_code=503, detail="FeatureExtractor not available")
+    try:
+        features = extractor.extract_features(req.user_profile).tolist()
+        return ExtractFeaturesResponse(
+            features=features,
+            feature_names=extractor.get_feature_names(),
+            dimension=extractor.get_feature_dimension(),
+        )
+    except Exception as e:
+        logger.error(f"Feature extraction failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Feature extraction failed: {str(e)}")
+
+
 # ─── Helpers ─────────────────────────────────────────────────────────────────
 
 
@@ -399,4 +444,5 @@ def _build_explanation(pct: int, met: List[str], unmet: List[str]) -> str:
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("api:app", host="0.0.0.0", port=8000, reload=True)
+    port = int(os.getenv("ML_SERVICE_PORT", "5000"))
+    uvicorn.run("api:app", host="0.0.0.0", port=port, reload=True)
