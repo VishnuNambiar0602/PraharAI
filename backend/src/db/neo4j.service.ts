@@ -227,7 +227,7 @@ class Neo4jDbService {
     const uri =
       process.env.NEO4J_URI ||
       `bolt://${process.env.NEO4J_HOST || 'localhost'}:${process.env.NEO4J_PORT || '7687'}`;
-    const username = process.env.NEO4J_USER || 'neo4j';
+    const username = process.env.NEO4J_USERNAME || process.env.NEO4J_USER || 'neo4j';
     const password = process.env.NEO4J_PASSWORD || 'password123';
     const database = process.env.NEO4J_DATABASE || 'neo4j';
 

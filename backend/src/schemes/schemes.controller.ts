@@ -7,6 +7,7 @@
 import { Request, Response } from 'express';
 import { similarityAgent } from '../agents/similarity-agent';
 import { sampleSchemes } from './sample-schemes';
+import { neo4jService } from '../db/neo4j.service';
 
 export class SchemesController {
   /**
@@ -75,7 +76,7 @@ export class SchemesController {
         const scheme = await similarityAgent.getSchemeById(schemeId);
         if (!scheme) return res.status(404).json({ error: 'Scheme not found' });
 
-        res.json({
+        return res.json({
           id: scheme.schemeId,
           title: scheme.name,
           description: scheme.description || 'No description available',
@@ -91,7 +92,7 @@ export class SchemesController {
         const scheme = sampleSchemes.find((s) => s.schemeId === schemeId);
         if (!scheme) return res.status(404).json({ error: 'Scheme not found' });
 
-        res.json({
+        return res.json({
           id: scheme.schemeId,
           title: scheme.name,
           description: scheme.description || 'No description available',
@@ -107,7 +108,7 @@ export class SchemesController {
       }
     } catch (error: any) {
       console.error('Error in getSchemeById:', error);
-      res.status(500).json({ error: 'Failed to fetch scheme', details: error.message });
+      return res.status(500).json({ error: 'Failed to fetch scheme', details: error.message });
     }
   }
 
@@ -115,13 +116,38 @@ export class SchemesController {
    * GET /api/schemes/categories
    * Get available scheme categories
    */
-  async getCategories(req: Request, res: Response) {
+  async getCategories(_req: Request, res: Response) {
     try {
       const categories = await similarityAgent.getAllCategories();
       res.json({ categories });
     } catch (error: any) {
       console.error('Error in getCategories:', error);
       res.status(500).json({ error: 'Failed to fetch categories', details: error.message });
+    }
+  }
+
+  /**
+   * GET /api/schemes/stats
+   * Get scheme statistics (total count, last sync time, category count)
+   */
+  async getStats(_req: Request, res: Response) {
+    try {
+      const [count, syncMeta, categories] = await Promise.all([
+        neo4jService.getSchemeCount(),
+        neo4jService.getSyncMeta(),
+        similarityAgent.getAllCategories(),
+      ]);
+
+      const categoryCount = Object.keys(categories).length;
+
+      return res.json({
+        total: count,
+        lastSync: syncMeta.last_sync,
+        categories: categoryCount,
+      });
+    } catch (error: any) {
+      console.error('Error in getStats:', error);
+      return res.status(500).json({ error: 'Failed to fetch stats', details: error.message });
     }
   }
 

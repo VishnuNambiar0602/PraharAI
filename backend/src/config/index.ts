@@ -35,7 +35,8 @@ export const config = {
   // JWT Configuration
   jwt: {
     secret: process.env.JWT_SECRET || 'your_jwt_secret_key_change_in_production',
-    refreshSecret: process.env.JWT_REFRESH_SECRET || 'your_jwt_refresh_secret_key_change_in_production',
+    refreshSecret:
+      process.env.JWT_REFRESH_SECRET || 'your_jwt_refresh_secret_key_change_in_production',
     accessExpiry: process.env.JWT_ACCESS_EXPIRY || '15m',
     refreshExpiry: process.env.JWT_REFRESH_EXPIRY || '7d',
   },
@@ -59,7 +60,7 @@ export const config = {
 
   // ML Service Configuration
   mlService: {
-    url: process.env.ML_SERVICE_URL || 'http://localhost:5000',
+    url: process.env.ML_SERVICE_URL || 'http://localhost:8000',
   },
 
   // Logging
@@ -69,6 +70,3 @@ export const config = {
 } as const;
 
 export default config;
-
-// Export TLS configuration
-export { getTLSConfig, createHTTPSServer, getDevelopmentTLSConfig, validateTLSConfig } from './tls.config';

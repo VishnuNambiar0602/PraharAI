@@ -1,6 +1,6 @@
 /**
  * Neo4j Database Configuration
- * 
+ *
  * Configures connection pooling, authentication, and driver settings
  * for the Neo4j graph database.
  */
@@ -40,24 +40,42 @@ export class Neo4jConnection {
       return;
     }
 
-    try {
-      this.driver = neo4j.driver(
-        this.config.uri,
-        auth.basic(this.config.username, this.config.password),
-        {
-          maxConnectionPoolSize: this.config.maxConnectionPoolSize,
-          connectionTimeout: this.config.connectionTimeout,
-          maxTransactionRetryTime: this.config.maxTransactionRetryTime,
-          disableLosslessIntegers: true, // Use native JavaScript numbers
-        }
-      );
+    const maxAttempts = Number(process.env.NEO4J_CONNECT_RETRIES || 8);
+    const retryDelayMs = Number(process.env.NEO4J_CONNECT_RETRY_DELAY_MS || 2000);
 
-      // Verify connectivity
-      await this.driver.verifyConnectivity();
-      console.log('✓ Neo4j connection established successfully');
-    } catch (error) {
-      console.error('Failed to connect to Neo4j:', error);
-      throw error;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        this.driver = neo4j.driver(
+          this.config.uri,
+          auth.basic(this.config.username, this.config.password),
+          {
+            maxConnectionPoolSize: this.config.maxConnectionPoolSize,
+            connectionTimeout: this.config.connectionTimeout,
+            maxTransactionRetryTime: this.config.maxTransactionRetryTime,
+            disableLosslessIntegers: true,
+          }
+        );
+
+        await this.driver.verifyConnectivity();
+        console.log('✓ Neo4j connection established successfully');
+        return;
+      } catch (error) {
+        if (this.driver) {
+          await this.driver.close();
+          this.driver = null;
+        }
+
+        const isLastAttempt = attempt === maxAttempts;
+        if (isLastAttempt) {
+          console.error('Failed to connect to Neo4j:', error);
+          throw error;
+        }
+
+        console.warn(
+          `Neo4j connection attempt ${attempt}/${maxAttempts} failed. Retrying in ${retryDelayMs}ms...`
+        );
+        await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+      }
     }
   }
 
@@ -90,10 +108,7 @@ export class Neo4jConnection {
   /**
    * Execute a read query
    */
-  async executeRead<T>(
-    query: string,
-    parameters: Record<string, any> = {}
-  ): Promise<T[]> {
+  async executeRead<T>(query: string, parameters: Record<string, any> = {}): Promise<T[]> {
     const session = this.getReadSession();
     try {
       const result = await session.run(query, parameters);
@@ -106,10 +121,7 @@ export class Neo4jConnection {
   /**
    * Execute a write query
    */
-  async executeWrite<T>(
-    query: string,
-    parameters: Record<string, any> = {}
-  ): Promise<T[]> {
+  async executeWrite<T>(query: string, parameters: Record<string, any> = {}): Promise<T[]> {
     const session = this.getWriteSession();
     try {
       const result = await session.run(query, parameters);
@@ -122,10 +134,7 @@ export class Neo4jConnection {
   /**
    * Execute a transaction with retry logic
    */
-  async executeTransaction<T>(
-    work: (tx: any) => Promise<T>,
-    maxRetries: number = 3
-  ): Promise<T> {
+  async executeTransaction<T>(work: (tx: any) => Promise<T>, maxRetries: number = 3): Promise<T> {
     const session = this.getWriteSession();
     let lastError: Error | null = null;
 
@@ -136,7 +145,7 @@ export class Neo4jConnection {
       } catch (error) {
         lastError = error as Error;
         console.warn(`Transaction attempt ${attempt} failed:`, error);
-        
+
         if (attempt < maxRetries) {
           // Exponential backoff
           await new Promise((resolve) => setTimeout(resolve, Math.pow(2, attempt) * 100));

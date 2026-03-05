@@ -1,8 +1,17 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
-  Home, LayoutGrid, MessageSquare, User, PhoneCall,
-  LogIn, LogOut, ChevronDown, Menu, X, Bot
+  Home,
+  LayoutGrid,
+  MessageSquare,
+  User,
+  PhoneCall,
+  LogIn,
+  LogOut,
+  ChevronDown,
+  Menu,
+  X,
+  Bot,
 } from 'lucide-react';
 import { View } from './types';
 import { AuthProvider, useAuth } from './AuthContext';
@@ -33,7 +42,9 @@ function AshokaChakra({ className = '' }: { className?: string }) {
         const y1 = 50 + 10 * Math.sin(rad);
         const x2 = 50 + 44 * Math.cos(rad);
         const y2 = 50 + 44 * Math.sin(rad);
-        return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="currentColor" strokeWidth="1.5" />;
+        return (
+          <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="currentColor" strokeWidth="1.5" />
+        );
       })}
     </svg>
   );
@@ -52,14 +63,17 @@ function NavBar({ current, onNavigate }: NavBarProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const links: { id: View; label: string }[] = [
-    { id: 'home',    label: 'Home' },
+    { id: 'home', label: 'Home' },
     { id: 'schemes', label: 'Schemes' },
     { id: 'assistant', label: 'AI Assistant' },
-    { id: 'about',   label: 'About' },
+    { id: 'about', label: 'About' },
     { id: 'contact', label: 'Contact' },
   ];
 
-  const go = (v: View) => { onNavigate(v); setMobileOpen(false); };
+  const go = (v: View) => {
+    onNavigate(v);
+    setMobileOpen(false);
+  };
 
   return (
     <>
@@ -68,24 +82,24 @@ function NavBar({ current, onNavigate }: NavBarProps) {
 
       <header className="sticky top-0 z-50 glass border-b border-border shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
-
           {/* Logo */}
-          <button
-            onClick={() => go('home')}
-            className="flex items-center gap-2.5 shrink-0"
-          >
+          <button onClick={() => go('home')} className="flex items-center gap-2.5 shrink-0">
             <div className="size-9 bg-primary rounded-lg flex items-center justify-center">
               <AshokaChakra className="size-6 text-white/90" />
             </div>
             <div className="leading-none">
-              <span className="font-display font-bold text-lg text-primary tracking-tight block">Prahar AI</span>
-              <span className="text-[10px] font-medium text-muted tracking-widest uppercase block -mt-0.5">Citizen Welfare</span>
+              <span className="font-display font-bold text-lg text-primary tracking-tight block">
+                Prahar AI
+              </span>
+              <span className="text-[10px] font-medium text-muted tracking-widest uppercase block -mt-0.5">
+                Citizen Welfare
+              </span>
             </div>
           </button>
 
           {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-1">
-            {links.map(l => (
+            {links.map((l) => (
               <button
                 key={l.id}
                 onClick={() => go(l.id)}
@@ -126,7 +140,7 @@ function NavBar({ current, onNavigate }: NavBarProps) {
                 </button>
               </div>
             ) : (
-              <button onClick={() => go('login')} className="btn-primary text-sm !py-2 !px-5">
+              <button onClick={() => go('login')} className="btn-primary text-sm py-2! px-5!">
                 <LogIn className="size-4" />
                 Sign In
               </button>
@@ -135,7 +149,7 @@ function NavBar({ current, onNavigate }: NavBarProps) {
 
           {/* Mobile menu toggle */}
           <button
-            onClick={() => setMobileOpen(o => !o)}
+            onClick={() => setMobileOpen((o) => !o)}
             className="md:hidden size-9 flex items-center justify-center rounded-lg hover:bg-primary-50 text-ink"
           >
             {mobileOpen ? <X className="size-5" /> : <Menu className="size-5" />}
@@ -152,7 +166,7 @@ function NavBar({ current, onNavigate }: NavBarProps) {
               className="md:hidden border-t border-border bg-white overflow-hidden"
             >
               <div className="px-4 py-3 space-y-1">
-                {links.map(l => (
+                {links.map((l) => (
                   <button
                     key={l.id}
                     onClick={() => go(l.id)}
@@ -166,15 +180,21 @@ function NavBar({ current, onNavigate }: NavBarProps) {
                 <div className="pt-2 border-t border-border mt-2">
                   {isAuthenticated ? (
                     <div className="flex gap-2">
-                      <button onClick={() => go('profile')} className="flex-1 btn-navy text-xs !py-2">
+                      <button
+                        onClick={() => go('profile')}
+                        className="flex-1 btn-navy text-xs py-2!"
+                      >
                         <User className="size-4" /> My Profile
                       </button>
-                      <button onClick={logout} className="flex items-center gap-1 text-sm text-red-600 px-3 py-2 rounded-lg hover:bg-red-50">
+                      <button
+                        onClick={logout}
+                        className="flex items-center gap-1 text-sm text-red-600 px-3 py-2 rounded-lg hover:bg-red-50"
+                      >
                         <LogOut className="size-4" />
                       </button>
                     </div>
                   ) : (
-                    <button onClick={() => go('login')} className="w-full btn-primary !py-2.5">
+                    <button onClick={() => go('login')} className="w-full btn-primary py-2.5!">
                       <LogIn className="size-4" /> Sign In / Register
                     </button>
                   )}
@@ -191,13 +211,19 @@ function NavBar({ current, onNavigate }: NavBarProps) {
 /* ─────────────────────────────────────────────
    Mobile Bottom Nav
 ───────────────────────────────────────────── */
-function MobileBottomNav({ current, onNavigate }: { current: View; onNavigate: (v: View) => void }) {
+function MobileBottomNav({
+  current,
+  onNavigate,
+}: {
+  current: View;
+  onNavigate: (v: View) => void;
+}) {
   const items = [
-    { id: 'home' as View,      label: 'Home',     icon: Home },
-    { id: 'schemes' as View,   label: 'Schemes',  icon: LayoutGrid },
-    { id: 'assistant' as View, label: 'Chat',     icon: MessageSquare },
-    { id: 'contact' as View,   label: 'Support',  icon: PhoneCall },
-    { id: 'profile' as View,   label: 'Profile',  icon: User },
+    { id: 'home' as View, label: 'Home', icon: Home },
+    { id: 'schemes' as View, label: 'Schemes', icon: LayoutGrid },
+    { id: 'assistant' as View, label: 'Chat', icon: MessageSquare },
+    { id: 'contact' as View, label: 'Support', icon: PhoneCall },
+    { id: 'profile' as View, label: 'Profile', icon: User },
   ];
   return (
     <nav className="md:hidden fixed bottom-0 inset-x-0 z-50 bg-white border-t border-border safe-area-pb">
@@ -228,7 +254,7 @@ function AppContent() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const { isAuthenticated, user } = useAuth();
 
-  const PROTECTED: View[] = ['assistant', 'profile', 'partner'];
+  const PROTECTED: View[] = ['schemes', 'assistant', 'profile', 'partner'];
 
   const navigate = (view: View) => {
     if (PROTECTED.includes(view) && !isAuthenticated) {
@@ -250,15 +276,24 @@ function AppContent() {
 
   const renderView = () => {
     switch (currentView) {
-      case 'home':      return <LandingPage onNavigate={navigate} />;
-      case 'schemes':   return <SchemeExplorer />;
-      case 'assistant': return <ChatAssistant />;
-      case 'profile':   return <UserProfile onNavigate={navigate} />;
-      case 'about':     return <AboutPage onNavigate={navigate} />;
-      case 'partner':   return <PartnerPortal />;
-      case 'contact':   return <ContactPage onNavigate={navigate} />;
-      case 'login':     return <LoginPage onNavigate={navigate} onLoginSuccess={handlePostLogin} />;
-      default:          return <LandingPage onNavigate={navigate} />;
+      case 'home':
+        return <LandingPage onNavigate={navigate} />;
+      case 'schemes':
+        return <SchemeExplorer />;
+      case 'assistant':
+        return <ChatAssistant />;
+      case 'profile':
+        return <UserProfile onNavigate={navigate} />;
+      case 'about':
+        return <AboutPage onNavigate={navigate} />;
+      case 'partner':
+        return <PartnerPortal />;
+      case 'contact':
+        return <ContactPage onNavigate={navigate} />;
+      case 'login':
+        return <LoginPage onNavigate={navigate} onLoginSuccess={handlePostLogin} />;
+      default:
+        return <LandingPage onNavigate={navigate} />;
     }
   };
 

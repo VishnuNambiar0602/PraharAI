@@ -9,15 +9,23 @@
     "frontend_new"
   ],
   "scripts": {
-    "install:all": "npm install && npm run install:ml",
-    "install:ml": "cd ml-pipeline && python -m venv venv && source venv/Scripts/activate && pip install -r requirements.txt",
-    "dev": "npm run dev --workspaces --if-present",
+    "dev": "concurrently -k -n ml,backend,frontend -c yellow,blue,green \"npm run dev:ml\" \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "npm run dev -w backend",
+    "dev:frontend": "npm run dev -w frontend_new",
+    "dev:ml": "cd ml-pipeline && .\\venv\\Scripts\\python.exe -m uvicorn api:app --host 0.0.0.0 --port 8000 --reload",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
     "build": "npm run build --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
+    "test:backend": "npm run test -w backend",
+    "test:ml": "cd ml-pipeline && .\\venv\\Scripts\\python.exe -m pytest",
     "lint": "npm run lint --workspaces --if-present",
-    "format": "npm run format --workspaces --if-present"
+    "format": "npm run format --workspaces --if-present",
+    "db:init": "npm run db:init -w backend",
+    "db:seed": "npm run db:init:seed -w backend"
   },
   "devDependencies": {
+    "concurrently": "^9.2.1",
     "lint-staged": "^15.5.2"
   },
   "engines": {
