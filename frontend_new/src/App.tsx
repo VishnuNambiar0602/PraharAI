@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useTranslation } from 'react-i18next';
 import {
   Home,
   LayoutGrid,
@@ -13,12 +14,14 @@ import {
   X,
   Bot,
 } from 'lucide-react';
-import { View } from './types';
+import { View, Scheme } from './types';
 import { AuthProvider, useAuth } from './AuthContext';
 
 // Components
 import LandingPage from './components/LandingPage';
+import Dashboard from './components/Dashboard';
 import SchemeExplorer from './components/SchemeExplorer';
+import SchemeDetail from './components/SchemeDetail';
 import ChatAssistant from './components/ChatAssistant';
 import UserProfile from './components/UserProfile';
 import AboutPage from './components/AboutPage';
@@ -26,6 +29,7 @@ import PartnerPortal from './components/PartnerPortal';
 import ContactPage from './components/ContactPage';
 import LoginPage from './components/LoginPage';
 import OnboardingWizard from './components/OnboardingWizard';
+import LanguageSelector from './components/LanguageSelector';
 
 /* ─────────────────────────────────────────────
    Ashoka Chakra SVG decorative
@@ -59,15 +63,16 @@ interface NavBarProps {
 }
 
 function NavBar({ current, onNavigate }: NavBarProps) {
+  const { t } = useTranslation();
   const { isAuthenticated, user, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const links: { id: View; label: string }[] = [
-    { id: 'home', label: 'Home' },
-    { id: 'schemes', label: 'Schemes' },
-    { id: 'assistant', label: 'AI Assistant' },
-    { id: 'about', label: 'About' },
-    { id: 'contact', label: 'Contact' },
+  const links: { id: View; labelKey: string }[] = [
+    { id: 'home', labelKey: 'nav.home' },
+    { id: 'schemes', labelKey: 'nav.schemes' },
+    { id: 'assistant', labelKey: 'nav.assistant' },
+    { id: 'about', labelKey: 'nav.about' },
+    { id: 'contact', labelKey: 'nav.contact' },
   ];
 
   const go = (v: View) => {
@@ -92,7 +97,7 @@ function NavBar({ current, onNavigate }: NavBarProps) {
                 Prahar AI
               </span>
               <span className="text-[10px] font-medium text-muted tracking-widest uppercase block -mt-0.5">
-                Citizen Welfare
+                {t('nav.citizen_welfare')}
               </span>
             </div>
           </button>
@@ -109,13 +114,14 @@ function NavBar({ current, onNavigate }: NavBarProps) {
                     : 'text-ink hover:bg-primary-50 hover:text-primary'
                 }`}
               >
-                {l.label}
+                {t(l.labelKey)}
               </button>
             ))}
           </nav>
 
           {/* Desktop Auth */}
           <div className="hidden md:flex items-center gap-3 shrink-0">
+            <LanguageSelector />
             {isAuthenticated ? (
               <div className="flex items-center gap-3">
                 <button
@@ -136,13 +142,13 @@ function NavBar({ current, onNavigate }: NavBarProps) {
                   className="flex items-center gap-1.5 text-sm text-muted hover:text-red-600 px-2 py-1.5 rounded-lg hover:bg-red-50 transition-colors"
                 >
                   <LogOut className="size-4" />
-                  Sign Out
+                  {t('nav.logout')}
                 </button>
               </div>
             ) : (
               <button onClick={() => go('login')} className="btn-primary text-sm py-2! px-5!">
                 <LogIn className="size-4" />
-                Sign In
+                {t('nav.login')}
               </button>
             )}
           </div>
@@ -174,17 +180,18 @@ function NavBar({ current, onNavigate }: NavBarProps) {
                       current === l.id ? 'bg-primary text-white' : 'text-ink hover:bg-primary-50'
                     }`}
                   >
-                    {l.label}
+                    {t(l.labelKey)}
                   </button>
                 ))}
-                <div className="pt-2 border-t border-border mt-2">
+                <div className="pt-2 border-t border-border mt-2 flex items-center gap-2">
+                  <LanguageSelector />
                   {isAuthenticated ? (
                     <div className="flex gap-2">
                       <button
                         onClick={() => go('profile')}
                         className="flex-1 btn-navy text-xs py-2!"
                       >
-                        <User className="size-4" /> My Profile
+                        <User className="size-4" /> {t('nav.profile')}
                       </button>
                       <button
                         onClick={logout}
@@ -195,7 +202,7 @@ function NavBar({ current, onNavigate }: NavBarProps) {
                     </div>
                   ) : (
                     <button onClick={() => go('login')} className="w-full btn-primary py-2.5!">
-                      <LogIn className="size-4" /> Sign In / Register
+                      <LogIn className="size-4" /> {t('nav.login')}
                     </button>
                   )}
                 </div>
@@ -252,6 +259,7 @@ function AppContent() {
   const [currentView, setCurrentView] = useState<View>('home');
   const [intendedView, setIntendedView] = useState<View | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [selectedScheme, setSelectedScheme] = useState<Scheme | null>(null);
   const { isAuthenticated, user } = useAuth();
 
   const PROTECTED: View[] = ['schemes', 'assistant', 'profile', 'partner'];
@@ -267,6 +275,18 @@ function AppContent() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const handleSchemeSelect = (scheme: Scheme) => {
+    setSelectedScheme(scheme);
+    setCurrentView('schemeDetail');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleBackToSchemes = () => {
+    setSelectedScheme(null);
+    setCurrentView('schemes');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const handlePostLogin = () => {
     const dest = intendedView || 'home';
     setIntendedView(null);
@@ -277,9 +297,19 @@ function AppContent() {
   const renderView = () => {
     switch (currentView) {
       case 'home':
-        return <LandingPage onNavigate={navigate} />;
+        return isAuthenticated && user ? (
+          <Dashboard user={user} onNavigate={navigate} />
+        ) : (
+          <LandingPage onNavigate={navigate} />
+        );
       case 'schemes':
-        return <SchemeExplorer />;
+        return <SchemeExplorer onSchemeSelect={handleSchemeSelect} />;
+      case 'schemeDetail':
+        return selectedScheme ? (
+          <SchemeDetail scheme={selectedScheme} onBack={handleBackToSchemes} />
+        ) : (
+          <SchemeExplorer onSchemeSelect={handleSchemeSelect} />
+        );
       case 'assistant':
         return <ChatAssistant />;
       case 'profile':
@@ -293,7 +323,11 @@ function AppContent() {
       case 'login':
         return <LoginPage onNavigate={navigate} onLoginSuccess={handlePostLogin} />;
       default:
-        return <LandingPage onNavigate={navigate} />;
+        return isAuthenticated && user ? (
+          <Dashboard user={user} onNavigate={navigate} />
+        ) : (
+          <LandingPage onNavigate={navigate} />
+        );
     }
   };
 

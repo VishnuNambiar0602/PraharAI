@@ -1,4 +1,13 @@
-export type View = 'home' | 'schemes' | 'assistant' | 'profile' | 'about' | 'partner' | 'contact' | 'login';
+export type View =
+  | 'home'
+  | 'schemes'
+  | 'assistant'
+  | 'profile'
+  | 'about'
+  | 'partner'
+  | 'contact'
+  | 'login'
+  | 'schemeDetail';
 
 export interface Scheme {
   id: string;
@@ -7,7 +16,7 @@ export interface Scheme {
   category: string;
   benefits?: string;
   eligibility: string;
-  applicationUrl?: string;  // Direct link to apply on myscheme.gov.in
+  applicationUrl?: string; // Direct link to apply on myscheme.gov.in
   /** @deprecated kept for backwards compat with mock data */
   benefit?: string;
   deadline?: string;

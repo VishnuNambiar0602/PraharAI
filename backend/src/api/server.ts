@@ -9,10 +9,15 @@ import express from 'express';
 import cors from 'cors';
 import { ProfileExtractor } from '../utils/profile-extractor';
 import { neo4jService } from '../db/neo4j.service';
+import { redisService } from '../db/redis.service';
+import { getTranslationService } from '../services/translation.service';
 
 const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:8000';
 
 const app = express();
+
+// Initialize translation service with Redis caching
+const ts = getTranslationService(redisService);
 
 // Middleware
 app.use(
@@ -24,6 +29,7 @@ app.use(
   })
 );
 app.use(express.json());
+app.use(ts.translationMiddleware());
 
 // ─── Seed admin user (called after neo4jService.init()) ──────────────────────
 export async function seedAdminUser() {

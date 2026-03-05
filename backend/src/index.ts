@@ -11,7 +11,7 @@ app.listen(PORT, async () => {
   console.log(`📊 Health check: http://localhost:${PORT}/health`);
   console.log(`🔐 Auth API: http://localhost:${PORT}/api/auth`);
   console.log(`👤 Users API: http://localhost:${PORT}/api/users`);
-  
+
   // Start scheme sync agent (initialises Neo4j + Redis + syncs from API if stale)
   console.log('\n🤖 Starting Scheme Sync Agent...');
   try {

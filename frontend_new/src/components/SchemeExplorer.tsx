@@ -1,26 +1,55 @@
 import { motion } from 'motion/react';
-import { Search, Filter, ExternalLink, School, Tractor as Agriculture, Baby, HeartPulse, Map, User, Zap, Loader2, AlertCircle, BookOpen } from 'lucide-react';
+import {
+  Search,
+  Filter,
+  ExternalLink,
+  School,
+  Tractor as Agriculture,
+  Baby,
+  HeartPulse,
+  Map,
+  User,
+  Zap,
+  AlertCircle,
+  BookOpen,
+  ChevronLeft,
+  ChevronRight,
+  MapPin,
+} from 'lucide-react';
 import { useState, useEffect, FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Scheme } from '../types';
 import { fetchSchemes } from '../api';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
+import { Badge } from './ui/badge';
+import { Button } from './ui/button';
+import { Skeleton } from './ui/skeleton';
 
 const CATEGORIES = [
-  { icon: Agriculture, label: 'Farmer' },
-  { icon: School, label: 'Student' },
-  { icon: Baby, label: 'Women' },
-  { icon: HeartPulse, label: 'Health' },
-  { icon: Map, label: 'State' },
-  { icon: Zap, label: 'Employment' },
-  { icon: BookOpen, label: 'Education' },
-  { icon: User, label: 'Social welfare' },
+  { icon: Agriculture, label: 'Farmer', labelKey: 'schemes.category_farmer' },
+  { icon: School, label: 'Student', labelKey: 'schemes.category_student' },
+  { icon: Baby, label: 'Women', labelKey: 'schemes.category_women' },
+  { icon: HeartPulse, label: 'Health', labelKey: 'schemes.category_health' },
+  { icon: Map, label: 'State', labelKey: 'schemes.category_state' },
+  { icon: Zap, label: 'Employment', labelKey: 'schemes.category_employment' },
+  { icon: BookOpen, label: 'Education', labelKey: 'schemes.category_education' },
+  { icon: User, label: 'Social welfare', labelKey: 'schemes.category_social' },
 ];
 
-export default function SchemeExplorer() {
+const ITEMS_PER_PAGE = 12;
+
+interface SchemeExplorerProps {
+  onSchemeSelect?: (scheme: Scheme) => void;
+}
+
+export default function SchemeExplorer({ onSchemeSelect }: SchemeExplorerProps = {}) {
+  const { t } = useTranslation();
   const [schemes, setSchemes] = useState<Scheme[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     loadSchemes();
@@ -34,49 +63,66 @@ export default function SchemeExplorer() {
       const combined = [searchQuery, category].filter(Boolean).join(' ');
       const data = await fetchSchemes(combined || undefined, 100);
       // API returns a flat array
-      const list: Scheme[] = Array.isArray(data) ? data : (data.schemes ?? data.data ?? data.value ?? []);
+      const list: Scheme[] = Array.isArray(data)
+        ? data
+        : (data.schemes ?? data.data ?? data.value ?? []);
       setSchemes(list.slice(0, 100));
     } catch {
-      setError('Could not load schemes. Please try again.');
+      setError(t('chat.error'));
     } finally {
       setLoading(false);
     }
   };
 
+  const activeCategoryLabel = CATEGORIES.find((cat) => cat.label === activeCategory)?.labelKey;
+
   const handleSearch = (e: FormEvent) => {
     e.preventDefault();
+    setCurrentPage(1);
     loadSchemes(query, activeCategory);
   };
 
   const handleCategory = (label: string) => {
     const next = activeCategory === label ? '' : label;
     setActiveCategory(next);
+    setCurrentPage(1);
     loadSchemes(query, next);
+  };
+
+  // Pagination logic
+  const totalPages = Math.ceil(schemes.length / ITEMS_PER_PAGE);
+  const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIdx = startIdx + ITEMS_PER_PAGE;
+  const displayedSchemes = schemes.slice(startIdx, endIdx);
+
+  const goToPage = (page: number) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   return (
     <div className="min-h-screen bg-surface">
-
       {/* ── Page Header ── */}
       <div className="bg-white border-b border-border">
         <div className="max-w-7xl mx-auto px-6 py-8">
           <div className="flex flex-col lg:flex-row lg:items-center gap-6">
             <div className="flex-1">
-              <h1 className="font-display text-3xl font-bold text-ink">Government Schemes</h1>
-              <p className="text-muted text-sm mt-1">Browse and search 1,200+ Central and State schemes.</p>
+              <h1 className="font-display text-3xl font-bold text-ink">{t('schemes.title')}</h1>
+              <p className="text-muted text-sm mt-1">{t('schemes.subtitle')}</p>
             </div>
             {/* Search */}
             <form onSubmit={handleSearch} className="flex-1 max-w-lg">
               <div className="relative flex items-center">
                 <Search className="absolute left-4 text-muted size-5 pointer-events-none" />
                 <input
-                  className="input-base !pl-12 !pr-28"
-                  placeholder="Search by name, ministry, keyword…"
-                  type="text" value={query}
+                  className="input-base pl-12! pr-28!"
+                  placeholder={t('schemes.search_placeholder')}
+                  type="text"
+                  value={query}
                   onChange={(e) => setQuery(e.target.value)}
                 />
-                <button type="submit" className="absolute right-2 btn-navy !py-1.5 !px-4 !text-xs">
-                  Search
+                <button type="submit" className="absolute right-2 btn-navy py-1.5! px-4! text-xs!">
+                  {t('common.search')}
                 </button>
               </div>
             </form>
@@ -85,19 +131,30 @@ export default function SchemeExplorer() {
           {/* Category pills */}
           <div className="flex gap-2 mt-5 overflow-x-auto no-scrollbar">
             <button
-              onClick={() => { setActiveCategory(''); loadSchemes(query, ''); }}
+              onClick={() => {
+                setActiveCategory('');
+                loadSchemes(query, '');
+              }}
               className={`flex shrink-0 items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold border transition-colors ${
-                !activeCategory ? 'bg-primary text-white border-primary' : 'bg-white text-muted border-border hover:border-primary/40 hover:text-primary'
+                !activeCategory
+                  ? 'bg-primary text-white border-primary'
+                  : 'bg-white text-muted border-border hover:border-primary/40 hover:text-primary'
               }`}
             >
-              <Filter className="size-3.5" /> All Schemes
+              <Filter className="size-3.5" /> {t('schemes.all_categories')}
             </button>
             {CATEGORIES.map((cat, i) => (
-              <button key={i} onClick={() => handleCategory(cat.label)}
+              <button
+                key={i}
+                onClick={() => handleCategory(cat.label)}
                 className={`flex shrink-0 items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold border transition-colors ${
-                  activeCategory === cat.label ? 'bg-primary text-white border-primary' : 'bg-white text-muted border-border hover:border-primary/40 hover:text-primary'
-                }`}>
-                <cat.icon className="size-3.5" />{cat.label}
+                  activeCategory === cat.label
+                    ? 'bg-primary text-white border-primary'
+                    : 'bg-white text-muted border-border hover:border-primary/40 hover:text-primary'
+                }`}
+              >
+                <cat.icon className="size-3.5" />
+                {t(cat.labelKey)}
               </button>
             ))}
           </div>
@@ -108,16 +165,29 @@ export default function SchemeExplorer() {
       <main className="max-w-7xl mx-auto px-6 py-8">
         <div className="flex items-center justify-between mb-6">
           <p className="text-sm font-medium text-muted">
-            {loading ? 'Loading…' : `${schemes.length} scheme${schemes.length !== 1 ? 's' : ''} found${
-              activeCategory ? ` in ${activeCategory}` : ''
-            }`}
+            {loading
+              ? t('schemes.loading')
+              : `${t('schemes.showing', {
+                  count: Math.min(endIdx, schemes.length),
+                  total: schemes.length,
+                })}${activeCategoryLabel ? ` (${t(activeCategoryLabel)})` : ''}`}
           </p>
         </div>
 
         {loading && (
-          <div className="flex flex-col items-center justify-center py-24 gap-4 text-muted">
-            <Loader2 className="size-10 animate-spin text-primary" />
-            <p className="text-sm font-medium">Fetching schemes…</p>
+          <div className="grid lg:grid-cols-2 xl:grid-cols-3 gap-5 pb-8">
+            {Array.from({ length: 6 }).map((_, idx) => (
+              <Card key={idx} className="p-6">
+                <div className="flex items-start justify-between gap-3 mb-4">
+                  <Skeleton className="h-6 w-3/4" />
+                  <Skeleton className="h-5 w-16 rounded-full" />
+                </div>
+                <Skeleton className="h-4 w-full mb-2" />
+                <Skeleton className="h-4 w-5/6 mb-4" />
+                <Skeleton className="h-16 w-full rounded-lg mb-4" />
+                <Skeleton className="h-10 w-full" />
+              </Card>
+            ))}
           </div>
         )}
 
@@ -125,64 +195,171 @@ export default function SchemeExplorer() {
           <div className="card p-5 flex items-center gap-3 text-red-700 border-red-200 bg-red-50">
             <AlertCircle className="size-5 shrink-0" />
             <p className="text-sm flex-1">{error}</p>
-            <button onClick={() => loadSchemes(query, activeCategory)} className="text-xs font-bold underline">Retry</button>
+            <button
+              onClick={() => loadSchemes(query, activeCategory)}
+              className="text-xs font-bold underline"
+            >
+              {t('schemes.retry')}
+            </button>
           </div>
         )}
 
         {!loading && !error && schemes.length === 0 && (
           <div className="flex flex-col items-center justify-center py-24 gap-3 text-muted">
             <BookOpen className="size-12 opacity-30" />
-            <p className="text-sm font-medium">No schemes found. Try a different keyword or category.</p>
+            <p className="text-sm font-medium">
+              {t('schemes.no_results')}. {t('schemes.try_different')}.
+            </p>
           </div>
         )}
 
         <div className="grid lg:grid-cols-2 xl:grid-cols-3 gap-5 pb-8">
-          {!loading && schemes.map((scheme, idx) => (
-            <motion.div key={scheme.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: Math.min(idx * 0.04, 0.4) }}
-              className="card p-6 flex flex-col gap-4 hover:shadow-md transition-shadow"
-            >
-              {/* Card Header */}
-              <div className="flex items-start justify-between gap-3">
-                <h3 className="font-bold text-ink text-base leading-snug flex-1">{scheme.title}</h3>
-                <span className="shrink-0 text-[10px] font-bold px-2 py-1 rounded-full bg-primary-50 text-primary uppercase tracking-wide">
-                  {scheme.category || 'General'}
-                </span>
-              </div>
-
-              {scheme.description && (
-                <p className="text-sm text-muted leading-relaxed line-clamp-2">{scheme.description}</p>
-              )}
-
-              {(scheme.benefits || scheme.benefit) && (
-                <div className="flex items-start gap-2 p-3 bg-accent-50 rounded-lg border-l-4 border-accent">
-                  <Zap className="size-4 text-accent shrink-0 mt-0.5" />
-                  <p className="text-xs font-semibold text-ink">{scheme.benefits || scheme.benefit}</p>
-                </div>
-              )}
-
-              <div className="flex items-start gap-2">
-                <User className="size-4 text-muted shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-[10px] font-bold text-muted uppercase tracking-wider">Eligibility</p>
-                  <p className="text-xs text-ink mt-0.5 line-clamp-2">{scheme.eligibility || 'See official website'}</p>
-                </div>
-              </div>
-
-              <div className="mt-auto pt-2">
-                <a
-                  href={scheme.applicationUrl || `https://www.myscheme.gov.in/search?q=${encodeURIComponent(scheme.id)}`}
-                  target="_blank" rel="noopener noreferrer"
-                  className="btn-primary w-full !py-2.5 text-sm"
+          {!loading &&
+            displayedSchemes.map((scheme, idx) => (
+              <motion.div
+                key={scheme.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: Math.min(idx * 0.04, 0.4) }}
+              >
+                <Card
+                  className="h-full flex flex-col hover:shadow-lg transition-all duration-200 cursor-pointer"
+                  onClick={(e) => {
+                    // Don't trigger if clicking on buttons or links
+                    if ((e.target as HTMLElement).closest('a, button')) return;
+                    if (onSchemeSelect) onSchemeSelect(scheme);
+                  }}
                 >
-                  Apply on MyScheme.gov.in <ExternalLink className="size-3.5" />
-                </a>
-              </div>
-            </motion.div>
-          ))}
+                  <CardHeader>
+                    <div className="flex items-start justify-between gap-3 mb-2">
+                      <CardTitle className="text-base leading-snug flex-1">
+                        {scheme.title}
+                      </CardTitle>
+                      <Badge variant="secondary" className="shrink-0">
+                        {scheme.category || t('schemes.general')}
+                      </Badge>
+                    </div>
+                    {scheme.description && (
+                      <CardDescription className="line-clamp-2">
+                        {scheme.description}
+                      </CardDescription>
+                    )}
+                  </CardHeader>
+
+                  <CardContent className="flex-1 flex flex-col gap-4">
+                    {(scheme.benefits || scheme.benefit) && (
+                      <div className="flex items-start gap-2 p-3 bg-accent-50 rounded-lg border-l-4 border-accent">
+                        <Zap className="size-4 text-accent shrink-0 mt-0.5" />
+                        <p className="text-xs font-semibold text-ink line-clamp-2">
+                          {scheme.benefits || scheme.benefit}
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="flex items-start gap-2">
+                      <User className="size-4 text-muted shrink-0 mt-0.5" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[10px] font-bold text-muted uppercase tracking-wider">
+                          {t('schemes.eligibility')}
+                        </p>
+                        <p className="text-xs text-ink mt-0.5 line-clamp-2">
+                          {scheme.eligibility || t('schemes.view_details')}
+                        </p>
+                      </div>
+                    </div>
+
+                    {scheme.state && (
+                      <div className="flex items-center gap-2">
+                        <MapPin className="size-3.5 text-muted" />
+                        <Badge variant="outline" className="text-xs">
+                          {scheme.state}
+                        </Badge>
+                      </div>
+                    )}
+
+                    <div className="mt-auto pt-2 flex gap-2">
+                      <Button
+                        variant="outline"
+                        className="flex-1"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onSchemeSelect) onSchemeSelect(scheme);
+                        }}
+                      >
+                        {t('schemes.view_details')}
+                      </Button>
+                      <Button asChild variant="default" className="flex-1" size="sm">
+                        <a
+                          href={
+                            scheme.applicationUrl ||
+                            `https://www.myscheme.gov.in/search?q=${encodeURIComponent(scheme.id)}`
+                          }
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {t('schemes.apply_now')} <ExternalLink className="size-3.5" />
+                        </a>
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
         </div>
+
+        {/* Pagination */}
+        {!loading && schemes.length > ITEMS_PER_PAGE && (
+          <div className="flex items-center justify-center gap-2 mt-8 mb-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => goToPage(currentPage - 1)}
+              disabled={currentPage === 1}
+            >
+              <ChevronLeft className="size-4" />
+              {t('schemes.previous')}
+            </Button>
+
+            <div className="flex gap-1">
+              {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+                let pageNum;
+                if (totalPages <= 7) {
+                  pageNum = i + 1;
+                } else if (currentPage <= 4) {
+                  pageNum = i + 1;
+                } else if (currentPage >= totalPages - 3) {
+                  pageNum = totalPages - 6 + i;
+                } else {
+                  pageNum = currentPage - 3 + i;
+                }
+
+                return (
+                  <Button
+                    key={pageNum}
+                    variant={currentPage === pageNum ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => goToPage(pageNum)}
+                    className="w-9"
+                  >
+                    {pageNum}
+                  </Button>
+                );
+              })}
+            </div>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => goToPage(currentPage + 1)}
+              disabled={currentPage === totalPages}
+            >
+              {t('schemes.next')}
+              <ChevronRight className="size-4" />
+            </Button>
+          </div>
+        )}
       </main>
     </div>
   );

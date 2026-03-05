@@ -8,9 +8,15 @@ const INITIAL_MESSAGES: Message[] = [
   {
     id: '1',
     role: 'assistant',
-    content: 'Namaste! I am Prahar, your assistant for government schemes. I can help you find scholarships, grants, and benefits tailored to your profile.\n\nSign in to get personalized recommendations, or ask me anything!',
+    content:
+      'Namaste! I am Prahar, your assistant for government schemes. I can help you find scholarships, grants, and benefits tailored to your profile.\n\nSign in to get personalized recommendations, or ask me anything!',
     timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    suggestions: ['Schemes for students', 'PM-KISAN eligibility', 'Scholarships for women', 'Show all schemes'],
+    suggestions: [
+      'Schemes for students',
+      'PM-KISAN eligibility',
+      'Scholarships for women',
+      'Show all schemes',
+    ],
   },
 ];
 
@@ -61,7 +67,8 @@ export default function ChatAssistant() {
       const errMsg: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: "I'm having trouble connecting to the server. Please check your connection and try again.",
+        content:
+          "I'm having trouble connecting to the server. Please check your connection and try again.",
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         suggestions: ['Try again', 'Show all schemes'],
       };
@@ -74,7 +81,6 @@ export default function ChatAssistant() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)] bg-surface">
-
       {/* ── Chat Header ── */}
       <div className="bg-white border-b border-border px-6 py-4 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
@@ -86,7 +92,9 @@ export default function ChatAssistant() {
           </div>
           <div>
             <h1 className="font-semibold text-ink text-sm">Prahar AI Assistant</h1>
-            <p className="text-[10px] text-green-600 font-semibold uppercase tracking-widest">Online</p>
+            <p className="text-[10px] text-green-600 font-semibold uppercase tracking-widest">
+              Online
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -104,26 +112,29 @@ export default function ChatAssistant() {
       {/* ── Messages ── */}
       <main className="flex-1 overflow-y-auto px-4 md:px-8 py-6 space-y-5 no-scrollbar max-w-4xl mx-auto w-full">
         {messages.map((msg) => (
-          <div key={msg.id} className={`flex gap-3 ${
-            msg.role === 'user' ? 'flex-row-reverse' : ''
-          }`}>
-            <div className={`size-8 rounded-full flex items-center justify-center shrink-0 ${
-              msg.role === 'assistant' ? 'bg-primary text-white' : 'bg-primary-100 text-primary'
-            }`}>
+          <div
+            key={msg.id}
+            className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}
+          >
+            <div
+              className={`size-8 rounded-full flex items-center justify-center shrink-0 ${
+                msg.role === 'assistant' ? 'bg-primary text-white' : 'bg-primary-100 text-primary'
+              }`}
+            >
               {msg.role === 'assistant' ? <Bot className="size-4" /> : <User className="size-4" />}
             </div>
-            <div className={`max-w-[75%] space-y-2 ${
-              msg.role === 'user' ? 'items-end' : ''
-            }`}>
-              <div className={`px-4 py-3 rounded-xl ${
-                msg.role === 'assistant'
-                  ? 'bg-white border border-border text-ink shadow-sm rounded-tl-sm'
-                  : 'bg-primary text-white rounded-tr-sm'
-              }`}>
+            <div className={`max-w-[75%] space-y-2 ${msg.role === 'user' ? 'items-end' : ''}`}>
+              <div
+                className={`px-4 py-3 rounded-xl ${
+                  msg.role === 'assistant'
+                    ? 'bg-white border border-border text-ink shadow-sm rounded-tl-sm'
+                    : 'bg-primary text-white rounded-tr-sm'
+                }`}
+              >
                 <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
                 {msg.schemes && (
                   <div className="mt-3 space-y-2 border-t border-white/20 pt-3">
-                    {msg.schemes.map(s => (
+                    {msg.schemes.map((s) => (
                       <div key={s.id} className="bg-white/10 border border-white/20 p-3 rounded-lg">
                         <p className="font-semibold text-sm">{s.title}</p>
                         <p className="text-xs opacity-75 mt-0.5">{s.eligibility}</p>
@@ -135,14 +146,22 @@ export default function ChatAssistant() {
                   </div>
                 )}
               </div>
-              <p className="text-[10px] text-muted font-medium px-1 block ${
+              <p
+                className="text-[10px] text-muted font-medium px-1 block ${
                 msg.role === 'user' ? 'text-right' : ''
-              }">{msg.timestamp}</p>
+              }"
+              >
+                {msg.timestamp}
+              </p>
               {msg.suggestions && (
                 <div className="flex flex-wrap gap-2">
                   {msg.suggestions.map((s, i) => (
-                    <button key={i} onClick={() => handleSend(s)} disabled={loading}
-                      className="px-3 py-1.5 bg-white border border-border rounded-full text-xs font-medium text-primary hover:bg-primary-50 hover:border-primary/40 transition-colors disabled:opacity-40">
+                    <button
+                      key={i}
+                      onClick={() => handleSend(s)}
+                      disabled={loading}
+                      className="px-3 py-1.5 bg-white border border-border rounded-full text-xs font-medium text-primary hover:bg-primary-50 hover:border-primary/40 transition-colors disabled:opacity-40"
+                    >
                       {s}
                     </button>
                   ))}
@@ -177,7 +196,7 @@ export default function ChatAssistant() {
               onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
               placeholder="Ask about a scheme, eligibility, or benefit…"
               disabled={loading}
-              className="input-base !py-3.5 !pr-14"
+              className="input-base py-3.5! pr-14!"
             />
             <button
               onClick={() => handleSend()}
@@ -188,7 +207,9 @@ export default function ChatAssistant() {
             </button>
           </div>
         </div>
-        <p className="text-center text-[10px] text-muted mt-2 uppercase tracking-widest">Powered by Digital India · Prahar AI</p>
+        <p className="text-center text-[10px] text-muted mt-2 uppercase tracking-widest">
+          Powered by Digital India · Prahar AI
+        </p>
       </div>
     </div>
   );
