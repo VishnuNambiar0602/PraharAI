@@ -1,5 +1,6 @@
 import { useState, FormEvent } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useTranslation } from 'react-i18next';
 import {
   Eye,
   EyeOff,
@@ -59,6 +60,7 @@ interface LoginPageProps {
 }
 
 export default function LoginPage({ onNavigate, onLoginSuccess }: LoginPageProps) {
+  const { t } = useTranslation();
   const { login, register } = useAuth();
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [showPassword, setShowPassword] = useState(false);
@@ -88,10 +90,12 @@ export default function LoginPage({ onNavigate, onLoginSuccess }: LoginPageProps
     if (/\d/.test(pwd)) score++;
     if (/[^a-zA-Z0-9]/.test(pwd)) score++;
 
-    if (score <= 2) return { score, label: 'Weak', color: 'bg-red-500' };
-    if (score === 3) return { score, label: 'Fair', color: 'bg-yellow-500' };
-    if (score === 4) return { score, label: 'Good', color: 'bg-blue-500' };
-    return { score, label: 'Strong', color: 'bg-green-500' };
+    if (score <= 2) return { score, label: t('auth.password_strength_weak'), color: 'bg-red-500' };
+    if (score === 3)
+      return { score, label: t('auth.password_strength_fair'), color: 'bg-yellow-500' };
+    if (score === 4)
+      return { score, label: t('auth.password_strength_good'), color: 'bg-blue-500' };
+    return { score, label: t('auth.password_strength_strong'), color: 'bg-green-500' };
   };
 
   const passwordStrength = mode === 'register' ? getPasswordStrength(form.password) : null;
@@ -104,7 +108,7 @@ export default function LoginPage({ onNavigate, onLoginSuccess }: LoginPageProps
     try {
       if (mode === 'login') {
         await login(form.email, form.password);
-        setSuccessMessage('Welcome back! Redirecting...');
+        setSuccessMessage(`${t('auth.welcome_toast')} ${t('auth.redirecting')}`);
       } else {
         await register({
           email: form.email,
@@ -115,14 +119,14 @@ export default function LoginPage({ onNavigate, onLoginSuccess }: LoginPageProps
           income: form.income ? Number(form.income) : undefined,
           gender: form.gender || undefined,
         });
-        setSuccessMessage('Account created successfully! Redirecting...');
+        setSuccessMessage(`${t('auth.account_created')} ${t('auth.redirecting')}`);
       }
       setTimeout(() => {
         if (onLoginSuccess) onLoginSuccess();
         else onNavigate('home');
       }, 1000);
     } catch (err: any) {
-      setError(err.message || 'Something went wrong');
+      setError(err.message || t('common.error'));
     } finally {
       setLoading(false);
     }
@@ -180,30 +184,27 @@ export default function LoginPage({ onNavigate, onLoginSuccess }: LoginPageProps
         <div className="space-y-6">
           <div>
             <h2 className="font-display text-4xl font-bold text-white leading-tight mb-4">
-              Your gateway to
+              {t('auth.left_title_line_1')}
               <br />
-              <span className="text-accent italic">government benefits.</span>
+              <span className="text-accent italic">{t('auth.left_title_line_2')}</span>
             </h2>
             <p className="text-white/60 text-base leading-relaxed max-w-sm">
-              Sign in to access personalised scheme recommendations tailored to your profile — in
-              your language.
+              {t('auth.left_subtitle')}
             </p>
           </div>
           <div className="space-y-3">
-            {[
-              '1,200+ schemes from Central & State Governments',
-              'Personalised eligibility matching in seconds',
-              'Available in 22+ Indian languages',
-            ].map((p, i) => (
-              <div key={i} className="flex items-center gap-3">
-                <CheckCircle2 className="size-4 text-accent shrink-0" />
-                <span className="text-white/75 text-sm">{p}</span>
-              </div>
-            ))}
+            {[t('auth.left_point_1'), t('auth.left_point_2'), t('auth.left_point_3')].map(
+              (p, i) => (
+                <div key={i} className="flex items-center gap-3">
+                  <CheckCircle2 className="size-4 text-accent shrink-0" />
+                  <span className="text-white/75 text-sm">{p}</span>
+                </div>
+              )
+            )}
           </div>
         </div>
         <p className="text-white/30 text-xs">
-          © {new Date().getFullYear()} Prahar AI · Government of India Partner
+          © {new Date().getFullYear()} Prahar AI · {t('auth.left_footer_partner')}
         </p>
       </div>
 
@@ -220,16 +221,14 @@ export default function LoginPage({ onNavigate, onLoginSuccess }: LoginPageProps
             onClick={() => onNavigate('home')}
             className="lg:hidden flex items-center gap-1 text-sm text-muted mb-6 hover:text-primary transition-colors"
           >
-            <ChevronLeft className="size-4" /> Back to Home
+            <ChevronLeft className="size-4" /> {t('auth.back_home')}
           </button>
           <div className="mb-8">
             <h1 className="font-display text-3xl font-bold text-ink mb-2">
-              {mode === 'login' ? 'Welcome back' : 'Create account'}
+              {mode === 'login' ? t('auth.welcome_back') : t('auth.create_account')}
             </h1>
             <p className="text-muted text-sm">
-              {mode === 'login'
-                ? 'Sign in to access your personalised scheme dashboard.'
-                : 'Register to start finding government schemes you qualify for.'}
+              {mode === 'login' ? t('auth.login_subtitle') : t('auth.register_subtitle')}
             </p>
           </div>
 
@@ -255,7 +254,9 @@ export default function LoginPage({ onNavigate, onLoginSuccess }: LoginPageProps
                       transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
                     />
                   )}
-                  <span className="relative z-10">{m === 'login' ? 'Sign In' : 'Register'}</span>
+                  <span className="relative z-10">
+                    {m === 'login' ? t('auth.sign_in') : t('auth.register')}
+                  </span>
                 </button>
               ))}
             </AnimatePresence>
@@ -299,32 +300,32 @@ export default function LoginPage({ onNavigate, onLoginSuccess }: LoginPageProps
               >
                 {mode === 'register' && (
                   <div>
-                    <Label htmlFor="name">Full Name</Label>
+                    <Label htmlFor="name">{t('auth.full_name')}</Label>
                     <Input
                       id="name"
                       type="text"
                       required
                       value={form.name}
                       onChange={(e) => update('name', e.target.value)}
-                      placeholder="e.g. Priya Sharma"
+                      placeholder={t('auth.name_placeholder')}
                     />
                   </div>
                 )}
 
                 <div>
-                  <Label htmlFor="email">Email Address</Label>
+                  <Label htmlFor="email">{t('auth.email')}</Label>
                   <Input
                     id="email"
                     type="email"
                     required
                     value={form.email}
                     onChange={(e) => update('email', e.target.value)}
-                    placeholder="you@example.com"
+                    placeholder={t('auth.email_placeholder')}
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="password">Password</Label>
+                  <Label htmlFor="password">{t('auth.password')}</Label>
                   <div className="relative">
                     <Input
                       id="password"
@@ -332,7 +333,7 @@ export default function LoginPage({ onNavigate, onLoginSuccess }: LoginPageProps
                       required
                       value={form.password}
                       onChange={(e) => update('password', e.target.value)}
-                      placeholder="Minimum 6 characters"
+                      placeholder={t('auth.password_placeholder')}
                       className="pr-12!"
                     />
                     <button
@@ -380,7 +381,7 @@ export default function LoginPage({ onNavigate, onLoginSuccess }: LoginPageProps
                         <span className="text-muted">
                           {passwordStrength.score >= 4 && (
                             <span className="flex items-center gap-1 text-green-600">
-                              <Check className="size-3" /> Secure
+                              <Check className="size-3" /> {t('auth.password_strength_secure')}
                             </span>
                           )}
                         </span>
@@ -393,7 +394,7 @@ export default function LoginPage({ onNavigate, onLoginSuccess }: LoginPageProps
                   <>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <Label htmlFor="age">Age</Label>
+                        <Label htmlFor="age">{t('auth.age')}</Label>
                         <Input
                           id="age"
                           type="number"
@@ -401,33 +402,33 @@ export default function LoginPage({ onNavigate, onLoginSuccess }: LoginPageProps
                           max={120}
                           value={form.age}
                           onChange={(e) => update('age', e.target.value)}
-                          placeholder="e.g. 35"
+                          placeholder={t('auth.age_placeholder')}
                         />
                       </div>
                       <div>
-                        <Label htmlFor="gender">Gender</Label>
+                        <Label htmlFor="gender">{t('auth.gender')}</Label>
                         <select
                           id="gender"
                           value={form.gender}
                           onChange={(e) => update('gender', e.target.value)}
                           className="flex h-10 w-full rounded-lg border border-border bg-white px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                         >
-                          <option value="">Select</option>
-                          <option value="Male">Male</option>
-                          <option value="Female">Female</option>
-                          <option value="Other">Other</option>
+                          <option value="">{t('auth.select')}</option>
+                          <option value="Male">{t('auth.gender_male')}</option>
+                          <option value="Female">{t('auth.gender_female')}</option>
+                          <option value="Other">{t('auth.gender_other')}</option>
                         </select>
                       </div>
                     </div>
                     <div>
-                      <Label htmlFor="state">State / UT</Label>
+                      <Label htmlFor="state">{t('auth.state')}</Label>
                       <select
                         id="state"
                         value={form.state}
                         onChange={(e) => update('state', e.target.value)}
                         className="flex h-10 w-full rounded-lg border border-border bg-white px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        <option value="">Select your state</option>
+                        <option value="">{t('auth.state_select')}</option>
                         {INDIA_STATES.map((s) => (
                           <option key={s} value={s}>
                             {s}
@@ -436,14 +437,14 @@ export default function LoginPage({ onNavigate, onLoginSuccess }: LoginPageProps
                       </select>
                     </div>
                     <div>
-                      <Label htmlFor="income">Annual Income (₹)</Label>
+                      <Label htmlFor="income">{t('auth.income')}</Label>
                       <Input
                         id="income"
                         type="number"
                         min={0}
                         value={form.income}
                         onChange={(e) => update('income', e.target.value)}
-                        placeholder="e.g. 300000"
+                        placeholder={t('auth.income_placeholder')}
                       />
                     </div>
                   </>
@@ -454,11 +455,11 @@ export default function LoginPage({ onNavigate, onLoginSuccess }: LoginPageProps
             <Button type="submit" disabled={loading} className="w-full py-3! text-base mt-2">
               {loading ? (
                 <>
-                  <Loader2 className="size-4 animate-spin" /> Processing…
+                  <Loader2 className="size-4 animate-spin" /> {t('auth.processing')}
                 </>
               ) : (
                 <>
-                  {mode === 'login' ? 'Sign In' : 'Create Account'}{' '}
+                  {mode === 'login' ? t('auth.sign_in_button') : t('auth.create_button')}{' '}
                   <ArrowRight className="size-4" />
                 </>
               )}
@@ -467,7 +468,7 @@ export default function LoginPage({ onNavigate, onLoginSuccess }: LoginPageProps
 
           <div className="mt-6 flex items-center gap-2 text-xs text-muted">
             <ShieldCheck className="size-3.5 shrink-0" />
-            Your data is encrypted and protected under India's IT Act 2000.
+            {t('auth.security_notice')}
           </div>
         </motion.div>
       </div>

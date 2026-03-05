@@ -118,6 +118,17 @@
     "welcome_toast": "Welcome back!",
     "account_created": "Account created successfully!",
     "redirecting": "Redirecting...",
+    "select": "Select",
+    "back_home": "Back to Home",
+    "login_subtitle": "Sign in to access your personalised scheme dashboard.",
+    "register_subtitle": "Register to start finding government schemes you qualify for.",
+    "left_title_line_1": "Your gateway to",
+    "left_title_line_2": "government benefits.",
+    "left_subtitle": "Sign in to access personalised scheme recommendations tailored to your profile — in your language.",
+    "left_point_1": "1,200+ schemes from Central & State Governments",
+    "left_point_2": "Personalised eligibility matching in seconds",
+    "left_point_3": "Available in 22+ Indian languages",
+    "left_footer_partner": "Government of India Partner",
     "security_notice": "Your data is encrypted and protected under India's IT Act 2000."
   },
   "schemes": {
