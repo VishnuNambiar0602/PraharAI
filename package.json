@@ -10,6 +10,7 @@
   ],
   "scripts": {
     "dev": "concurrently -k -n ml,backend,frontend -c yellow,blue,green \"npm run dev:ml\" \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "setup": "cd backend && npm install && cd ../frontend_new && npm install && cd ../ml-pipeline && .\\venv\\Scripts\\python.exe -m pip install -r requirements.txt && cd ..",
     "dev:backend": "npm run dev -w backend",
     "dev:frontend": "npm run dev -w frontend_new",
     "dev:ml": "cd ml-pipeline && .\\venv\\Scripts\\python.exe -m uvicorn api:app --host 0.0.0.0 --port 8000 --reload",

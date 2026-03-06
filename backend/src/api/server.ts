@@ -58,8 +58,17 @@ app.post('/api/auth/register', async (req, res) => {
     console.log('=== REGISTRATION REQUEST ===');
     console.log('Body:', JSON.stringify(req.body, null, 2));
 
-    const { email, password, name, age, income, state, gender } = req.body;
+    const { email, password, name, age, income, state, gender } = req.body || {};
     console.log('Registration attempt:', { email, name });
+
+    // Validate required fields before making any DB calls.
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Missing required fields: email and password' });
+    }
+
+    if (typeof email !== 'string' || !email.includes('@')) {
+      return res.status(400).json({ error: 'Invalid email format' });
+    }
 
     // Check if user already exists
     const existingUser = await neo4jService.getUserByEmail(email);
@@ -225,7 +234,8 @@ app.post('/api/chat', async (req, res) => {
 
     // Get user info from token
     const token = req.headers.authorization?.replace('Bearer ', '');
-    const userId = token?.split('_').pop() || 'admin123';
+    const userId =
+      token?.replace('mock_access_token_', '').replace('mock_refresh_token_', '') || 'admin123';
     const user = await neo4jService.getUserById(userId);
 
     if (!user) {
@@ -325,9 +335,14 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
-// Health check
+// Health check with cache stats
 app.get('/health', (_req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  const cacheStats = redisService.getStats();
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    cache: cacheStats,
+  });
 });
 
 // Debug endpoint to see all users
@@ -337,6 +352,58 @@ app.get('/api/debug/users', async (_req, res) => {
     users: users.map((u: any) => ({ userId: u.user_id, email: u.email, name: u.name })),
     count: users.length,
   });
+});
+
+// ─── ReAct Agent Chat Endpoint (New, experimental) ────────────────────────────
+app.post('/api/react-chat', async (req, res) => {
+  try {
+    const { message, conversationHistory = [] } = req.body || {};
+    if (!message || typeof message !== 'string') {
+      return res.status(400).json({ error: 'Missing required field: message' });
+    }
+    console.log(`\n🤖 ReAct Chat: "${message}"`);
+
+    // Get user from token
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    const userId =
+      token?.replace('mock_access_token_', '').replace('mock_refresh_token_', '') || 'admin123';
+    const user = await neo4jService.getUserById(userId);
+
+    if (!user) {
+      return res.status(401).json({ error: 'User not found' });
+    }
+
+    // Extract profile updates from message
+    const extraction = ProfileExtractor.extract(message);
+    if (Object.keys(extraction.updates).length > 0) {
+      try {
+        await neo4jService.updateUserProfile(userId, extraction.updates);
+        console.log('✅ Profile auto-updated from message');
+      } catch (e) {
+        console.debug('Profile update skipped');
+      }
+    }
+
+    // Initialize tools if not already done
+    const { initializeTools, reactAgent } = await import('../agents');
+    initializeTools();
+
+    // Process with ReAct agent
+    const response = await reactAgent.process(message, userId, conversationHistory);
+
+    return res.json({
+      response: response.response,
+      thinking: response.thinking.map((t) => ({
+        type: t.type,
+        content: t.content,
+      })),
+      toolsUsed: response.actionsUsed.map((a) => a.toolName),
+      confidence: response.confidence,
+    });
+  } catch (error: any) {
+    console.error('ReAct chat error:', error);
+    return res.status(500).json({ error: 'Chat processing failed', details: error.message });
+  }
 });
 
 // Error handling middleware

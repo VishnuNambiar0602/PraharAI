@@ -1,6 +1,6 @@
 /**
  * Neo4j Database Schema Initialization
- * 
+ *
  * Creates node types, indexes, constraints, and full-text search indexes
  * for the Personalized Scheme Recommendation System.
  */
@@ -17,9 +17,7 @@ export interface SchemaInitResult {
 /**
  * Initialize the complete database schema
  */
-export async function initializeSchema(
-  connection: Neo4jConnection
-): Promise<SchemaInitResult> {
+export async function initializeSchema(connection: Neo4jConnection): Promise<SchemaInitResult> {
   const result: SchemaInitResult = {
     constraints: [],
     indexes: [],
@@ -43,7 +41,7 @@ export async function initializeSchema(
     console.log(`  - Constraints: ${result.constraints.length}`);
     console.log(`  - Indexes: ${result.indexes.length}`);
     console.log(`  - Full-text indexes: ${result.fullTextIndexes.length}`);
-    
+
     if (result.errors.length > 0) {
       console.warn(`  - Errors: ${result.errors.length}`);
       result.errors.forEach((error) => console.warn(`    ${error}`));
@@ -67,35 +65,41 @@ async function createConstraints(
     // User constraints
     {
       name: 'user_userId_unique',
-      query: 'CREATE CONSTRAINT user_userId_unique IF NOT EXISTS FOR (u:User) REQUIRE u.userId IS UNIQUE',
+      query:
+        'CREATE CONSTRAINT user_userId_unique IF NOT EXISTS FOR (u:User) REQUIRE u.userId IS UNIQUE',
     },
     {
       name: 'user_email_unique',
-      query: 'CREATE CONSTRAINT user_email_unique IF NOT EXISTS FOR (u:User) REQUIRE u.email IS UNIQUE',
+      query:
+        'CREATE CONSTRAINT user_email_unique IF NOT EXISTS FOR (u:User) REQUIRE u.email IS UNIQUE',
     },
-    
+
     // Scheme constraints
     {
       name: 'scheme_schemeId_unique',
-      query: 'CREATE CONSTRAINT scheme_schemeId_unique IF NOT EXISTS FOR (s:Scheme) REQUIRE s.schemeId IS UNIQUE',
+      query:
+        'CREATE CONSTRAINT scheme_schemeId_unique IF NOT EXISTS FOR (s:Scheme) REQUIRE s.schemeId IS UNIQUE',
     },
-    
+
     // UserGroup constraints
     {
       name: 'usergroup_groupId_unique',
-      query: 'CREATE CONSTRAINT usergroup_groupId_unique IF NOT EXISTS FOR (g:UserGroup) REQUIRE g.groupId IS UNIQUE',
+      query:
+        'CREATE CONSTRAINT usergroup_groupId_unique IF NOT EXISTS FOR (g:UserGroup) REQUIRE g.groupId IS UNIQUE',
     },
-    
+
     // Nudge constraints
     {
       name: 'nudge_nudgeId_unique',
-      query: 'CREATE CONSTRAINT nudge_nudgeId_unique IF NOT EXISTS FOR (n:Nudge) REQUIRE n.nudgeId IS UNIQUE',
+      query:
+        'CREATE CONSTRAINT nudge_nudgeId_unique IF NOT EXISTS FOR (n:Nudge) REQUIRE n.nudgeId IS UNIQUE',
     },
-    
+
     // Category constraints
     {
       name: 'category_categoryId_unique',
-      query: 'CREATE CONSTRAINT category_categoryId_unique IF NOT EXISTS FOR (c:Category) REQUIRE c.categoryId IS UNIQUE',
+      query:
+        'CREATE CONSTRAINT category_categoryId_unique IF NOT EXISTS FOR (c:Category) REQUIRE c.categoryId IS UNIQUE',
     },
   ];
 
@@ -118,10 +122,7 @@ async function createConstraints(
 /**
  * Create indexes for frequently queried fields
  */
-async function createIndexes(
-  connection: Neo4jConnection,
-  result: SchemaInitResult
-): Promise<void> {
+async function createIndexes(connection: Neo4jConnection, result: SchemaInitResult): Promise<void> {
   const indexes = [
     // User indexes
     {
@@ -140,7 +141,7 @@ async function createIndexes(
       name: 'user_age_index',
       query: 'CREATE INDEX user_age_index IF NOT EXISTS FOR (u:User) ON (u.age)',
     },
-    
+
     // Scheme indexes
     {
       name: 'scheme_category_index',
@@ -152,9 +153,10 @@ async function createIndexes(
     },
     {
       name: 'scheme_deadline_index',
-      query: 'CREATE INDEX scheme_deadline_index IF NOT EXISTS FOR (s:Scheme) ON (s.applicationDeadline)',
+      query:
+        'CREATE INDEX scheme_deadline_index IF NOT EXISTS FOR (s:Scheme) ON (s.applicationDeadline)',
     },
-    
+
     // Nudge indexes
     {
       name: 'nudge_userId_index',
@@ -237,9 +239,7 @@ export async function dropSchema(connection: Neo4jConnection): Promise<void> {
 
   try {
     // Get all constraints
-    const constraints = await connection.executeRead<{ name: string }>(
-      'SHOW CONSTRAINTS'
-    );
+    const constraints = await connection.executeRead<{ name: string }>('SHOW CONSTRAINTS');
 
     // Drop each constraint
     for (const constraint of constraints) {
@@ -252,9 +252,7 @@ export async function dropSchema(connection: Neo4jConnection): Promise<void> {
     }
 
     // Get all indexes
-    const indexes = await connection.executeRead<{ name: string }>(
-      'SHOW INDEXES'
-    );
+    const indexes = await connection.executeRead<{ name: string }>('SHOW INDEXES');
 
     // Drop each index (excluding constraint-backed indexes)
     for (const index of indexes) {
@@ -279,41 +277,50 @@ export async function dropSchema(connection: Neo4jConnection): Promise<void> {
 /**
  * Verify schema is properly initialized
  */
-export async function verifySchema(
-  connection: Neo4jConnection
-): Promise<boolean> {
+export async function verifySchema(connection: Neo4jConnection): Promise<boolean> {
   console.log('Verifying database schema...');
 
   try {
     // Check constraints
-    const constraints = await connection.executeRead<{ name: string }>(
-      'SHOW CONSTRAINTS'
-    );
+    const constraints = await connection.executeRead<{
+      name: string;
+      type?: string;
+      labelsOrTypes?: string[];
+      properties?: string[];
+    }>('SHOW CONSTRAINTS');
     console.log(`  - Found ${constraints.length} constraints`);
 
     // Check indexes
-    const indexes = await connection.executeRead<{ name: string }>(
-      'SHOW INDEXES'
-    );
+    const indexes = await connection.executeRead<{ name: string }>('SHOW INDEXES');
     console.log(`  - Found ${indexes.length} indexes`);
 
-    // Verify required constraints exist
-    const requiredConstraints = [
-      'user_userId_unique',
-      'user_email_unique',
-      'scheme_schemeId_unique',
-      'usergroup_groupId_unique',
-      'nudge_nudgeId_unique',
-      'category_categoryId_unique',
+    // Verify required uniqueness constraints by semantic definition, not exact name.
+    // Different environments may use different constraint names (e.g. user_email vs user_email_unique).
+    const requiredUniquenessConstraints = [
+      { label: 'User', property: 'userId' },
+      { label: 'User', property: 'email' },
+      { label: 'Scheme', property: 'schemeId' },
+      { label: 'UserGroup', property: 'groupId' },
+      { label: 'Nudge', property: 'nudgeId' },
+      { label: 'Category', property: 'categoryId' },
     ];
 
-    const constraintNames = constraints.map((c) => c.name);
-    const missingConstraints = requiredConstraints.filter(
-      (name) => !constraintNames.includes(name)
-    );
+    const missingConstraints = requiredUniquenessConstraints.filter((required) => {
+      return !constraints.some((constraint) => {
+        const isUniqueness = (constraint.type || '').toUpperCase() === 'UNIQUENESS';
+        const labels = constraint.labelsOrTypes || [];
+        const properties = constraint.properties || [];
+        return (
+          isUniqueness && labels.includes(required.label) && properties.includes(required.property)
+        );
+      });
+    });
 
     if (missingConstraints.length > 0) {
-      console.error('  ✗ Missing required constraints:', missingConstraints);
+      const missingDescriptions = missingConstraints.map(
+        (constraint) => `${constraint.label}.${constraint.property}`
+      );
+      console.error('  ✗ Missing required constraints:', missingDescriptions);
       return false;
     }
 
