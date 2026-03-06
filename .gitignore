@@ -53,7 +53,15 @@ test-results/
 ml-pipeline/models/*.pkl
 ml-pipeline/models/*.pth
 ml-pipeline/models/*.bin
+ml-pipeline/models/*.xgb
+ml-pipeline/models/intent_classifier/
+ml-pipeline/models/recommendation_metrics.json
+ml-pipeline/models/recommendation_weights.json
+ml-pipeline/models/evaluation_report.json
 !ml-pipeline/models/.gitkeep
+
+# ML Training Data (generated)
+ml-pipeline/data/training/
 
 # Coverage artifacts
 .coverage
