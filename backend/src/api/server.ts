@@ -339,6 +339,54 @@ app.get('/api/debug/users', async (_req, res) => {
   });
 });
 
+// ─── ReAct Agent Chat Endpoint (New, experimental) ────────────────────────────
+app.post('/api/react-chat', async (req, res) => {
+  try {
+    const { message, conversationHistory = [] } = req.body;
+    console.log(`\n🤖 ReAct Chat: "${message}"`);
+
+    // Get user from token
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    const userId = token?.split('_').pop() || 'admin123';
+    const user = await neo4jService.getUserById(userId);
+
+    if (!user) {
+      return res.status(401).json({ error: 'User not found' });
+    }
+
+    // Extract profile updates from message
+    const extraction = ProfileExtractor.extract(message);
+    if (Object.keys(extraction.updates).length > 0) {
+      try {
+        await neo4jService.updateUserProfile(userId, extraction.updates);
+        console.log('✅ Profile auto-updated from message');
+      } catch (e) {
+        console.debug('Profile update skipped');
+      }
+    }
+
+    // Initialize tools if not already done
+    const { initializeTools, reactAgent } = await import('../agents');
+    initializeTools();
+
+    // Process with ReAct agent
+    const response = await reactAgent.process(message, userId, conversationHistory);
+
+    return res.json({
+      response: response.response,
+      thinking: response.thinking.map((t) => ({
+        type: t.type,
+        content: t.content,
+      })),
+      toolsUsed: response.actionsUsed.map((a) => a.toolName),
+      confidence: response.confidence,
+    });
+  } catch (error: any) {
+    console.error('ReAct chat error:', error);
+    return res.status(500).json({ error: 'Chat processing failed', details: error.message });
+  }
+});
+
 // Error handling middleware
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error('Error:', err);
