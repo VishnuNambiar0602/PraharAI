@@ -87,12 +87,12 @@ export class CheckEligibilityTool extends BaseTool {
         schemeName: scheme.name,
         userId,
         userName: user.name,
-        score: result.score,
-        percentage: result.percentage,
-        category: result.category,
-        metCriteria: result.met_criteria,
-        unmetCriteria: result.unmet_criteria,
-        explanation: result.explanation,
+        score: result!.score,
+        percentage: result!.percentage,
+        category: result!.category,
+        metCriteria: result!.met_criteria,
+        unmetCriteria: result!.unmet_criteria,
+        explanation: result!.explanation,
       };
     } catch (error) {
       console.error('Check eligibility error:', error);
@@ -175,7 +175,11 @@ export class CheckEligibilityTool extends BaseTool {
     };
   }
 
-  private generateExplanation(percentage: number, metCriteria: string[], category: string): string {
+  private generateExplanation(
+    percentage: number,
+    metCriteria: string[],
+    _category: string
+  ): string {
     if (percentage >= 80) {
       return `You appear highly eligible (${percentage}%). ${metCriteria.map((c) => c).join(', ')}.`;
     }

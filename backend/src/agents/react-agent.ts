@@ -1,6 +1,6 @@
 /**
  * ReAct Agent
- * 
+ *
  * Reasoning + Acting agent that can:
  * 1. Understand user intent
  * 2. Plan a sequence of actions
@@ -20,15 +20,12 @@ import {
 import { mlService } from '../services/ml.service';
 
 const MAX_ITERATIONS = 5; // Prevent infinite loops
-const THINKING_PREFIX = 'Thought:';
-const ACTION_PREFIX = 'Action:';
-const OBSERVATION_PREFIX = 'Observation:';
 
 /**
  * The ReAct Agent
  */
 class ReActAgent {
-  private systemPrompt = `You are Prahar AI, a helpful assistant that helps Indian citizens find government welfare schemes.
+  private _systemPrompt = `You are Prahar AI, a helpful assistant that helps Indian citizens find government welfare schemes.
 
 You have access to the following tools:
 ${toolRegistry.getToolDescriptions()}
@@ -80,7 +77,9 @@ Always think step-by-step. Use tools when needed. Be concise.`;
         }
 
         actions.push(action);
-        console.log(`⚡ Action: ${action.toolName}(${JSON.stringify(action.parameters).slice(0, 50)}...)`);
+        console.log(
+          `⚡ Action: ${action.toolName}(${JSON.stringify(action.parameters).slice(0, 50)}...)`
+        );
 
         // Execute the tool
         const toolResult = await this.executeTool(action.toolName, action.parameters);
@@ -89,11 +88,7 @@ Always think step-by-step. Use tools when needed. Be concise.`;
         const observation: AgentObservation = {
           toolName: action.toolName,
           result: toolResult,
-          interpretation: await this.interpretResult(
-            action.toolName,
-            toolResult,
-            message
-          ),
+          interpretation: await this.interpretResult(action.toolName, toolResult, message),
         };
         observations.push(observation);
 
@@ -150,9 +145,9 @@ Always think step-by-step. Use tools when needed. Be concise.`;
   private async generateThought(
     message: string,
     userId: string,
-    previousThoughts: AgentThought[],
-    observations: AgentObservation[],
-    conversationHistory: ChatMessage[]
+    _previousThoughts: AgentThought[],
+    _observations: AgentObservation[],
+    _conversationHistory: ChatMessage[]
   ): Promise<AgentThought> {
     // Try ML-based classification first
     const classification = await mlService.classify(message, userId);
@@ -203,7 +198,7 @@ Always think step-by-step. Use tools when needed. Be concise.`;
    */
   private async selectAction(
     message: string,
-    thoughts: AgentThought[],
+    _thoughts: AgentThought[],
     observations: AgentObservation[]
   ): Promise<AgentAction | null> {
     // If we already have enough observations, stop
@@ -248,10 +243,7 @@ Always think step-by-step. Use tools when needed. Be concise.`;
   /**
    * Execute a tool
    */
-  private async executeTool(
-    toolName: string,
-    params: Record<string, any>
-  ): Promise<any> {
+  private async executeTool(toolName: string, params: Record<string, any>): Promise<any> {
     const tool = toolRegistry.get(toolName);
 
     if (!tool) {
@@ -270,7 +262,7 @@ Always think step-by-step. Use tools when needed. Be concise.`;
   private async interpretResult(
     toolName: string,
     result: any,
-    userMessage: string
+    _userMessage: string
   ): Promise<string> {
     if (!result.success) {
       return `Tool "${toolName}" failed: ${result.error}`;
@@ -294,11 +286,11 @@ Always think step-by-step. Use tools when needed. Be concise.`;
    */
   private async generateFinalResponse(
     message: string,
-    thoughts: AgentThought[],
-    actions: AgentAction[],
+    _thoughts: AgentThought[],
+    _actions: AgentAction[],
     observations: AgentObservation[],
-    userId: string,
-    conversationHistory: ChatMessage[]
+    _userId: string,
+    _conversationHistory: ChatMessage[]
   ): Promise<string> {
     // If no observations (no tools were used), generate a simple response
     if (observations.length === 0) {
@@ -320,9 +312,9 @@ Always think step-by-step. Use tools when needed. Be concise.`;
   /**
    * Generate a simple response when no tools are used
    */
-  private generateSimpleResponse(message: string): string {
-    if (message.toLowerCase().includes('hello') || message.includes('hi')) {
-      return "I can help you find and apply for government schemes. What are you interested in?";
+  private generateSimpleResponse(_message: string): string {
+    if (_message.toLowerCase().includes('hello') || _message.includes('hi')) {
+      return 'I can help you find and apply for government schemes. What are you interested in?';
     }
     return 'What would you like to know about government schemes?';
   }
@@ -331,7 +323,7 @@ Always think step-by-step. Use tools when needed. Be concise.`;
    * Generate response based on tool results
    */
   private generateResponseFromContext(
-    message: string,
+    _message: string,
     context: string,
     observations: AgentObservation[]
   ): string {
@@ -380,7 +372,7 @@ Always think step-by-step. Use tools when needed. Be concise.`;
   /**
    * Calculate agent confidence based on actions and observations
    */
-  private calculateConfidence(actions: AgentAction[], observations: AgentObservation[]): number {
+  private calculateConfidence(_actions: AgentAction[], observations: AgentObservation[]): number {
     if (observations.length === 0) return 0.5; // No data yet
 
     const successCount = observations.filter((o) => o.result.success).length;

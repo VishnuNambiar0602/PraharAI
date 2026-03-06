@@ -264,7 +264,12 @@ class Neo4jDbService {
       'CREATE INDEX scheme_name IF NOT EXISTS FOR (s:Scheme) ON (s.name)',
       'CREATE INDEX scheme_state IF NOT EXISTS FOR (s:Scheme) ON (s.state)',
       'CREATE INDEX scheme_active IF NOT EXISTS FOR (s:Scheme) ON (s.is_active)',
+      'CREATE INDEX scheme_ministry IF NOT EXISTS FOR (s:Scheme) ON (s.ministry)',
       'CREATE INDEX category_type IF NOT EXISTS FOR (c:Category) ON (c.type)',
+      'CREATE INDEX category_type_value IF NOT EXISTS FOR (c:Category) ON (c.type, c.value)',
+      'CREATE INDEX user_state IF NOT EXISTS FOR (u:User) ON (u.state)',
+      'CREATE INDEX user_employment IF NOT EXISTS FOR (u:User) ON (u.employment)',
+      'CREATE INDEX user_state_employment IF NOT EXISTS FOR (u:User) ON (u.state, u.employment)',
     ];
     for (const idx of indexes) {
       try {
@@ -273,7 +278,19 @@ class Neo4jDbService {
         /* may already exist */
       }
     }
-    console.log('✅ Neo4j constraints and indexes ready');
+
+    // Full-text search index on scheme name, description, and tags
+    try {
+      await this.connection.executeWrite(
+        `CREATE FULLTEXT INDEX scheme_fulltext IF NOT EXISTS
+         FOR (s:Scheme)
+         ON EACH [s.name, s.description, s.tags]`
+      );
+    } catch {
+      /* may already exist */
+    }
+
+    console.log('✅ Neo4j constraints, indexes, and full-text search ready');
   }
 
   private async initializeDefaultUserGroups(): Promise<void> {
@@ -608,13 +625,82 @@ class Neo4jDbService {
     const cached = await redisService.get<SchemeRow[]>(cacheKey);
     if (cached) return cached;
 
-    const pattern = `(?i).*${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}.*`;
-    const rows = await this.connection.executeRead<any>(
-      `MATCH (s:Scheme)
-       WHERE s.name =~ $pattern OR s.description =~ $pattern OR s.tags =~ $pattern
-       RETURN s LIMIT $limit`,
-      { pattern, limit: limitInt }
-    );
+    let rows: any[];
+    try {
+      // Use full-text index for fast search (lucene query syntax)
+      const ftQuery = query.replace(/[+\-&|!(){}[\]^"~*?:\\/]/g, ' ').trim();
+      rows = await this.connection.executeRead<any>(
+        `CALL db.index.fulltext.queryNodes('scheme_fulltext', $query)
+         YIELD node AS s, score
+         RETURN s ORDER BY score DESC LIMIT $limit`,
+        { query: `${ftQuery}~`, limit: limitInt }
+      );
+    } catch {
+      // Fallback: regex search if full-text index not available
+      const pattern = `(?i).*${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}.*`;
+      rows = await this.connection.executeRead<any>(
+        `MATCH (s:Scheme)
+         WHERE s.name =~ $pattern OR s.description =~ $pattern OR s.tags =~ $pattern
+         RETURN s LIMIT $limit`,
+        { pattern, limit: limitInt }
+      );
+    }
+    const result = rows.map((r: any) => this.nodeToSchemeRow(r.s));
+    await redisService.set(cacheKey, result, 300);
+    return result;
+  }
+
+  /**
+   * Search schemes with optional state filter (used by agent tools)
+   */
+  async searchSchemesWithFilter(query: string, state?: string, limit = 20): Promise<SchemeRow[]> {
+    const limitInt = Math.floor(Number(limit));
+    if (!query) return this.getAllSchemes(limitInt);
+
+    const cacheKey = `schemes:search:${query}:${state || 'all'}:${limitInt}`;
+    const cached = await redisService.get<SchemeRow[]>(cacheKey);
+    if (cached) return cached;
+
+    let rows: any[];
+    try {
+      const ftQuery = query.replace(/[+\-&|!(){}[\]^"~*?:\\/]/g, ' ').trim();
+      if (state) {
+        rows = await this.connection.executeRead<any>(
+          `CALL db.index.fulltext.queryNodes('scheme_fulltext', $query)
+           YIELD node AS s, score
+           WHERE s.state = $state OR s.state IS NULL OR s.state = ''
+           RETURN s ORDER BY score DESC LIMIT $limit`,
+          { query: `${ftQuery}~`, state, limit: limitInt }
+        );
+      } else {
+        rows = await this.connection.executeRead<any>(
+          `CALL db.index.fulltext.queryNodes('scheme_fulltext', $query)
+           YIELD node AS s, score
+           RETURN s ORDER BY score DESC LIMIT $limit`,
+          { query: `${ftQuery}~`, limit: limitInt }
+        );
+      }
+    } catch {
+      // Fallback: regex search
+      const pattern = `(?i).*${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}.*`;
+      if (state) {
+        rows = await this.connection.executeRead<any>(
+          `MATCH (s:Scheme)
+           WHERE (s.name =~ $pattern OR s.description =~ $pattern OR s.tags =~ $pattern)
+             AND (s.state = $state OR s.state IS NULL OR s.state = '')
+           RETURN s LIMIT $limit`,
+          { pattern, state, limit: limitInt }
+        );
+      } else {
+        rows = await this.connection.executeRead<any>(
+          `MATCH (s:Scheme)
+           WHERE s.name =~ $pattern OR s.description =~ $pattern OR s.tags =~ $pattern
+           RETURN s LIMIT $limit`,
+          { pattern, limit: limitInt }
+        );
+      }
+    }
+
     const result = rows.map((r: any) => this.nodeToSchemeRow(r.s));
     await redisService.set(cacheKey, result, 300);
     return result;
@@ -629,12 +715,14 @@ class Neo4jDbService {
     if (cached) return cached;
 
     const cats = categories.map((c) => ({ type: c.type, value: c.value }));
+    // Rank schemes by number of matching categories (more matches = better)
     const rows = await this.connection.executeRead<any>(
       `UNWIND $cats AS cat
        MATCH (c:Category)
        WHERE c.type = cat.type AND (c.value = cat.value OR c.value = 'Any')
        MATCH (s:Scheme)-[:HAS_CATEGORY]->(c)
-       RETURN DISTINCT s
+       WITH s, count(DISTINCT c) AS matchCount
+       RETURN s ORDER BY matchCount DESC
        LIMIT $limit`,
       { cats, limit: limitInt }
     );
@@ -658,15 +746,27 @@ class Neo4jDbService {
     return categories;
   }
 
-  /** Graph traversal: find schemes for a user via UserGroup relationships */
+  /** Graph traversal: find schemes for a user via UserGroup + Category relationships */
   async findSchemesForUser(userId: string, limit = 20): Promise<SchemeRow[]> {
     const limitInt = Math.floor(Number(limit));
+    const cacheKey = `schemes:user:${userId}:${limitInt}`;
+    const cached = await redisService.get<SchemeRow[]>(cacheKey);
+    if (cached) return cached;
+
+    // Combine both UserGroup-based and Category-based matching, ranked by relevance
     const rows = await this.connection.executeRead<any>(
-      `MATCH (u:User { user_id: $userId })-[:BELONGS_TO]->(ug:UserGroup)<-[:TARGETS]-(s:Scheme)
+      `MATCH (u:User { user_id: $userId })
+       OPTIONAL MATCH (u)-[:BELONGS_TO]->(ug:UserGroup)<-[:TARGETS]-(s1:Scheme)
+       OPTIONAL MATCH (u)-[:HAS_CATEGORY]->(c:Category)<-[:HAS_CATEGORY]-(s2:Scheme)
+       WITH collect(DISTINCT s1) + collect(DISTINCT s2) AS allSchemes
+       UNWIND allSchemes AS s
+       WITH s WHERE s IS NOT NULL
        RETURN DISTINCT s LIMIT $limit`,
       { userId, limit: limitInt }
     );
-    return rows.map((r: any) => this.nodeToSchemeRow(r.s));
+    const result = rows.map((r: any) => this.nodeToSchemeRow(r.s));
+    await redisService.set(cacheKey, result, 300);
+    return result;
   }
 
   // ─── Conversion helpers ─────────────────────────────────────────────────────
@@ -757,7 +857,7 @@ class Neo4jDbService {
     );
     if (rows.length === 0) return undefined;
     const user = this.nodeToUser(rows[0].u);
-    await redisService.set(cacheKey, user, 120);
+    await redisService.set(cacheKey, user, 300);
     return user;
   }
 
@@ -802,8 +902,8 @@ class Neo4jDbService {
     }
 
     await redisService.del(`user:${userId}`);
+    await redisService.delPattern(`schemes:user:${userId}:*`);
   }
-
   /** Auto-assign a user to UserGroups based on profile */
   private async autoAssignUserToGroups(userId: string, profile: any): Promise<void> {
     // Clear old relationships
@@ -909,18 +1009,17 @@ class Neo4jDbService {
     matchedCategories: string[];
     score: number;
   }> {
+    // Single query that checks both Category and UserGroup matches
     const rows = await this.connection.executeRead<any>(
-      `MATCH (u:User { user_id: $userId })-[:HAS_CATEGORY]->(c:Category)<-[:HAS_CATEGORY]-(s:Scheme { scheme_id: $schemeId })
-       RETURN collect(DISTINCT c.type + ': ' + c.value) AS matched`,
+      `MATCH (u:User { user_id: $userId }), (s:Scheme { scheme_id: $schemeId })
+       OPTIONAL MATCH (u)-[:HAS_CATEGORY]->(c:Category)<-[:HAS_CATEGORY]-(s)
+       WITH u, s, collect(DISTINCT c.type + ': ' + c.value) AS matched
+       OPTIONAL MATCH (u)-[:BELONGS_TO]->(ug:UserGroup)<-[:TARGETS]-(s)
+       RETURN matched, count(DISTINCT ug) AS ugMatches`,
       { userId, schemeId }
     );
-    const matched: string[] = rows[0]?.matched || [];
-    const ugRows = await this.connection.executeRead<any>(
-      `MATCH (u:User { user_id: $userId })-[:BELONGS_TO]->(ug:UserGroup)<-[:TARGETS]-(s:Scheme { scheme_id: $schemeId })
-       RETURN count(DISTINCT ug) AS ugMatches`,
-      { userId, schemeId }
-    );
-    const ugMatches = Number(ugRows[0]?.ugMatches) || 0;
+    const matched: string[] = (rows[0]?.matched || []).filter((m: string) => m !== 'null: null');
+    const ugMatches = Number(rows[0]?.ugMatches) || 0;
     const score = Math.min(100, matched.length * 15 + ugMatches * 20);
     return { eligible: score > 30, matchedCategories: matched, score };
   }

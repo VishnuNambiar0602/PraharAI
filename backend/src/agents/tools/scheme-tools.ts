@@ -51,34 +51,15 @@ export class SearchSchemesTool extends BaseTool {
     );
 
     try {
-      // Get all schemes and filter in memory (Neo4j doesn't have great full-text search)
-      // In production, you'd use Elasticsearch or Neo4j search plugins
-      const allSchemes = await neo4jService.getAllSchemes(limit * 3);
+      // Use optimized full-text search with optional state filter
+      const schemes = await neo4jService.searchSchemesWithFilter(query, state, limit);
 
-      const queryLower = query.toLowerCase();
-      const filtered = allSchemes.filter((scheme) => {
-        // Match query in name or description
-        const nameMatch = scheme.name.toLowerCase().includes(queryLower);
-        const descMatch = (scheme.description || '').toLowerCase().includes(queryLower);
-        const tagsMatch = (scheme.tags || '').toLowerCase().includes(queryLower);
-
-        if (!nameMatch && !descMatch && !tagsMatch) return false;
-
-        // Filter by state if specified
-        if (state && scheme.state && scheme.state.toLowerCase() !== state.toLowerCase()) {
-          return false;
-        }
-
-        return true;
-      });
-
-      const results = filtered.slice(0, limit).map((scheme) => ({
+      const results = schemes.map((scheme) => ({
         id: scheme.scheme_id,
         name: scheme.name,
         ministry: scheme.ministry,
         state: scheme.state || 'All-India',
-        description: (scheme.description || '').slice(0, 150) + '...', // Truncate
-        tags: (scheme.tags || '').split(',')[0], // First tag only
+        description: (scheme.description || '').slice(0, 150) + '...',
         url: scheme.scheme_url,
       }));
 
@@ -144,11 +125,8 @@ export class GetSchemeDetailsTool extends BaseTool {
         ministry: scheme.ministry,
         state: scheme.state || 'All-India',
         description: scheme.description,
-        benefits: scheme.benefits || 'See official website for details',
-        eligibility: scheme.eligibility || 'See official website for details',
-        applicationProcess: scheme.application_process || 'See official website for details',
         applicationUrl: scheme.scheme_url,
-        lastUpdated: scheme.last_sync_at || null,
+        lastUpdated: scheme.last_updated || null,
         categories: categories,
         tags: tags,
       };
