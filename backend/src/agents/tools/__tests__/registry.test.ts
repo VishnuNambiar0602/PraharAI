@@ -2,8 +2,8 @@
  * Tests for Tools Registry and Base Tool
  */
 
-import { toolRegistry, BaseTool } from '../tools';
-import { ParameterDefinition, ToolResult } from '../tools/types';
+import { toolRegistry, BaseTool } from '..';
+import { ParameterDefinition } from '../types';
 
 // Mock tool for testing
 class MockTool extends BaseTool {

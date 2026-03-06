@@ -54,7 +54,7 @@ class ReActAgent {
   async process(
     message: string,
     userId: string,
-    conversationHistory: ChatMessage[] = []
+    _conversationHistory: ChatMessage[] = []
   ): Promise<AgentResponse> {
     console.log(`\n🤖 ReAct Agent processing: "${message}"`);
 
