@@ -243,7 +243,10 @@ export default function SchemeExplorer({ onSchemeSelect }: SchemeExplorerProps =
                     if (onSchemeSelect) onSchemeSelect(scheme);
                   }}
                   onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLElement).style.boxShadow = '0 8px 24px rgba(26,18,8,0.12), 0 2px 6px rgba(26,18,8,0.06)';
+                    const dark = document.documentElement.classList.contains('dark');
+                    (e.currentTarget as HTMLElement).style.boxShadow = dark
+                      ? '0 1px 0 rgba(255,255,255,0.04), 0 18px 30px rgba(0,0,0,0.42)'
+                      : '0 8px 24px rgba(26,18,8,0.12), 0 2px 6px rgba(26,18,8,0.06)';
                     (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)';
                   }}
                   onMouseLeave={(e) => {

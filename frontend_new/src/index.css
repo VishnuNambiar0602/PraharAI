@@ -332,6 +332,23 @@ html.dark .card-elevated {
   background: rgba(255,255,255,0.2);
   border-color: rgba(255,255,255,0.45);
 }
+html.dark .btn-outline-white {
+  background: rgba(255,255,255,0.07);
+  color: rgba(245,245,247,0.92);
+  border-color: rgba(255,255,255,0.2);
+}
+html.dark .btn-outline-white:hover {
+  background: rgba(255,255,255,0.13);
+  border-color: rgba(255,255,255,0.34);
+}
+html.dark .btn-ghost {
+  color: var(--color-ink);
+  border-color: var(--color-border-dark);
+}
+html.dark .btn-ghost:hover {
+  background: var(--color-surface-2);
+  border-color: var(--color-muted);
+}
 
 /* ── Input base ── */
 .input-base {
@@ -378,30 +395,6 @@ html.dark .card-elevated {
   background: var(--color-success-50);
   color: var(--color-success);
   border: 1px solid var(--color-success-100);
-}
-
-/* ── Form input base ── */
-.input-base {
-  @apply w-full bg-parchment border border-border rounded-lg px-4 py-3 text-sm 
-         text-ink placeholder:text-muted focus:outline-none focus:ring-2 
-         focus:ring-primary/30 focus:border-primary-600 transition-colors;
-}
-
-/* ── Button variants ── */
-.btn-primary {
-  @apply inline-flex items-center justify-center gap-2 bg-accent text-white 
-         font-semibold rounded-lg px-5 py-2.5 text-sm transition-all 
-         hover:bg-accent-700 active:scale-95 disabled:opacity-50 disabled:pointer-events-none;
-}
-.btn-ghost {
-  @apply inline-flex items-center justify-center gap-2 text-primary font-semibold 
-         rounded-lg px-5 py-2.5 text-sm transition-all hover:bg-primary-50 
-         active:scale-95 border border-primary/20;
-}
-.btn-navy {
-  @apply inline-flex items-center justify-center gap-2 bg-primary text-white 
-         font-semibold rounded-lg px-5 py-2.5 text-sm transition-all 
-         hover:bg-primary-800 active:scale-95 disabled:opacity-50 disabled:pointer-events-none;
 }
 
 /* ── Smooth theme transition ── */
