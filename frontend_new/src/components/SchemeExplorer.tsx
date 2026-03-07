@@ -204,7 +204,7 @@ export default function SchemeExplorer({ onSchemeSelect }: SchemeExplorerProps =
         )}
 
         {!loading && error && (
-          <div className="card p-5 flex items-center gap-3 text-red-700 border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-400/40 dark:text-red-300">
+          <div className="card p-5 flex items-center gap-3 text-red-700 border-red-200 bg-red-50">
             <AlertCircle className="size-5 shrink-0" />
             <p className="text-sm flex-1">{error}</p>
             <button

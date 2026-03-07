@@ -40,7 +40,7 @@ export default function PartnerPortal() {
               </div>
             </div>
           </div>
-          <button className="p-2 text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors relative">
+          <button className="p-2 text-slate-600 hover:bg-slate-100 rounded-full transition-colors relative">
             <Bell className="size-6" />
             <span className="absolute top-2 right-2 h-2 w-2 bg-red-500 rounded-full border-2 border-parchment" />
           </button>
