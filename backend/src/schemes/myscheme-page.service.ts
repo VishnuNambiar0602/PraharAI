@@ -1,8 +1,10 @@
 /**
  * MyScheme page enrichment service.
  *
- * Discovers the page API base URL + x-api-key from one scheme page chunk,
- * then fetches per-scheme detail data by slug for enrichment.
+ * Scrapes scheme detail pages from MyScheme.gov.in to extract:
+ * - Title, ministry, description
+ * - Eligibility criteria
+ * - Benefits information
  */
 
 type BasicScheme = {
@@ -33,13 +35,12 @@ type PageApiConfig = {
 
 class MySchemePageService {
   private readonly PAGE_BASE = 'https://www.myscheme.gov.in/schemes/';
-  private readonly USER_AGENT = 'Mozilla/5.0';
+  private readonly USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36';
   private readonly LANG = 'en';
   private readonly MAX_CONCURRENCY = Math.max(
     1,
     Number(process.env.SCHEME_ENRICH_CONCURRENCY || 6)
   );
-
   private cachedConfig: PageApiConfig | null = null;
 
   private stripHtml(input: string): string {
@@ -93,23 +94,31 @@ class MySchemePageService {
 
     try {
       const pageUrl = `${this.PAGE_BASE}${seedSlug}`;
-      const html = await (
-        await fetch(pageUrl, { headers: { 'user-agent': this.USER_AGENT } })
-      ).text();
+      const pageResponse = await fetch(pageUrl, { headers: { 'user-agent': this.USER_AGENT } });
+      if (!pageResponse.ok) {
+        return null;
+      }
+      const html = await pageResponse.text();
 
       const chunkUrl = this.extractChunkUrlFromHtml(html);
-      if (!chunkUrl) return null;
+      if (!chunkUrl) {
+        return null;
+      }
 
-      const chunkJs = await (
-        await fetch(chunkUrl, { headers: { 'user-agent': this.USER_AGENT } })
-      ).text();
+      const chunkResponse = await fetch(chunkUrl, { headers: { 'user-agent': this.USER_AGENT } });
+      if (!chunkResponse.ok) {
+        return null;
+      }
+      const chunkJs = await chunkResponse.text();
 
       const config = this.extractApiConfigFromChunk(chunkJs);
-      if (!config) return null;
+      if (!config) {
+        return null;
+      }
 
       this.cachedConfig = config;
       return config;
-    } catch {
+    } catch (err) {
       return null;
     }
   }
@@ -211,9 +220,20 @@ class MySchemePageService {
   async enrichSchemes(schemes: BasicScheme[]): Promise<EnrichedScheme[]> {
     if (!schemes.length) return [];
 
-    const config = await this.discoverApiConfig(schemes[0].schemeId);
+    // Try discovery with first 10 schemes (some may not have MyScheme pages)
+    const maxDiscoveryAttempts = Math.min(10, schemes.length);
+    let config: PageApiConfig | null = null;
+    
+    for (let i = 0; i < maxDiscoveryAttempts; i++) {
+      config = await this.discoverApiConfig(schemes[i].schemeId);
+      if (config) {
+        console.log(`✅ API config discovered using scheme #${i + 1}: ${schemes[i].schemeId}`);
+        break;
+      }
+    }
+
     if (!config) {
-      console.warn('⚠️  Could not discover MyScheme page API config; skipping page enrichment.');
+      console.warn(`⚠️  Could not discover MyScheme page API config after ${maxDiscoveryAttempts} attempts; skipping page enrichment.`);
       return schemes;
     }
 
@@ -229,7 +249,7 @@ class MySchemePageService {
         index += 1;
         if (i >= schemes.length) break;
 
-        const result = await this.enrichOneWithStats(schemes[i], config, errorStats);
+        const result = await this.enrichOneWithStats(schemes[i], config!, errorStats);
         results[i] = result;
       }
     };
