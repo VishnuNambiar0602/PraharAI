@@ -37,11 +37,46 @@ class MySchemePageService {
   private readonly PAGE_BASE = 'https://www.myscheme.gov.in/schemes/';
   private readonly USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36';
   private readonly LANG = 'en';
+  private readonly MAX_RETRIES = Math.max(0, Number(process.env.SCHEME_ENRICH_MAX_RETRIES || 3));
+  private readonly RETRY_BASE_DELAY_MS = Math.max(
+    100,
+    Number(process.env.SCHEME_ENRICH_RETRY_BASE_MS || 400)
+  );
   private readonly MAX_CONCURRENCY = Math.max(
     1,
-    Number(process.env.SCHEME_ENRICH_CONCURRENCY || 6)
+    Number(process.env.SCHEME_ENRICH_CONCURRENCY || 3)
   );
   private cachedConfig: PageApiConfig | null = null;
+
+  private async delay(ms: number): Promise<void> {
+    await new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  private async fetchWithRetry(url: string, config: PageApiConfig): Promise<Response> {
+    let attempt = 0;
+    while (true) {
+      const response = await fetch(url, {
+        headers: {
+          'x-api-key': config.apiKey,
+          'user-agent': this.USER_AGENT,
+        },
+      });
+
+      if (response.status !== 429 || attempt >= this.MAX_RETRIES) {
+        return response;
+      }
+
+      const retryAfterHeader = response.headers.get('retry-after');
+      const retryAfterSeconds = retryAfterHeader ? Number(retryAfterHeader) : 0;
+      const backoffMs =
+        retryAfterSeconds > 0
+          ? retryAfterSeconds * 1000
+          : this.RETRY_BASE_DELAY_MS * Math.pow(2, attempt) + Math.floor(Math.random() * 250);
+
+      await this.delay(backoffMs);
+      attempt += 1;
+    }
+  }
 
   private stripHtml(input: string): string {
     return String(input || '')
@@ -163,12 +198,7 @@ class MySchemePageService {
 
     try {
       const url = `${config.apiBaseUrl}?slug=${encodeURIComponent(scheme.schemeId)}&lang=${this.LANG}`;
-      const response = await fetch(url, {
-        headers: {
-          'x-api-key': config.apiKey,
-          'user-agent': this.USER_AGENT,
-        },
-      });
+      const response = await this.fetchWithRetry(url, config);
 
       if (!response.ok) {
         trackError(`HTTP ${response.status}`);
@@ -223,7 +253,7 @@ class MySchemePageService {
     // Try discovery with first 10 schemes (some may not have MyScheme pages)
     const maxDiscoveryAttempts = Math.min(10, schemes.length);
     let config: PageApiConfig | null = null;
-    
+
     for (let i = 0; i < maxDiscoveryAttempts; i++) {
       config = await this.discoverApiConfig(schemes[i].schemeId);
       if (config) {
@@ -233,7 +263,9 @@ class MySchemePageService {
     }
 
     if (!config) {
-      console.warn(`⚠️  Could not discover MyScheme page API config after ${maxDiscoveryAttempts} attempts; skipping page enrichment.`);
+      console.warn(
+        `⚠️  Could not discover MyScheme page API config after ${maxDiscoveryAttempts} attempts; skipping page enrichment.`
+      );
       return schemes;
     }
 

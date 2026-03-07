@@ -72,7 +72,9 @@ export async function fetchSchemes(params?: Record<string, string> | string, lim
   if (typeof params === 'string') {
     if (params) urlParams.set('q', params);
   } else if (params) {
-    Object.entries(params).forEach(([k, v]) => { if (v) urlParams.set(k, v); });
+    Object.entries(params).forEach(([k, v]) => {
+      if (v) urlParams.set(k, v);
+    });
   }
   urlParams.set('limit', String(limit));
 
@@ -81,6 +83,36 @@ export async function fetchSchemes(params?: Record<string, string> | string, lim
   });
   if (!res.ok) throw new Error('Failed to fetch schemes');
   return res.json(); // array of { id, title, description, category, benefits, eligibility }
+}
+
+export async function fetchSchemesPage(
+  params?: Record<string, string> | string,
+  page = 1,
+  limit = 12
+) {
+  const urlParams = new URLSearchParams();
+  if (typeof params === 'string') {
+    if (params) urlParams.set('q', params);
+  } else if (params) {
+    Object.entries(params).forEach(([k, v]) => {
+      if (v) urlParams.set(k, v);
+    });
+  }
+  urlParams.set('page', String(page));
+  urlParams.set('limit', String(limit));
+  urlParams.set('paginated', 'true');
+
+  const res = await fetch(`${API_BASE}/schemes?${urlParams}`, {
+    headers: { ...authHeaders() },
+  });
+  if (!res.ok) throw new Error('Failed to fetch schemes');
+  return res.json() as Promise<{
+    items: Array<Record<string, any>>;
+    total: number;
+    page: number;
+    pageSize: number;
+    totalPages: number;
+  }>;
 }
 
 export async function fetchSchemeById(id: string) {

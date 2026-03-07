@@ -16,30 +16,46 @@ export class SchemesController {
    */
   async getSchemes(req: Request, res: Response) {
     try {
-      const { q, limit = '20' } = req.query;
-      const limitNum = Math.floor(Number(limit) || 20);
+      const { q, limit = '20', page = '1' } = req.query;
+      const limitNum = Math.min(100, Math.max(1, Math.floor(Number(limit) || 20)));
+      const pageNum = Math.max(1, Math.floor(Number(page) || 1));
+      const offset = (pageNum - 1) * limitNum;
+      const query = typeof q === 'string' ? q.trim() : '';
+      const wantsPaginated = req.query.paginated === 'true' || req.query.page !== undefined;
+
+      const mapScheme = (s: any) => ({
+        id: s.schemeId,
+        title: s.name,
+        description: s.description || 'No description available',
+        category: s.rawCategory || s.categories?.[0]?.type || 'General',
+        benefits: s.ministry || 'Government of India',
+        eligibility: s.tags?.join(', ') || 'Check official website',
+        applicationUrl: s.schemeUrl ?? `https://www.myscheme.gov.in/schemes/${s.schemeId}`,
+      });
 
       try {
-        const schemes = q
-          ? await similarityAgent.searchSchemes(q as string, limitNum)
-          : await similarityAgent.searchSchemes('', limitNum);
+        const [schemes, total] = await Promise.all([
+          similarityAgent.searchSchemes(query, limitNum, offset),
+          neo4jService.countSearchSchemes(query),
+        ]);
 
-        res.json(
-          schemes.map((s: any) => ({
-            id: s.schemeId,
-            title: s.name,
-            description: s.description || 'No description available',
-            category: s.rawCategory || s.categories?.[0]?.type || 'General',
-            benefits: s.ministry || 'Government of India',
-            eligibility: s.tags?.join(', ') || 'Check official website',
-            applicationUrl: s.schemeUrl ?? `https://www.myscheme.gov.in/schemes/${s.schemeId}`,
-          }))
-        );
+        const mapped = schemes.map(mapScheme);
+        if (!wantsPaginated) {
+          return res.json(mapped);
+        }
+
+        return res.json({
+          items: mapped,
+          total,
+          page: pageNum,
+          pageSize: limitNum,
+          totalPages: Math.max(1, Math.ceil(total / limitNum)),
+        });
       } catch (dbError) {
         console.log('Neo4j not ready, using sample data');
         let schemes = sampleSchemes as any[];
-        if (q) {
-          const lq = q.toString().toLowerCase();
+        if (query) {
+          const lq = query.toLowerCase();
           schemes = schemes.filter(
             (s) =>
               s.name.toLowerCase().includes(lq) ||
@@ -47,20 +63,34 @@ export class SchemesController {
               s.tags?.some((t: string) => t.toLowerCase().includes(lq))
           );
         }
-        res.json(
-          schemes.slice(0, limitNum).map((s) => ({
-            id: s.schemeId,
-            title: s.name,
-            description: s.description || 'No description available',
-            category: Array.isArray(s.category) ? s.category[0] : s.category || 'General',
-            benefits: s.ministry || 'Government of India',
-            eligibility: Array.isArray(s.tags) ? s.tags.join(', ') : 'Check official website',
-          }))
-        );
+
+        const total = schemes.length;
+        const pageSlice = schemes.slice(offset, offset + limitNum);
+        const mapped = pageSlice.map((s) => ({
+          id: s.schemeId,
+          title: s.name,
+          description: s.description || 'No description available',
+          category: Array.isArray(s.category) ? s.category[0] : s.category || 'General',
+          benefits: s.ministry || 'Government of India',
+          eligibility: Array.isArray(s.tags) ? s.tags.join(', ') : 'Check official website',
+          applicationUrl: `https://www.myscheme.gov.in/schemes/${s.schemeId}`,
+        }));
+
+        if (!wantsPaginated) {
+          return res.json(mapped);
+        }
+
+        return res.json({
+          items: mapped,
+          total,
+          page: pageNum,
+          pageSize: limitNum,
+          totalPages: Math.max(1, Math.ceil(total / limitNum)),
+        });
       }
     } catch (error: any) {
       console.error('Error in getSchemes:', error);
-      res.status(500).json({ error: 'Failed to fetch schemes', details: error.message });
+      return res.status(500).json({ error: 'Failed to fetch schemes', details: error.message });
     }
   }
 

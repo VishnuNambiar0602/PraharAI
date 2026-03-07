@@ -750,15 +750,21 @@ class Neo4jDbService {
     return cnt;
   }
 
-  async getAllSchemes(limit = 5000): Promise<SchemeRow[]> {
+  async getAllSchemes(limit = 5000, offset = 0): Promise<SchemeRow[]> {
     const limitInt = Math.floor(Number(limit));
-    const cacheKey = `schemes:all:${limitInt}`;
+    const offsetInt = Math.max(0, Math.floor(Number(offset) || 0));
+    const cacheKey = `schemes:all:${offsetInt}:${limitInt}`;
     const cached = await redisService.get<SchemeRow[]>(cacheKey);
     if (cached) return cached;
 
     const rows = await this.connection.executeRead<any>(
-      'MATCH (s:Scheme) RETURN s LIMIT toInteger($limit)',
+      `MATCH (s:Scheme)
+       RETURN s
+       ORDER BY toLower(s.name), s.scheme_id
+       SKIP toInteger($offset)
+       LIMIT toInteger($limit)`,
       {
+        offset: offsetInt,
         limit: limitInt,
       }
     );
@@ -782,11 +788,12 @@ class Neo4jDbService {
     return row;
   }
 
-  async searchSchemes(query: string, limit = 20): Promise<SchemeRow[]> {
+  async searchSchemes(query: string, limit = 20, offset = 0): Promise<SchemeRow[]> {
     const limitInt = Math.floor(Number(limit));
-    if (!query) return this.getAllSchemes(limitInt);
+    const offsetInt = Math.max(0, Math.floor(Number(offset) || 0));
+    if (!query) return this.getAllSchemes(limitInt, offsetInt);
 
-    const cacheKey = `schemes:search:${query}:${limitInt}`;
+    const cacheKey = `schemes:search:${query}:${offsetInt}:${limitInt}`;
     const cached = await redisService.get<SchemeRow[]>(cacheKey);
     if (cached) return cached;
 
@@ -797,8 +804,10 @@ class Neo4jDbService {
       rows = await this.connection.executeRead<any>(
         `CALL db.index.fulltext.queryNodes('scheme_fulltext', $query)
          YIELD node AS s, score
-         RETURN s ORDER BY score DESC LIMIT toInteger($limit)`,
-        { query: `${ftQuery}~`, limit: limitInt }
+         RETURN s ORDER BY score DESC, toLower(s.name)
+         SKIP toInteger($offset)
+         LIMIT toInteger($limit)`,
+        { query: `${ftQuery}~`, offset: offsetInt, limit: limitInt }
       );
     } catch {
       // Fallback: regex search if full-text index not available
@@ -806,13 +815,49 @@ class Neo4jDbService {
       rows = await this.connection.executeRead<any>(
         `MATCH (s:Scheme)
          WHERE s.name =~ $pattern OR s.description =~ $pattern OR s.tags =~ $pattern
-         RETURN s LIMIT toInteger($limit)`,
-        { pattern, limit: limitInt }
+         RETURN s
+         ORDER BY toLower(s.name), s.scheme_id
+         SKIP toInteger($offset)
+         LIMIT toInteger($limit)`,
+        { pattern, offset: offsetInt, limit: limitInt }
       );
     }
     const result = rows.map((r: any) => this.nodeToSchemeRow(r.s));
     await redisService.set(cacheKey, result, CacheTTL.SCHEME_SEARCH);
     return result;
+  }
+
+  async countSearchSchemes(query: string): Promise<number> {
+    const normalized = (query || '').trim();
+    if (!normalized) return this.getSchemeCount();
+
+    const cacheKey = `schemes:search_count:${normalized}`;
+    const cached = await redisService.get<number>(cacheKey);
+    if (cached != null) return cached;
+
+    let count = 0;
+    try {
+      const ftQuery = normalized.replace(/[+\-&|!(){}[\]^"~*?:\\/]/g, ' ').trim();
+      const rows = await this.connection.executeRead<{ cnt: number }>(
+        `CALL db.index.fulltext.queryNodes('scheme_fulltext', $query)
+         YIELD node AS s
+         RETURN count(s) AS cnt`,
+        { query: `${ftQuery}~` }
+      );
+      count = Number(rows[0]?.cnt) || 0;
+    } catch {
+      const pattern = `(?i).*${normalized.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}.*`;
+      const rows = await this.connection.executeRead<{ cnt: number }>(
+        `MATCH (s:Scheme)
+         WHERE s.name =~ $pattern OR s.description =~ $pattern OR s.tags =~ $pattern
+         RETURN count(s) AS cnt`,
+        { pattern }
+      );
+      count = Number(rows[0]?.cnt) || 0;
+    }
+
+    await redisService.set(cacheKey, count, CacheTTL.CATEGORIES);
+    return count;
   }
 
   /**
