@@ -44,19 +44,14 @@ class SimilarityAgent {
   /**
    * Find matching schemes for a user profile
    */
-  async findMatchingSchemes(
-    profile: UserProfile,
-    limit: number = 20
-  ): Promise<SchemeMatch[]> {
+  async findMatchingSchemes(profile: UserProfile, limit: number = 20): Promise<SchemeMatch[]> {
     try {
       console.log(`🔍 Finding schemes for user ${profile.userId}`);
 
       const categoryFilters = this.buildCategoryFilters(profile);
       const rows = await this.findSchemesByCategories(categoryFilters, limit * 3);
 
-      const matches = rows.map((row) =>
-        this.calculateMatch(row, profile, categoryFilters)
-      );
+      const matches = rows.map((row) => this.calculateMatch(row, profile, categoryFilters));
 
       matches.sort((a, b) => b.eligibilityScore - a.eligibilityScore);
       const topMatches = matches.slice(0, limit);
@@ -65,9 +60,13 @@ class SimilarityAgent {
       try {
         const mlAvailable = await mlService.isAvailable();
         if (mlAvailable) {
-          const schemesForML = topMatches.map(m => ({
-            id: m.schemeId, name: m.name, description: m.description,
-            tags: m.tags, state: m.state, ministry: m.ministry,
+          const schemesForML = topMatches.map((m) => ({
+            id: m.schemeId,
+            name: m.name,
+            description: m.description,
+            tags: m.tags,
+            state: m.state,
+            ministry: m.ministry,
           }));
           const mlResult = await mlService.recommend(profile as any, schemesForML, limit);
           if (mlResult && mlResult.recommendations.length > 0) {
@@ -76,10 +75,12 @@ class SimilarityAgent {
               const id = r.id || r.schemeId || '';
               mlScores.set(id, mlResult.recommendations.length - idx);
             });
-            topMatches.forEach(m => {
+            topMatches.forEach((m) => {
               const mlScore = mlScores.get(m.schemeId);
               if (mlScore !== undefined) {
-                m.eligibilityScore = Math.round(m.eligibilityScore * 0.6 + (mlScore / limit) * 100 * 0.4);
+                m.eligibilityScore = Math.round(
+                  m.eligibilityScore * 0.6 + (mlScore / limit) * 100 * 0.4
+                );
               }
             });
             topMatches.sort((a, b) => b.eligibilityScore - a.eligibilityScore);
@@ -105,7 +106,8 @@ class SimilarityAgent {
     if (profile.employment) filters.push({ type: 'Employment', value: profile.employment });
     if (profile.income) filters.push({ type: 'Income', value: profile.income });
     if (profile.locality) filters.push({ type: 'Locality', value: profile.locality });
-    if (profile.socialCategory) filters.push({ type: 'SocialCategory', value: profile.socialCategory });
+    if (profile.socialCategory)
+      filters.push({ type: 'SocialCategory', value: profile.socialCategory });
     if (profile.education) filters.push({ type: 'Education', value: profile.education });
     if (profile.povertyLine) filters.push({ type: 'PovertyLine', value: profile.povertyLine });
     return filters;
@@ -147,7 +149,8 @@ class SimilarityAgent {
       }
     }
 
-    const similarityScore = userCategories.length > 0 ? categoryMatches / userCategories.length : 0.5;
+    const similarityScore =
+      userCategories.length > 0 ? categoryMatches / userCategories.length : 0.5;
     let eligibilityScore = similarityScore * 100;
 
     if (profile.state && row.state === profile.state) {
@@ -198,17 +201,14 @@ class SimilarityAgent {
   /**
    * Generate explanation for the match
    */
-  private generateExplanation(
-    matchedCategories: string[],
-    score: number,
-    scheme: any
-  ): string {
+  private generateExplanation(matchedCategories: string[], score: number, scheme: any): string {
     if (matchedCategories.length === 0) {
       return 'This is a general scheme that may be applicable to you.';
     }
 
     const categoryText = matchedCategories.join(', ');
-    const scoreText = score >= 80 ? 'highly eligible' : score >= 60 ? 'eligible' : 'potentially eligible';
+    const scoreText =
+      score >= 80 ? 'highly eligible' : score >= 60 ? 'eligible' : 'potentially eligible';
     const desc = (scheme.description || '').substring(0, 100);
     return `You are ${scoreText} for this scheme based on: ${categoryText}. ${desc}...`;
   }
@@ -216,9 +216,9 @@ class SimilarityAgent {
   /**
    * Search schemes by text query
    */
-  async searchSchemes(query: string, limit: number = 20): Promise<any[]> {
+  async searchSchemes(query: string, limit: number = 20, offset: number = 0): Promise<any[]> {
     try {
-      const rows = await neo4jService.searchSchemes(query, limit);
+      const rows = await neo4jService.searchSchemes(query, limit, offset);
       return rows.map((row) => neo4jService.toScheme(row));
     } catch (error) {
       console.error('Error searching schemes:', error);

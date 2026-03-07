@@ -17,6 +17,59 @@
 
 import { initializeNeo4j, Neo4jConnection } from './neo4j.config';
 import { redisService, CacheTTL } from './redis.service';
+import * as crypto from 'crypto';
+
+// ─── PII encryption helpers ─────────────────────────────────────────────────
+
+let _encService: import('../encryption/encryption.service').EncryptionService | null = null;
+
+function getEnc(): import('../encryption/encryption.service').EncryptionService | null {
+  if (_encService) return _encService;
+  try {
+    if (!process.env.ENCRYPTION_KEY) return null;
+    // Lazy-load to avoid circular deps and to allow running without key
+    const { getEncryptionService } = require('../encryption');
+    _encService = getEncryptionService();
+    return _encService;
+  } catch {
+    return null;
+  }
+}
+
+function emailHash(email: string): string {
+  return crypto.createHash('sha256').update(email.toLowerCase().trim()).digest('hex');
+}
+
+async function encryptPII(fields: { email: string; name: string }): Promise<{
+  email: string;
+  name: string;
+  email_hash: string;
+}> {
+  const enc = getEnc();
+  if (!enc) return { ...fields, email_hash: emailHash(fields.email) };
+  return {
+    email: await enc.encrypt(fields.email),
+    name: await enc.encrypt(fields.name),
+    email_hash: emailHash(fields.email),
+  };
+}
+
+async function decryptPII<T extends Record<string, any>>(user: T): Promise<T> {
+  const enc = getEnc();
+  if (!enc) return user;
+  const out = { ...user };
+  for (const field of ['email', 'name'] as const) {
+    const val = out[field];
+    if (typeof val === 'string' && val.includes(':')) {
+      try {
+        (out as any)[field] = await enc.decrypt(val);
+      } catch {
+        // Not encrypted (backward compat) — keep original
+      }
+    }
+  }
+  return out;
+}
 
 // ─── Types (same as old sqlite.service.ts for drop-in compat) ────────────────
 
@@ -30,6 +83,13 @@ export interface SchemeRow {
   state: string | null;
   categories_json: string; // JSON array of {type,value}
   scheme_url: string | null;
+  page_scheme_id?: string | null;
+  page_title?: string | null;
+  page_ministry?: string | null;
+  page_description?: string | null;
+  page_eligibility_json?: string;
+  page_benefits_json?: string;
+  page_enriched_at?: string | null;
   last_updated: string;
 }
 
@@ -101,27 +161,108 @@ const CATEGORY_RULES: Record<string, Record<string, string[]>> = {
   },
 };
 
+function escapeRegExp(input: string): string {
+  return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function containsKeyword(text: string, keyword: string): boolean {
+  const normalizedKeyword = keyword.trim().toLowerCase();
+  if (!normalizedKeyword) return false;
+
+  // Use boundary-safe matching to avoid false positives like "sc" in "scheme".
+  const phrase = escapeRegExp(normalizedKeyword)
+    .replace(/\\\s+/g, '\\s+')
+    .replace(/\\-/g, '[-\\s]?');
+  const regex = new RegExp(`(^|[^a-z0-9])${phrase}([^a-z0-9]|$)`, 'i');
+  return regex.test(text);
+}
+
+function extractNumericCategories(text: string): CategoryMapping[] {
+  const categories: CategoryMapping[] = [];
+
+  // Age-based signals
+  const ageRange = text.match(
+    /(?:age|between)?\s*(\d{1,2})\s*(?:-|to|–)\s*(\d{1,2})\s*(?:years?)?/i
+  );
+  if (ageRange) {
+    const min = Number(ageRange[1]);
+    const max = Number(ageRange[2]);
+    if (Number.isFinite(min) && Number.isFinite(max)) {
+      if (max <= 25) categories.push({ type: 'Age', value: 'Youth' });
+      if (min >= 60) categories.push({ type: 'Age', value: 'Senior' });
+      if (min >= 18 && max <= 59) categories.push({ type: 'Age', value: 'Adult' });
+    }
+  }
+
+  const ageAbove = text.match(/(?:above|over|minimum)\s*(\d{1,2})\s*(?:years?)?/i);
+  if (ageAbove) {
+    const min = Number(ageAbove[1]);
+    if (Number.isFinite(min)) {
+      if (min >= 60) categories.push({ type: 'Age', value: 'Senior' });
+      else if (min >= 18) categories.push({ type: 'Age', value: 'Adult' });
+    }
+  }
+
+  // Income-based signals (convert lakh to rupees)
+  const incomeLakh = text.match(
+    /(?:annual\s+income|family\s+income|income)[^\d]*(?:not\s+exceed|below|under|upto|up\s*to|maximum)?[^\d]*(?:rs\.?|₹)?\s*(\d+(?:\.\d+)?)\s*(?:lakh|lac)/i
+  );
+  if (incomeLakh) {
+    const rupees = Number(incomeLakh[1]) * 100000;
+    if (Number.isFinite(rupees)) {
+      if (rupees <= 100000) categories.push({ type: 'Income', value: 'Below 1 Lakh' });
+      else if (rupees <= 300000) categories.push({ type: 'Income', value: '1-3 Lakh' });
+      else if (rupees >= 1000000) categories.push({ type: 'Income', value: 'Above 10 Lakh' });
+    }
+  }
+
+  const incomeRupees = text.match(
+    /(?:annual\s+income|family\s+income|income)[^\d]*(?:not\s+exceed|below|under|upto|up\s*to|maximum)?[^\d]*(?:rs\.?|₹)\s*([\d,]+)/i
+  );
+  if (incomeRupees) {
+    const rupees = Number(incomeRupees[1].replace(/,/g, ''));
+    if (Number.isFinite(rupees)) {
+      if (rupees <= 100000) categories.push({ type: 'Income', value: 'Below 1 Lakh' });
+      else if (rupees <= 300000) categories.push({ type: 'Income', value: '1-3 Lakh' });
+      else if (rupees >= 1000000) categories.push({ type: 'Income', value: 'Above 10 Lakh' });
+    }
+  }
+
+  return categories;
+}
+
 function extractCategories(name: string, description: string, tags: string[]): CategoryMapping[] {
   const text = `${name} ${description} ${tags.join(' ')}`.toLowerCase();
   const categories: CategoryMapping[] = [];
+  const dedupe = new Set<string>();
+
+  const addCategory = (type: string, value: string) => {
+    const key = `${type}|${value}`;
+    if (!dedupe.has(key)) {
+      categories.push({ type, value });
+      dedupe.add(key);
+    }
+  };
 
   for (const [type, rules] of Object.entries(CATEGORY_RULES)) {
     for (const [value, keywords] of Object.entries(rules)) {
-      if (keywords.length > 0 && keywords.some((kw) => text.includes(kw))) {
-        categories.push({ type, value });
+      if (keywords.length > 0 && keywords.some((kw) => containsKeyword(text, kw))) {
+        addCategory(type, value);
       }
     }
   }
 
+  for (const cat of extractNumericCategories(text)) {
+    addCategory(cat.type, cat.value);
+  }
+
   if (categories.length === 0) {
-    categories.push(
-      { type: 'Employment', value: 'Any' },
-      { type: 'Income', value: 'Any' },
-      { type: 'Locality', value: 'Any' },
-      { type: 'SocialCategory', value: 'Any' },
-      { type: 'Education', value: 'Any' },
-      { type: 'PovertyLine', value: 'Any' }
-    );
+    addCategory('Employment', 'Any');
+    addCategory('Income', 'Any');
+    addCategory('Locality', 'Any');
+    addCategory('SocialCategory', 'Any');
+    addCategory('Education', 'Any');
+    addCategory('PovertyLine', 'Any');
   }
 
   return categories;
@@ -367,6 +508,13 @@ class Neo4jDbService {
       tags: string[];
       state: string | null;
       schemeUrl?: string | null;
+      page_scheme_id?: string | null;
+      page_title?: string | null;
+      page_ministry?: string | null;
+      page_description?: string | null;
+      page_eligibility_json?: string;
+      page_benefits_json?: string;
+      page_enriched_at?: string | null;
     }[]
   ): Promise<void> {
     // Deduplicate by scheme_id — the API sometimes returns duplicates
@@ -412,6 +560,13 @@ class Neo4jDbService {
           state: s.state ?? '',
           categories_json: JSON.stringify(cats),
           scheme_url: s.schemeUrl ?? `https://www.myscheme.gov.in/schemes/${s.schemeId}`,
+          page_scheme_id: s.page_scheme_id ?? '',
+          page_title: s.page_title ?? '',
+          page_ministry: s.page_ministry ?? '',
+          page_description: s.page_description ?? '',
+          page_eligibility_json: s.page_eligibility_json ?? '[]',
+          page_benefits_json: s.page_benefits_json ?? '[]',
+          page_enriched_at: s.page_enriched_at ?? '',
           is_active: true,
           last_updated: new Date().toISOString(),
         };
@@ -429,6 +584,13 @@ class Neo4jDbService {
            state: row.state,
            categories_json: row.categories_json,
            scheme_url: row.scheme_url,
+           page_scheme_id: row.page_scheme_id,
+           page_title: row.page_title,
+           page_ministry: row.page_ministry,
+           page_description: row.page_description,
+           page_eligibility_json: row.page_eligibility_json,
+           page_benefits_json: row.page_benefits_json,
+           page_enriched_at: row.page_enriched_at,
            is_active: row.is_active,
            last_updated: row.last_updated
          })`,
@@ -482,6 +644,106 @@ class Neo4jDbService {
 
     const duration = ((Date.now() - startTime) / 1000).toFixed(2);
     console.log(`✅ Stored ${uniqueSchemes.length} schemes in Neo4j graph in ${duration}s`);
+  }
+
+  /**
+   * Prepare for resumable/incremental sync by clearing existing schemes once.
+   */
+  async resetSchemesForIncrementalSync(): Promise<void> {
+    await this.connection.executeWrite('MATCH (s:Scheme) DETACH DELETE s');
+    console.log('🧹 Cleared existing Scheme nodes for incremental sync');
+  }
+
+  /**
+   * Upsert a batch of schemes without clearing existing data.
+   */
+  async upsertSchemesBatch(
+    schemes: {
+      schemeId: string;
+      name: string;
+      description: string;
+      category: string[];
+      ministry: string | null;
+      tags: string[];
+      state: string | null;
+      schemeUrl?: string | null;
+      page_scheme_id?: string | null;
+      page_title?: string | null;
+      page_ministry?: string | null;
+      page_description?: string | null;
+      page_eligibility_json?: string;
+      page_benefits_json?: string;
+      page_enriched_at?: string | null;
+    }[]
+  ): Promise<void> {
+    if (!schemes.length) return;
+
+    const seen = new Set<string>();
+    const uniqueSchemes = schemes.filter((s) => {
+      if (seen.has(s.schemeId)) return false;
+      seen.add(s.schemeId);
+      return true;
+    });
+
+    const rows = uniqueSchemes.map((s) => {
+      const cats = extractCategories(s.name, s.description, s.tags);
+      return {
+        scheme_id: s.schemeId,
+        name: s.name,
+        description: s.description,
+        category: JSON.stringify(s.category),
+        ministry: s.ministry ?? '',
+        tags: JSON.stringify(s.tags),
+        state: s.state ?? '',
+        categories_json: JSON.stringify(cats),
+        scheme_url: s.schemeUrl ?? `https://www.myscheme.gov.in/schemes/${s.schemeId}`,
+        page_scheme_id: s.page_scheme_id ?? '',
+        page_title: s.page_title ?? '',
+        page_ministry: s.page_ministry ?? '',
+        page_description: s.page_description ?? '',
+        page_eligibility_json: s.page_eligibility_json ?? '[]',
+        page_benefits_json: s.page_benefits_json ?? '[]',
+        page_enriched_at: s.page_enriched_at ?? '',
+        is_active: true,
+        last_updated: new Date().toISOString(),
+      };
+    });
+
+    await this.connection.executeWrite(
+      `UNWIND $rows AS row
+       MERGE (s:Scheme { scheme_id: row.scheme_id })
+       SET s.name = row.name,
+           s.description = row.description,
+           s.category = row.category,
+           s.ministry = row.ministry,
+           s.tags = row.tags,
+           s.state = row.state,
+           s.categories_json = row.categories_json,
+           s.scheme_url = row.scheme_url,
+           s.page_scheme_id = row.page_scheme_id,
+           s.page_title = row.page_title,
+           s.page_ministry = row.page_ministry,
+           s.page_description = row.page_description,
+           s.page_eligibility_json = row.page_eligibility_json,
+           s.page_benefits_json = row.page_benefits_json,
+           s.page_enriched_at = row.page_enriched_at,
+           s.is_active = row.is_active,
+           s.last_updated = row.last_updated`,
+      { rows }
+    );
+
+    await this.createCategoryRelationships(uniqueSchemes);
+  }
+
+  /**
+   * Finalize incremental sync by linking groups, updating sync meta and clearing caches.
+   */
+  async finalizeIncrementalSchemeSync(totalSchemes: number): Promise<void> {
+    await this.autoLinkSchemesToUserGroups();
+    await this.updateSyncMeta(totalSchemes);
+    await redisService.delPattern('schemes:*');
+    await redisService.delPattern('categories:*');
+    console.log(`✅ Finalized incremental sync metadata for ${totalSchemes} schemes`);
   }
 
   /** Create Category nodes and HAS_CATEGORY relationships from JS side */
@@ -588,15 +850,21 @@ class Neo4jDbService {
     return cnt;
   }
 
-  async getAllSchemes(limit = 5000): Promise<SchemeRow[]> {
+  async getAllSchemes(limit = 5000, offset = 0): Promise<SchemeRow[]> {
     const limitInt = Math.floor(Number(limit));
-    const cacheKey = `schemes:all:${limitInt}`;
+    const offsetInt = Math.max(0, Math.floor(Number(offset) || 0));
+    const cacheKey = `schemes:all:${offsetInt}:${limitInt}`;
     const cached = await redisService.get<SchemeRow[]>(cacheKey);
     if (cached) return cached;
 
     const rows = await this.connection.executeRead<any>(
-      'MATCH (s:Scheme) RETURN s LIMIT toInteger($limit)',
+      `MATCH (s:Scheme)
+       RETURN s
+       ORDER BY toLower(s.name), s.scheme_id
+       SKIP toInteger($offset)
+       LIMIT toInteger($limit)`,
       {
+        offset: offsetInt,
         limit: limitInt,
       }
     );
@@ -620,11 +888,12 @@ class Neo4jDbService {
     return row;
   }
 
-  async searchSchemes(query: string, limit = 20): Promise<SchemeRow[]> {
+  async searchSchemes(query: string, limit = 20, offset = 0): Promise<SchemeRow[]> {
     const limitInt = Math.floor(Number(limit));
-    if (!query) return this.getAllSchemes(limitInt);
+    const offsetInt = Math.max(0, Math.floor(Number(offset) || 0));
+    if (!query) return this.getAllSchemes(limitInt, offsetInt);
 
-    const cacheKey = `schemes:search:${query}:${limitInt}`;
+    const cacheKey = `schemes:search:${query}:${offsetInt}:${limitInt}`;
     const cached = await redisService.get<SchemeRow[]>(cacheKey);
     if (cached) return cached;
 
@@ -635,8 +904,10 @@ class Neo4jDbService {
       rows = await this.connection.executeRead<any>(
         `CALL db.index.fulltext.queryNodes('scheme_fulltext', $query)
          YIELD node AS s, score
-         RETURN s ORDER BY score DESC LIMIT toInteger($limit)`,
-        { query: `${ftQuery}~`, limit: limitInt }
+         RETURN s ORDER BY score DESC, toLower(s.name)
+         SKIP toInteger($offset)
+         LIMIT toInteger($limit)`,
+        { query: `${ftQuery}~`, offset: offsetInt, limit: limitInt }
       );
     } catch {
       // Fallback: regex search if full-text index not available
@@ -644,13 +915,49 @@ class Neo4jDbService {
       rows = await this.connection.executeRead<any>(
         `MATCH (s:Scheme)
          WHERE s.name =~ $pattern OR s.description =~ $pattern OR s.tags =~ $pattern
-         RETURN s LIMIT toInteger($limit)`,
-        { pattern, limit: limitInt }
+         RETURN s
+         ORDER BY toLower(s.name), s.scheme_id
+         SKIP toInteger($offset)
+         LIMIT toInteger($limit)`,
+        { pattern, offset: offsetInt, limit: limitInt }
       );
     }
     const result = rows.map((r: any) => this.nodeToSchemeRow(r.s));
     await redisService.set(cacheKey, result, CacheTTL.SCHEME_SEARCH);
     return result;
+  }
+
+  async countSearchSchemes(query: string): Promise<number> {
+    const normalized = (query || '').trim();
+    if (!normalized) return this.getSchemeCount();
+
+    const cacheKey = `schemes:search_count:${normalized}`;
+    const cached = await redisService.get<number>(cacheKey);
+    if (cached != null) return cached;
+
+    let count = 0;
+    try {
+      const ftQuery = normalized.replace(/[+\-&|!(){}[\]^"~*?:\\/]/g, ' ').trim();
+      const rows = await this.connection.executeRead<{ cnt: number }>(
+        `CALL db.index.fulltext.queryNodes('scheme_fulltext', $query)
+         YIELD node AS s
+         RETURN count(s) AS cnt`,
+        { query: `${ftQuery}~` }
+      );
+      count = Number(rows[0]?.cnt) || 0;
+    } catch {
+      const pattern = `(?i).*${normalized.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}.*`;
+      const rows = await this.connection.executeRead<{ cnt: number }>(
+        `MATCH (s:Scheme)
+         WHERE s.name =~ $pattern OR s.description =~ $pattern OR s.tags =~ $pattern
+         RETURN count(s) AS cnt`,
+        { pattern }
+      );
+      count = Number(rows[0]?.cnt) || 0;
+    }
+
+    await redisService.set(cacheKey, count, CacheTTL.CATEGORIES);
+    return count;
   }
 
   /**
@@ -787,6 +1094,13 @@ class Neo4jDbService {
       state: p.state || null,
       categories_json: p.categories_json ?? '[]',
       scheme_url: p.scheme_url ?? null,
+      page_scheme_id: p.page_scheme_id || null,
+      page_title: p.page_title || null,
+      page_ministry: p.page_ministry || null,
+      page_description: p.page_description || null,
+      page_eligibility_json: p.page_eligibility_json ?? '[]',
+      page_benefits_json: p.page_benefits_json ?? '[]',
+      page_enriched_at: p.page_enriched_at || null,
       last_updated: p.last_updated?.toString?.() || new Date().toISOString(),
     };
   }
@@ -802,6 +1116,15 @@ class Neo4jDbService {
       state: row.state,
       categories: JSON.parse(row.categories_json) as CategoryMapping[],
       schemeUrl: row.scheme_url ?? null,
+      pageDetails: {
+        schemeId: row.page_scheme_id ?? null,
+        title: row.page_title ?? null,
+        ministry: row.page_ministry ?? null,
+        description: row.page_description ?? null,
+        eligibility: JSON.parse(row.page_eligibility_json ?? '[]') as string[],
+        benefits: JSON.parse(row.page_benefits_json ?? '[]') as string[],
+        enrichedAt: row.page_enriched_at ?? null,
+      },
     };
   }
 
@@ -817,9 +1140,14 @@ class Neo4jDbService {
     state?: string;
     gender?: string;
   }): Promise<void> {
+    const pii = await encryptPII({
+      email: user.email,
+      name: user.name ?? '',
+    });
+
     await this.connection.executeWrite(
       `CREATE (u:User {
-         user_id: $userId, email: $email, password: $password,
+         user_id: $userId, email: $email, email_hash: $emailHash, password: $password,
          name: $name, age: $age, income: $income, state: $state, gender: $gender,
          employment: '', education: '', interests: '',
          onboarding_complete: false,
@@ -827,9 +1155,10 @@ class Neo4jDbService {
        })`,
       {
         userId: user.userId,
-        email: user.email,
+        email: pii.email,
+        emailHash: pii.email_hash,
         password: user.password,
-        name: user.name ?? '',
+        name: pii.name,
         age: user.age ?? 0,
         income: user.income ?? '',
         state: user.state ?? '',
@@ -841,12 +1170,20 @@ class Neo4jDbService {
   }
 
   async getUserByEmail(email: string): Promise<any | undefined> {
-    const rows = await this.connection.executeRead<any>(
-      'MATCH (u:User { email: $email }) RETURN u',
-      { email }
+    const hash = emailHash(email);
+    // Try hash-based lookup first (encrypted users)
+    let rows = await this.connection.executeRead<any>(
+      'MATCH (u:User { email_hash: $hash }) RETURN u',
+      { hash }
     );
+    // Fall back to plain email lookup (backward compat for pre-encryption users)
+    if (rows.length === 0) {
+      rows = await this.connection.executeRead<any>('MATCH (u:User { email: $email }) RETURN u', {
+        email,
+      });
+    }
     if (rows.length === 0) return undefined;
-    return this.nodeToUser(rows[0].u);
+    return await this.nodeToUser(rows[0].u);
   }
 
   async getUserById(userId: string): Promise<any | undefined> {
@@ -859,7 +1196,7 @@ class Neo4jDbService {
       { userId }
     );
     if (rows.length === 0) return undefined;
-    const user = this.nodeToUser(rows[0].u);
+    const user = await this.nodeToUser(rows[0].u);
     await redisService.set(cacheKey, user, CacheTTL.USER_PROFILE);
     return user;
   }
@@ -868,7 +1205,7 @@ class Neo4jDbService {
     const rows = await this.connection.executeRead<any>(
       'MATCH (u:User) RETURN u ORDER BY u.created_at DESC'
     );
-    return rows.map((r: any) => this.nodeToUser(r.u));
+    return Promise.all(rows.map((r: any) => this.nodeToUser(r.u)));
   }
 
   async updateUserProfile(userId: string, fields: Record<string, any>): Promise<void> {
@@ -886,9 +1223,20 @@ class Neo4jDbService {
     const updates = Object.entries(fields).filter(([k]) => allowed.includes(k));
     if (updates.length === 0) return;
 
-    const setClauses = updates.map(([k]) => `u.${k} = $${k}`).join(', ');
+    // Encrypt name if it's being updated
+    const enc = getEnc();
+    const processedUpdates = await Promise.all(
+      updates.map(async ([k, v]) => {
+        if (k === 'name' && enc && typeof v === 'string') {
+          return [k, await enc.encrypt(v)] as [string, any];
+        }
+        return [k, v] as [string, any];
+      })
+    );
+
+    const setClauses = processedUpdates.map(([k]) => `u.${k} = $${k}`).join(', ');
     const params: Record<string, any> = { userId };
-    for (const [k, v] of updates) params[k] = v;
+    for (const [k, v] of processedUpdates) params[k] = v;
 
     await this.connection.executeWrite(
       `MATCH (u:User { user_id: $userId }) SET ${setClauses}, u.updated_at = toString(datetime())`,
@@ -901,7 +1249,7 @@ class Neo4jDbService {
       { userId }
     );
     if (userRows.length > 0) {
-      await this.autoAssignUserToGroups(userId, this.nodeToUser(userRows[0].u));
+      await this.autoAssignUserToGroups(userId, await this.nodeToUser(userRows[0].u));
     }
 
     await redisService.del(`user:${userId}`);
@@ -926,9 +1274,17 @@ class Neo4jDbService {
     if (emp.includes('student')) groupNames.push('Student');
     if (emp.includes('retired')) groupNames.push('Senior Citizen');
     if (emp.includes('farmer') || emp.includes('agriculture')) groupNames.push('Farmer');
-    const inc = (profile.income || '').toLowerCase();
-    if (inc.includes('below') || inc.includes('bpl') || inc.includes('low'))
-      groupNames.push('Low Income Worker');
+
+    // Handle income: could be number or descriptive string
+    const income = profile.income;
+    if (typeof income === 'number') {
+      // Numeric income thresholds (annual income in INR)
+      if (income < 100000) groupNames.push('Low Income Worker');
+    } else if (typeof income === 'string') {
+      const inc = income.toLowerCase();
+      if (inc.includes('below') || inc.includes('bpl') || inc.includes('low'))
+        groupNames.push('Low Income Worker');
+    }
 
     const unique = [...new Set(groupNames)];
     if (unique.length > 0) {
@@ -964,9 +1320,9 @@ class Neo4jDbService {
     }
   }
 
-  private nodeToUser(node: any): any {
+  private async nodeToUser(node: any): Promise<any> {
     const p = node.properties ?? node;
-    return {
+    const raw = {
       user_id: p.user_id,
       email: p.email,
       password: p.password,
@@ -981,6 +1337,7 @@ class Neo4jDbService {
       onboarding_complete: p.onboarding_complete ? 1 : 0,
       created_at: p.created_at?.toString?.() || null,
     };
+    return decryptPII(raw);
   }
 
   // ─── Graph-specific queries ────────────────────────────────────────────────

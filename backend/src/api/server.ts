@@ -11,8 +11,10 @@ import { ProfileExtractor } from '../utils/profile-extractor';
 import { neo4jService } from '../db/neo4j.service';
 import { redisService } from '../db/redis.service';
 import { getTranslationService } from '../services/translation.service';
+import { schemeSyncAgent } from '../agents/scheme-sync-agent';
 
 const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:8000';
+const ADMIN_KEY = process.env.ADMIN_KEY || 'prahar-admin-secret';
 
 const app = express();
 
@@ -403,6 +405,45 @@ app.post('/api/react-chat', async (req, res) => {
   } catch (error: any) {
     console.error('ReAct chat error:', error);
     return res.status(500).json({ error: 'Chat processing failed', details: error.message });
+  }
+});
+
+// ─── Admin Sync Endpoints (protected with X-Admin-Key) ────────────────────────
+
+function requireAdminKey(req: express.Request, res: express.Response): boolean {
+  const key = req.headers['x-admin-key'];
+  if (!key || key !== ADMIN_KEY) {
+    res.status(403).json({ error: 'Forbidden: invalid or missing X-Admin-Key' });
+    return false;
+  }
+  return true;
+}
+
+app.get('/api/admin/sync/status', async (req, res) => {
+  if (!requireAdminKey(req, res)) return;
+
+  try {
+    const status = await schemeSyncAgent.getSyncStatus();
+    return res.json(status);
+  } catch (error: any) {
+    console.error('Sync status error:', error);
+    return res.status(500).json({ error: 'Failed to get sync status', details: error.message });
+  }
+});
+
+app.post('/api/admin/sync', async (req, res) => {
+  if (!requireAdminKey(req, res)) return;
+
+  try {
+    // Fire off the sync in the background, respond immediately
+    schemeSyncAgent.forceSyncNow().catch((err) => {
+      console.error('Background sync error:', err);
+    });
+
+    return res.json({ message: 'Sync triggered', startedAt: new Date().toISOString() });
+  } catch (error: any) {
+    console.error('Force sync error:', error);
+    return res.status(500).json({ error: 'Failed to trigger sync', details: error.message });
   }
 });
 
