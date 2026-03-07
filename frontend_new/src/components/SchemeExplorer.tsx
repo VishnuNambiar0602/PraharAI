@@ -97,7 +97,7 @@ export default function SchemeExplorer({ onSchemeSelect }: SchemeExplorerProps =
   };
 
   return (
-    <div className="min-h-screen" style={{ background: 'var(--color-surface)' }}>
+    <div className="schemes-page min-h-screen" style={{ background: 'var(--color-surface)' }}>
       {/* ── Page Header ── */}
       <div style={{ background: 'var(--color-parchment)', borderBottom: '1px solid var(--color-border)' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8 pb-5">

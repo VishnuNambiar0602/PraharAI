@@ -7,10 +7,10 @@ interface AboutPageProps {
 
 export default function AboutPage({ onNavigate }: AboutPageProps) {
   return (
-    <div className="min-h-screen bg-surface">
+    <div className="about-page min-h-screen bg-surface">
 
       {/* -- Hero -- */}
-      <div className="bg-primary relative overflow-hidden">
+      <div className="about-hero bg-primary relative overflow-hidden">
         <div className="absolute inset-0 opacity-5 pointer-events-none"
           style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '28px 28px' }} />
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-14 sm:py-20 relative z-10">
@@ -18,7 +18,7 @@ export default function AboutPage({ onNavigate }: AboutPageProps) {
           <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight max-w-2xl">
             Every Citizen Deserves Their Entitlements
           </h1>
-          <p className="text-white/60 mt-4 text-lg max-w-xl leading-relaxed">
+          <p className="about-hero-subtext text-white/60 mt-4 text-lg max-w-xl leading-relaxed">
             Prahar AI bridges the gap between complex government protocols and the common man �
             making governance accessible to everyone, everywhere.
           </p>
@@ -111,12 +111,12 @@ export default function AboutPage({ onNavigate }: AboutPageProps) {
         </div>
 
         {/* -- Quote -- */}
-        <div className="bg-primary rounded-2xl p-10 text-center relative overflow-hidden">
+        <div className="about-quote bg-primary rounded-2xl p-10 text-center relative overflow-hidden">
           <div className="absolute inset-0 opacity-5" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '24px 24px' }} />
           <p className="font-display text-2xl text-white font-bold max-w-2xl mx-auto leading-relaxed relative z-10">
             "Governance should reach the citizen � not the other way around."
           </p>
-          <p className="text-white/50 text-sm mt-4 relative z-10">� Prahar AI Team</p>
+          <p className="about-quote-credit text-white/50 text-sm mt-4 relative z-10">� Prahar AI Team</p>
         </div>
 
         {/* -- CTA -- */}

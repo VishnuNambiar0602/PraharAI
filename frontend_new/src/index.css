@@ -404,3 +404,45 @@ html.theme-transition *::before,
 html.theme-transition *::after {
   transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease !important;
 }
+
+/* ── Dark-only page refinements (Home/About/Schemes) ── */
+html.dark .landing-page .hero-stat-float {
+  background: rgba(255,255,255,0.08);
+  border-color: rgba(255,255,255,0.18);
+}
+html.dark .landing-page .trust-chip {
+  color: rgba(245,245,247,0.62);
+}
+html.dark .landing-page .feature-hero-card {
+  background: linear-gradient(165deg, #27384C 0%, #233347 55%, #1E2C3E 100%);
+  border-color: rgba(255,255,255,0.12);
+}
+html.dark .landing-page .feature-tile {
+  background: rgba(255,255,255,0.07);
+  border-color: rgba(255,255,255,0.14);
+}
+html.dark .landing-page .feature-tile:hover {
+  background: rgba(255,255,255,0.11);
+}
+html.dark .landing-page .landing-cta {
+  background: linear-gradient(150deg, #314960 0%, #293E53 50%, #203142 100%);
+}
+html.dark .landing-page .landing-footer {
+  background: #121315;
+  color: rgba(245,245,247,0.52);
+}
+html.dark .about-page .about-hero {
+  background: linear-gradient(145deg, #324C64 0%, #2A4054 45%, #213244 100%);
+}
+html.dark .about-page .about-hero-subtext {
+  color: rgba(245,245,247,0.74);
+}
+html.dark .about-page .about-quote {
+  background: linear-gradient(150deg, #324C64 0%, #2A4054 55%, #203244 100%);
+}
+html.dark .about-page .about-quote-credit {
+  color: rgba(245,245,247,0.62);
+}
+html.dark .schemes-page .overline {
+  color: var(--color-accent-300);
+}
