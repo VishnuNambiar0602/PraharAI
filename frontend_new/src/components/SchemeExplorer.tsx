@@ -142,7 +142,7 @@ export default function SchemeExplorer({ onSchemeSelect }: SchemeExplorerProps =
               className="flex shrink-0 items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-bold border transition-all"
               style={
                 !activeCategory
-                  ? { background: 'var(--color-primary)', color: '#fff', border: '1.5px solid var(--color-primary)', boxShadow: '0 2px 8px rgba(11,30,52,0.2)' }
+                  ? { background: 'var(--color-primary)', color: '#fff', border: '1.5px solid var(--color-primary)', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }
                   : { background: 'var(--color-parchment)', color: 'var(--color-muted)', border: '1.5px solid var(--color-border)' }
               }
             >
@@ -155,7 +155,7 @@ export default function SchemeExplorer({ onSchemeSelect }: SchemeExplorerProps =
                 className="flex shrink-0 items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-bold border transition-all"
                 style={
                   activeCategory === cat.label
-                    ? { background: 'var(--color-primary)', color: '#fff', border: '1.5px solid var(--color-primary)', boxShadow: '0 2px 8px rgba(11,30,52,0.2)' }
+                    ? { background: 'var(--color-primary)', color: '#fff', border: '1.5px solid var(--color-primary)', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }
                     : { background: 'var(--color-parchment)', color: 'var(--color-muted)', border: '1.5px solid var(--color-border)' }
                 }
               >
