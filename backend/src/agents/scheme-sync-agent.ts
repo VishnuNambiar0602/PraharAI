@@ -35,7 +35,9 @@ class SchemeSyncAgent {
     // Check if we already have fresh data
     if (await neo4jService.isFresh(this.SYNC_INTERVAL_MS)) {
       const meta = await neo4jService.getSyncMeta();
-      console.log(`✅ Neo4j has ${meta.total_schemes} schemes (synced ${meta.last_sync}). Skipping API fetch.`);
+      console.log(
+        `✅ Neo4j has ${meta.total_schemes} schemes (synced ${meta.last_sync}). Skipping API fetch.`
+      );
     } else {
       console.log('📥 Scheme data is stale or missing, syncing from India.gov.in...');
       await this.syncSchemes();
@@ -63,7 +65,10 @@ class SchemeSyncAgent {
   async getSyncStatus(): Promise<SyncStatus> {
     const meta = await neo4jService.getSyncMeta();
     const nextSync = meta.last_sync
-      ? new Date(new Date(meta.last_sync + (meta.last_sync.includes('Z') ? '' : 'Z')).getTime() + this.SYNC_INTERVAL_MS).toISOString()
+      ? new Date(
+          new Date(meta.last_sync + (meta.last_sync.includes('Z') ? '' : 'Z')).getTime() +
+            this.SYNC_INTERVAL_MS
+        ).toISOString()
       : null;
     return {
       totalSchemes: meta.total_schemes,
@@ -115,7 +120,9 @@ class SchemeSyncAgent {
       await neo4jService.storeSchemes(allSchemes);
 
       const duration = ((Date.now() - startTime) / 1000).toFixed(2);
-      console.log(`✅ Sync complete! ${allSchemes.length} schemes persisted to Neo4j in ${duration}s`);
+      console.log(
+        `✅ Sync complete! ${allSchemes.length} schemes persisted to Neo4j in ${duration}s`
+      );
     } catch (error: any) {
       console.error('❌ Sync failed:', error.message || error);
       // On failure, existing Neo4j data remains intact — no data loss

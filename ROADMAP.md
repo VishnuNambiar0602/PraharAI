@@ -7,20 +7,20 @@
 
 ## Current State Summary (as of March 2026)
 
-| Component | Status |
-|-----------|--------|
-| Backend (Express/TypeScript, port 3000) | ✅ Running |
-| Frontend (React 19 + Vite 6 + Tailwind v4, port 5173) | ✅ Running |
-| Neo4j graph database + Redis cache | ✅ 4,609 real schemes stored |
-| India.gov.in API sync (24h interval) | ✅ Working |
-| Similarity Agent (category + text scoring) | ✅ Working (bug fixed) |
-| Chatbot (ReAct agent + tools) | ✅ Working — ReAct agent + ML service integrated |
-| ML Pipeline (Python) | ✅ FastAPI microservice running on port 8000 |
-| Multilingual support | ❌ Not implemented |
-| Auth guard on all protected pages | ✅ All protected pages guarded |
-| "Apply Now" links | ✅ Real URLs from India.gov.in API |
-| Gender field in registration | ✅ Implemented |
-| Onboarding flow | ✅ 4-step wizard implemented |
+| Component                                             | Status                                           |
+| ----------------------------------------------------- | ------------------------------------------------ |
+| Backend (Express/TypeScript, port 3000)               | ✅ Running                                       |
+| Frontend (React 19 + Vite 6 + Tailwind v4, port 5173) | ✅ Running                                       |
+| Neo4j graph database + Redis cache                    | ✅ 4,609 real schemes stored                     |
+| India.gov.in API sync (24h interval)                  | ✅ Working                                       |
+| Similarity Agent (category + text scoring)            | ✅ Working (bug fixed)                           |
+| Chatbot (ReAct agent + tools)                         | ✅ Working — ReAct agent + ML service integrated |
+| ML Pipeline (Python)                                  | ✅ FastAPI microservice running on port 8000     |
+| Multilingual support                                  | ❌ Not implemented                               |
+| Auth guard on all protected pages                     | ✅ All protected pages guarded                   |
+| "Apply Now" links                                     | ✅ Real URLs from India.gov.in API               |
+| Gender field in registration                          | ✅ Implemented                                   |
+| Onboarding flow                                       | ✅ 4-step wizard implemented                     |
 
 ---
 
@@ -29,12 +29,14 @@
 ### 1.1 Frontend: Real Data vs Mock Data
 
 **Current state:** Frontend fetches real data from backend (`/api/schemes`, `/api/chat`). However:
+
 - `SchemeExplorer.tsx` fetches real schemes from SQLite ✅
 - `ChatAssistant.tsx` posts to `/api/chat` ✅
 - `LandingPage.tsx` hero stats ("22+ languages", "10,000+ schemes") are hardcoded strings ❌
 - Scheme cards show `benefits: 'Government of India'` for all schemes (ministry field used as benefits) — needs proper mapping ❌
 
 **Tasks:**
+
 - [ ] Map `ministry` → `benefits` properly in `schemes.controller.ts`
 - [ ] Include `applicationUrl` / `schemeUrl` field from India.gov.in API in the `Scheme` type and store in SQLite
 - [ ] Show real scheme count on landing page from `/api/schemes/stats` endpoint (to be created)
@@ -46,9 +48,10 @@
 **Current state:** Every scheme card has an `Apply Now` button that goes nowhere (no `href`). The India.gov.in API returns a `schemeUrl` or `url` field for most schemes.
 
 **Tasks:**
+
 - [ ] In `india-gov.service.ts`: extract and map the `schemeUrl` / `url` field from API response
 - [ ] In `sqlite.service.ts`: add `scheme_url TEXT` column to `schemes` table
-- [ ] In `storeSchemes()`: persist `scheme_url` 
+- [ ] In `storeSchemes()`: persist `scheme_url`
 - [ ] In `schemes.controller.ts`: include `applicationUrl` in the response shape
 - [ ] In frontend `types.ts`: add `applicationUrl?: string` to `Scheme`
 - [ ] In `SchemeExplorer.tsx`: make "Apply Now" open `applicationUrl` in a new tab; fallback to `https://www.india.gov.in/spotlight/government-schemes` if no URL
@@ -61,6 +64,7 @@
 **Current state:** Only `assistant` and `profile` views redirect to login. `schemes` (Scheme Explorer) is accessible without login.
 
 **Tasks:**
+
 - [ ] In `App.tsx`: add `schemes` to the protected views list
 - [ ] Keep `home`, `about`, `contact` publicly accessible
 - [ ] Gate: `schemes`, `assistant`, `profile`, `partner` — require auth
@@ -73,6 +77,7 @@
 **Current state:** Registration has email, password, name. No gender field.
 
 **Tasks:**
+
 - [ ] In `LoginPage.tsx` register form: add Gender dropdown (Male / Female / Other / Prefer not to say)
 - [ ] In `backend/src/api/server.ts` `users[]` array shape: add `gender` field
 - [ ] In `UserProfile.tsx`: display and allow editing of gender
@@ -86,6 +91,7 @@
 **Current state:** After signup, user lands on home page with no guidance. Profile fields are only editable in the Profile page. No onboarding flow.
 
 **Desired flow:**
+
 1. User signs up → short 4-step wizard appears
 2. Step 1: Basic info (name, age, state, gender)
 3. Step 2: Employment & income
@@ -94,6 +100,7 @@
 6. Wizard saves profile → redirects to Scheme Explorer with personalized results
 
 **Tasks:**
+
 - [ ] Create `frontend_new/src/components/OnboardingWizard.tsx` — 4-step form
 - [ ] On step completion, call `PATCH /api/users/:id/profile` for each step
 - [ ] Store `onboardingComplete: boolean` in user object
@@ -107,12 +114,14 @@
 ### 2.1 Fix Chatbot — Complete ReAct Agent Integration
 
 **Current state:** The ReAct agent (`react-agent.ts`) exists and is wired to the chat service. However:
+
 - Most messages are intercepted by `handleQuickResponses()` fast-path and never reach the ReAct agent
 - The ReAct agent's `search_schemes` and `check_eligibility` tools do use `similarityAgent` → SQLite ✅
 - But the fast-path `handleSchemeQuery()` was using hardcoded sample data (fixed, now uses SQLite)
 - There is no actual LLM/generative model — responses are template strings
 
 **Tasks:**
+
 - [ ] Remove overly broad keyword intercepts from `handleQuickResponses()` that bypass the ReAct agent
 - [ ] Let the ReAct agent handle all scheme queries — it has proper tooling
 - [ ] Add `get_scheme_details` tool to ReAct agent to look up a specific scheme by ID/name from SQLite
@@ -125,6 +134,7 @@
 **Current state:** `ml-pipeline/src/intent_classifier.py` exists — DistilBERT-based intent classifier with 7 intents (`scheme_search`, `eligibility_check`, `application_info`, `deadline_query`, `profile_update`, `general_question`, `nudge_preferences`). It is **not connected** to the backend.
 
 **Integration plan:**
+
 - [ ] Expose the Python ML pipeline as an HTTP microservice (FastAPI, port 8000)
   - `POST /classify` — returns `{intent, confidence, entities}`
   - `POST /recommend` — returns ranked scheme IDs for a user vector
@@ -143,6 +153,7 @@
 **Current state:** `ml-pipeline/src/recommendation_engine.py` — K-Means user clustering + cosine similarity scheme ranking. Not connected.
 
 **Tasks:**
+
 - [ ] Add `POST /recommend` endpoint to the ML microservice
 - [ ] Accept `userVector` (employment, income, age, state, socialCategory as numeric features)
 - [ ] Return top-N scheme IDs ranked by cosine similarity
@@ -156,6 +167,7 @@
 **Current state:** `ml-pipeline/src/eligibility_engine.py` — cosine similarity eligibility scoring. Not connected.
 
 **Tasks:**
+
 - [ ] Add `POST /eligibility` to ML microservice
 - [ ] Accept `{userProfile, schemeId}` — return `{score, explanation, matched_criteria}`
 - [ ] In `check_eligibility` ReAct tool: use ML eligibility score when available, fall back to rule-based scoring
@@ -168,11 +180,13 @@
 **Current state:** All chatbot responses are hand-crafted template strings. No generative AI.
 
 **Options (ordered by complexity):**
+
 - [ ] **Option A (Quick):** Use Ollama locally with `llama3.2` or `gemma2` as the response generator — free, runs offline
 - [ ] **Option B (Recommended):** Integrate OpenAI/Gemini API as an optional layer — use it only for response phrasing, not for tool execution (which stays deterministic via ReAct + SQLite)
 - [ ] **Option C:** Fine-tune a small model on Indian government scheme Q&A data
 
 **For any option:**
+
 - [ ] Add `LLM_PROVIDER` env var (`ollama` / `openai` / `gemini` / `none`)
 - [ ] Create `backend/src/services/llm.service.ts` — abstract LLM interface
 - [ ] ReAct agent passes tool results + user context to LLM for final response generation
@@ -185,6 +199,7 @@
 **Current state:** Chat messages have no entity extraction. The intent classifier in ML pipeline does extract entities but isn't connected.
 
 **Tasks:**
+
 - [ ] Extract entities from user messages: state names, income amounts, age, caste categories, scheme names
 - [ ] Use extracted entities to:
   - Pre-fill profile fields ("I am 25 years old" → store `age: 25`)
@@ -234,6 +249,7 @@
 **Current state:** Tailwind v4 dark/glass theme. User reported it "looks weird and not so good."
 
 **Tasks:**
+
 - [ ] Choose a consistent design system — options: shadcn/ui component library, or custom Tailwind design tokens
 - [ ] Standardise spacing, font sizes, card styles across all pages
 - [ ] Improve color palette — currently inconsistent mix of slate/blue/indigo/purple
@@ -248,6 +264,7 @@
 **Current state:** Login modal/page is functional but basic.
 
 **Tasks:**
+
 - [ ] Smooth animated transition between Login and Register tabs
 - [ ] Show password strength indicator during registration
 - [ ] Add "Forgot password" flow (even if just email-based reset)
@@ -260,6 +277,7 @@
 **Current state:** Home page is a public landing page. After login the user sees the same public page.
 
 **Tasks:**
+
 - [ ] Create a Dashboard view for authenticated users (separate from public landing)
 - [ ] Dashboard shows: personalized recommendations, profile completeness meter, recent schemes, quick-access chatbot
 - [ ] Show profile completion percentage with prompt to complete
@@ -269,6 +287,7 @@
 **Current state:** No dedicated scheme detail view — clicking a scheme only shows a card.
 
 **Tasks:**
+
 - [ ] Create `SchemeDetail` component/view
 - [ ] Show: full description, eligibility criteria, benefits, documents required, ministry, state, application URL
 - [ ] Add "Save Scheme" / bookmark functionality (store in `localStorage` initially)
@@ -284,6 +303,7 @@
 **Current state:** Users are persisted in **Neo4j graph database** with full CRUD support. ✅ Done.
 
 **Completed:**
+
 - [x] Users stored as `:User` nodes in Neo4j with all profile fields
 - [x] Auth routes use `neo4jService` for user CRUD
 - [x] Profile updates auto-assign UserGroup relationships for graph-based matching
@@ -346,29 +366,36 @@
 ## Phase 7 — Long-Term Vision
 
 ### 7.1 DigiLocker Integration
+
 - Allow users to authenticate via DigiLocker for one-click document submission proof of eligibility
 
 ### 7.2 Push Notifications / Nudge System
+
 - Notify users when new schemes matching their profile are added (email / PWA push)
 - The `nudge_preferences` intent in the intent classifier is already planned for this
 
 ### 7.3 Application Tracking
+
 - Let users mark schemes as "Applied", "In Progress", "Approved"
 - Dashboard shows application pipeline
 
 ### 7.4 OCR Document Upload
+
 - User uploads Aadhaar / income certificate → system extracts fields and auto-fills profile
 - Reduces friction for onboarding
 
 ### 7.5 Voice Interface
+
 - Users can speak their query in their native language
 - Web Speech API for STT → translate → intent classify → respond → TTS
 
 ### 7.6 Mobile App
+
 - React Native app using the same backend
 - Offline support — cache last-loaded schemes in AsyncStorage
 
 ### 7.7 Scheme Comparison
+
 - Side-by-side comparison of 2–3 schemes filtered from the explorer
 - Comparison table: eligibility, benefits, documents, deadlines
 
@@ -376,18 +403,18 @@
 
 ## Known Bugs (To Fix)
 
-| # | Bug | File | Status |
-|---|-----|------|--------|
-| 1 | Category type casing mismatch (`employment` vs `Employment`) — zero recommendations returned | `similarity-agent.ts` | ✅ Fixed |
-| 2 | Chatbot `handleSchemeQuery` used 6 hardcoded sample schemes instead of SQLite | `chat.service.ts` | ✅ Fixed |
-| 3 | "Apply Now" button has no href — goes nowhere | `SchemeExplorer.tsx` | ❌ Open |
-| 4 | Users stored in memory — lost on restart | `server.ts` | ❌ Open |
-| 5 | `schemes` page accessible without login | `App.tsx` | ❌ Open |
-| 6 | No gender field in registration | `LoginPage.tsx`, `server.ts` | ❌ Open |
-| 7 | ML pipeline not connected to backend | `ml-pipeline/` | ❌ Open |
-| 8 | LandingPage stat numbers are hardcoded ("22+ languages") | `LandingPage.tsx` | ❌ Open |
-| 9 | Profile data lost on server restart (in-memory users array) | `server.ts` | ❌ Open |
-| 10 | `scheme_url` not fetched from API or stored in DB | `india-gov.service.ts`, `sqlite.service.ts` | ❌ Open |
+| #   | Bug                                                                                          | File                                        | Status   |
+| --- | -------------------------------------------------------------------------------------------- | ------------------------------------------- | -------- |
+| 1   | Category type casing mismatch (`employment` vs `Employment`) — zero recommendations returned | `similarity-agent.ts`                       | ✅ Fixed |
+| 2   | Chatbot `handleSchemeQuery` used 6 hardcoded sample schemes instead of SQLite                | `chat.service.ts`                           | ✅ Fixed |
+| 3   | "Apply Now" button has no href — goes nowhere                                                | `SchemeExplorer.tsx`                        | ❌ Open  |
+| 4   | Users stored in memory — lost on restart                                                     | `server.ts`                                 | ❌ Open  |
+| 5   | `schemes` page accessible without login                                                      | `App.tsx`                                   | ❌ Open  |
+| 6   | No gender field in registration                                                              | `LoginPage.tsx`, `server.ts`                | ❌ Open  |
+| 7   | ML pipeline not connected to backend                                                         | `ml-pipeline/`                              | ❌ Open  |
+| 8   | LandingPage stat numbers are hardcoded ("22+ languages")                                     | `LandingPage.tsx`                           | ❌ Open  |
+| 9   | Profile data lost on server restart (in-memory users array)                                  | `server.ts`                                 | ❌ Open  |
+| 10  | `scheme_url` not fetched from API or stored in DB                                            | `india-gov.service.ts`, `sqlite.service.ts` | ❌ Open  |
 
 ---
 
