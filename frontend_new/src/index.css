@@ -56,59 +56,6 @@
   --radius-2xl: 2rem;
 }
 
-/* ══════════════════════════════════════════════
-   Dark-mode overrides — applied when <html class="dark">
-   ══════════════════════════════════════════════ */
-html.dark {
-  color-scheme: dark;
-
-  /* ── Backgrounds ── */
-  --color-surface:     #0F1419;
-  --color-surface-2:   #171E28;
-  --color-parchment:   #131A22;
-  --color-border:      #253040;
-  --color-border-dark: #354558;
-
-  /* ── Text ── */
-  --color-ink:         #E8E2D9;
-  --color-ink-2:       #D4CCB8;
-  --color-muted:       #8B8070;
-  --color-muted-2:     #A89880;
-
-  /* ── Primary: same palette as light mode ── */
-  --color-primary:     #0B1E34;
-  --color-primary-900: #070F1A;
-  --color-primary-800: #0F2640;
-  --color-primary-700: #163450;
-  --color-primary-600: #1E4468;
-  --color-primary-400: #3A6FA0;
-  --color-primary-200: #A8C8E8;
-  --color-primary-100: #D4E6F4;
-  --color-primary-50:  #EBF3FB;
-
-  /* ── Accent: same palette as light mode ── */
-  --color-accent:      #C8700D;
-  --color-accent-800:  #9A5209;
-  --color-accent-700:  #AD5F0B;
-  --color-accent-300:  #E8A855;
-  --color-accent-100:  #FAEBD4;
-  --color-accent-50:   #FEF6EB;
-
-  /* ── Terracotta: same palette as light mode ── */
-  --color-terra:       #B85C38;
-  --color-terra-100:   #F7E4DC;
-  --color-terra-50:    #FDF2ED;
-
-  /* ── Success: same palette as light mode ── */
-  --color-success:     #187A42;
-  --color-success-100: #D1FAE5;
-  --color-success-50:  #ECFDF5;
-
-  /* ── Legacy ── */
-  --color-background-light: #0F1419;
-  --color-background-dark:  #080E16;
-}
-
 @layer base {
   html {
     -webkit-font-smoothing: antialiased;
@@ -155,9 +102,6 @@ html.dark {
   background: rgba(250, 248, 243, 0.88);
   border-bottom: 1px solid var(--color-border);
 }
-html.dark .glass {
-  background: rgba(15, 20, 25, 0.88);
-}
 
 /* ── Grain texture overlay ── */
 .grain::after {
@@ -168,10 +112,6 @@ html.dark .glass {
   opacity: 0.035;
   pointer-events: none;
   mix-blend-mode: multiply;
-}
-html.dark .grain::after {
-  mix-blend-mode: soft-light;
-  opacity: 0.06;
 }
 
 /* ── Hero gradient mesh ── */
@@ -229,17 +169,11 @@ html.dark .grain::after {
   border-radius: var(--radius-lg);
   box-shadow: 0 1px 3px rgba(26,18,8,0.06), 0 1px 2px rgba(26,18,8,0.04);
 }
-html.dark .card {
-  box-shadow: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
-}
 .card-elevated {
   background: var(--color-parchment);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
   box-shadow: 0 4px 16px rgba(26,18,8,0.08), 0 1px 4px rgba(26,18,8,0.05);
-}
-html.dark .card-elevated {
-  box-shadow: 0 4px 16px rgba(0,0,0,0.35), 0 1px 4px rgba(0,0,0,0.2);
 }
 
 /* ── Section heading ── */
@@ -369,34 +303,5 @@ html.dark .card-elevated {
   border: 1px solid var(--color-success-100);
 }
 
-/* ── Form input base ── */
-.input-base {
-  @apply w-full bg-parchment border border-border rounded-lg px-4 py-3 text-sm 
-         text-ink placeholder:text-muted focus:outline-none focus:ring-2 
-         focus:ring-primary/30 focus:border-primary-600 transition-colors;
-}
+/* Dark mode removed: light theme only */
 
-/* ── Button variants ── */
-.btn-primary {
-  @apply inline-flex items-center justify-center gap-2 bg-accent text-white 
-         font-semibold rounded-lg px-5 py-2.5 text-sm transition-all 
-         hover:bg-accent-700 active:scale-95 disabled:opacity-50 disabled:pointer-events-none;
-}
-.btn-ghost {
-  @apply inline-flex items-center justify-center gap-2 text-primary font-semibold 
-         rounded-lg px-5 py-2.5 text-sm transition-all hover:bg-primary-50 
-         active:scale-95 border border-primary/20;
-}
-.btn-navy {
-  @apply inline-flex items-center justify-center gap-2 bg-primary text-white 
-         font-semibold rounded-lg px-5 py-2.5 text-sm transition-all 
-         hover:bg-primary-800 active:scale-95 disabled:opacity-50 disabled:pointer-events-none;
-}
-
-/* ── Smooth theme transition ── */
-html.theme-transition,
-html.theme-transition *,
-html.theme-transition *::before,
-html.theme-transition *::after {
-  transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease !important;
-}

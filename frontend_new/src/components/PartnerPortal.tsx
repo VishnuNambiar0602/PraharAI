@@ -42,14 +42,14 @@ export default function PartnerPortal() {
           </div>
           <button className="p-2 text-slate-600 hover:bg-slate-100 rounded-full transition-colors relative">
             <Bell className="size-6" />
-            <span className="absolute top-2 right-2 h-2 w-2 bg-red-500 rounded-full border-2 border-white" />
+            <span className="absolute top-2 right-2 h-2 w-2 bg-red-500 rounded-full border-2 border-parchment" />
           </button>
         </div>
       </header>
 
       <main className="max-w-xl mx-auto p-4 space-y-6 pb-24">
         {/* Profile Card */}
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-primary/5">
+        <div className="bg-parchment rounded-2xl p-5 shadow-sm border border-primary/5">
           <div className="flex items-start gap-4">
             <div className="h-16 w-16 rounded-full bg-slate-200 overflow-hidden shrink-0 border-2 border-primary/10">
               <img 

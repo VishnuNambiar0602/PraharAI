@@ -89,7 +89,7 @@ export default function Dashboard({ user, onNavigate }: DashboardProps) {
       <div className="relative overflow-hidden" style={{ background: 'var(--color-primary)' }}>
         {/* Subtle warm glow */}
         <div className="absolute -top-20 -right-20 w-96 h-96 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(200,112,13,0.15), transparent 70%)' }} />
-        <div className="max-w-7xl mx-auto px-6 py-10 relative">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 relative">
           <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }}>
             <p className="overline mb-3" style={{ color: '#E8A855' }}>Welcome back</p>
             <h1
@@ -146,7 +146,7 @@ export default function Dashboard({ user, onNavigate }: DashboardProps) {
       </div>
 
       {/* ── Main content ── */}
-      <main className="max-w-7xl mx-auto px-6 py-8 pb-20 md:pb-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 pb-20 md:pb-8">
         <div className="grid lg:grid-cols-[1fr_300px] gap-6">
 
           {/* Left: Recommendations */}
@@ -157,7 +157,7 @@ export default function Dashboard({ user, onNavigate }: DashboardProps) {
               <motion.div
                 initial={{ opacity: 0, y: 14 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="card-elevated p-5 flex items-center gap-4 cursor-pointer group"
+                className="card-elevated p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4 cursor-pointer group"
                 style={{ borderLeft: '3px solid var(--color-accent)' }}
                 onClick={() => onNavigate('profile')}
               >

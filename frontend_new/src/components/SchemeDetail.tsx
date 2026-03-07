@@ -74,7 +74,7 @@ export default function SchemeDetail({ scheme, onBack }: SchemeDetailProps) {
 
   return (
     <div className="min-h-screen bg-surface">
-      <div className="max-w-4xl mx-auto px-6 py-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {/* Back Button */}
         <Button variant="ghost" onClick={onBack} className="mb-6">
           <ArrowLeft className="size-4" />
@@ -89,7 +89,7 @@ export default function SchemeDetail({ scheme, onBack }: SchemeDetailProps) {
         >
           <Card className="mb-6">
             <CardHeader>
-              <div className="flex items-start justify-between gap-4">
+              <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-3">
                     <Badge variant="default">{scheme.category}</Badge>
@@ -106,12 +106,12 @@ export default function SchemeDetail({ scheme, onBack }: SchemeDetailProps) {
                 </div>
 
                 {/* Action Buttons */}
-                <div className="flex gap-2 shrink-0">
+                <div className="flex gap-2 shrink-0 w-full sm:w-auto">
                   <Button
                     variant="outline"
                     size="icon"
                     onClick={toggleBookmark}
-                    className="relative"
+                    className="relative flex-1 sm:flex-none"
                   >
                     {isBookmarked ? (
                       <BookmarkCheck className="size-4 text-accent" />
@@ -119,7 +119,7 @@ export default function SchemeDetail({ scheme, onBack }: SchemeDetailProps) {
                       <Bookmark className="size-4" />
                     )}
                   </Button>
-                  <Button variant="outline" size="icon" onClick={handleShare} className="relative">
+                  <Button variant="outline" size="icon" onClick={handleShare} className="relative flex-1 sm:flex-none">
                     {showCopySuccess ? (
                       <Check className="size-4 text-green-600" />
                     ) : (

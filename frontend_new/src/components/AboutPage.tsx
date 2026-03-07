@@ -7,18 +7,18 @@ interface AboutPageProps {
 
 export default function AboutPage({ onNavigate }: AboutPageProps) {
   return (
-    <div className="min-h-screen bg-surface">
+    <div className="about-page min-h-screen bg-surface">
 
       {/* -- Hero -- */}
-      <div className="bg-primary relative overflow-hidden">
+      <div className="about-hero bg-primary relative overflow-hidden">
         <div className="absolute inset-0 opacity-5 pointer-events-none"
           style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '28px 28px' }} />
-        <div className="max-w-5xl mx-auto px-6 py-20 relative z-10">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-14 sm:py-20 relative z-10">
           <span className="inline-block text-accent text-xs font-bold uppercase tracking-widest mb-4 bg-accent/10 border border-accent/30 px-3 py-1 rounded-full">Our Mission</span>
-          <h1 className="font-display text-4xl lg:text-5xl font-bold text-white leading-tight max-w-2xl">
+          <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight max-w-2xl">
             Every Citizen Deserves Their Entitlements
           </h1>
-          <p className="text-white/60 mt-4 text-lg max-w-xl leading-relaxed">
+          <p className="about-hero-subtext text-white/60 mt-4 text-lg max-w-xl leading-relaxed">
             Prahar AI bridges the gap between complex government protocols and the common man �
             making governance accessible to everyone, everywhere.
           </p>
@@ -33,7 +33,7 @@ export default function AboutPage({ onNavigate }: AboutPageProps) {
 
       {/* -- Stats Strip -- */}
       <div className="bg-parchment border-b border-border">
-        <div className="max-w-5xl mx-auto px-6 py-6 grid grid-cols-3 gap-6 text-center">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 grid grid-cols-1 sm:grid-cols-3 gap-5 sm:gap-6 text-center">
           {[
             { icon: Globe, label: '22+ Languages', sub: 'All official Indian languages' },
             { icon: Users, label: '1.4B Indians', sub: 'Built for every citizen' },
@@ -50,7 +50,7 @@ export default function AboutPage({ onNavigate }: AboutPageProps) {
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto px-6 py-12 space-y-10">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-12 space-y-10">
 
         {/* -- Vision -- */}
         <div className="card p-8">
@@ -90,8 +90,8 @@ export default function AboutPage({ onNavigate }: AboutPageProps) {
 
         {/* -- Empowerment -- */}
         <div className="grid md:grid-cols-2 gap-6">
-          <div className="card overflow-hidden flex items-stretch">
-            <div className="bg-primary-50 w-32 shrink-0 flex items-center justify-center">
+          <div className="card overflow-hidden flex flex-col sm:flex-row items-stretch">
+            <div className="bg-primary-50 w-full sm:w-32 h-20 sm:h-auto shrink-0 flex items-center justify-center">
               <Tractor className="size-12 text-primary/30" />
             </div>
             <div className="p-6">
@@ -99,8 +99,8 @@ export default function AboutPage({ onNavigate }: AboutPageProps) {
               <p className="text-sm text-muted mt-2 leading-relaxed">Helping farmers access subsidies, crop insurance, and weather alerts via voice in regional languages.</p>
             </div>
           </div>
-          <div className="card overflow-hidden flex items-stretch">
-            <div className="bg-accent-50 w-32 shrink-0 flex items-center justify-center">
+          <div className="card overflow-hidden flex flex-col sm:flex-row items-stretch">
+            <div className="bg-accent-50 w-full sm:w-32 h-20 sm:h-auto shrink-0 flex items-center justify-center">
               <Building2 className="size-12 text-accent/40" />
             </div>
             <div className="p-6">
@@ -111,12 +111,12 @@ export default function AboutPage({ onNavigate }: AboutPageProps) {
         </div>
 
         {/* -- Quote -- */}
-        <div className="bg-primary rounded-2xl p-10 text-center relative overflow-hidden">
+        <div className="about-quote bg-primary rounded-2xl p-10 text-center relative overflow-hidden">
           <div className="absolute inset-0 opacity-5" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '24px 24px' }} />
           <p className="font-display text-2xl text-white font-bold max-w-2xl mx-auto leading-relaxed relative z-10">
             "Governance should reach the citizen � not the other way around."
           </p>
-          <p className="text-white/50 text-sm mt-4 relative z-10">� Prahar AI Team</p>
+          <p className="about-quote-credit text-white/50 text-sm mt-4 relative z-10">� Prahar AI Team</p>
         </div>
 
         {/* -- CTA -- */}

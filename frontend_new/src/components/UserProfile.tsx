@@ -10,9 +10,9 @@ export default function UserProfile({ onNavigate }: UserProfileProps) {
   const { user, logout } = useAuth();
 
   const displayName = user?.name || user?.email?.split('@')[0] || 'User';
-  const displayAge = user?.age ?? '—';
-  const displayState = user?.state || '—';
-  const displayIncome = user?.income ? `?${(user.income / 100000).toFixed(1)}L` : '—';
+  const displayAge = user?.age ?? 'ï¿½';
+  const displayState = user?.state || 'ï¿½';
+  const displayIncome = user?.income ? `?${(user.income / 100000).toFixed(1)}L` : 'ï¿½';
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--color-surface)' }}>
@@ -51,7 +51,7 @@ export default function UserProfile({ onNavigate }: UserProfileProps) {
           }}
         />
 
-        <div className="max-w-5xl mx-auto px-6 py-10 flex flex-col sm:flex-row items-start sm:items-end gap-6 relative z-10">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 flex flex-col sm:flex-row items-start sm:items-end gap-6 relative z-10">
           {/* Avatar */}
           <div className="relative">
             <div
@@ -84,7 +84,7 @@ export default function UserProfile({ onNavigate }: UserProfileProps) {
               {displayName}
             </h1>
             <div className="flex flex-wrap gap-3 mt-1">
-              {displayAge !== '—' && (
+              {displayAge !== 'ï¿½' && (
                 <span
                   className="text-xs flex items-center gap-1"
                   style={{ color: 'rgba(255,255,255,0.55)' }}
@@ -92,7 +92,7 @@ export default function UserProfile({ onNavigate }: UserProfileProps) {
                   <User className="size-3" /> Age {displayAge}
                 </span>
               )}
-              {displayState !== '—' && (
+              {displayState !== 'ï¿½' && (
                 <span
                   className="text-xs flex items-center gap-1"
                   style={{ color: 'rgba(255,255,255,0.55)' }}
@@ -100,7 +100,7 @@ export default function UserProfile({ onNavigate }: UserProfileProps) {
                   <MapPin className="size-3" /> {displayState}
                 </span>
               )}
-              {displayIncome !== '—' && (
+              {displayIncome !== 'ï¿½' && (
                 <span
                   className="text-xs flex items-center gap-1"
                   style={{ color: 'rgba(255,255,255,0.55)' }}
@@ -112,7 +112,7 @@ export default function UserProfile({ onNavigate }: UserProfileProps) {
           </div>
 
           {/* Action buttons */}
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2 w-full sm:w-auto">
             <button
               className="flex items-center gap-1.5 text-xs px-4 py-2.5 rounded-xl font-semibold transition-all"
               style={{
@@ -138,10 +138,10 @@ export default function UserProfile({ onNavigate }: UserProfileProps) {
         </div>
       </div>
 
-      <main className="max-w-5xl mx-auto px-6 py-8 space-y-6 pb-16">
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6 pb-16">
 
         {/* -- Stats Row -- */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {[
             { label: 'Eligible Schemes', value: '05', icon: LayoutGrid, accent: 'var(--color-primary)' },
             { label: 'Applied', value: '02', icon: CheckCircle2, accent: 'var(--color-success)' },
@@ -183,7 +183,7 @@ export default function UserProfile({ onNavigate }: UserProfileProps) {
         </div>
 
         {/* -- Aadhaar Verification -- */}
-        <div className="card p-5 flex items-center justify-between">
+        <div className="card p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div
               className="size-10 rounded-xl flex items-center justify-center"
@@ -214,7 +214,7 @@ export default function UserProfile({ onNavigate }: UserProfileProps) {
 
         {/* -- Deadline Alert -- */}
         <div
-          className="card p-5 flex items-center gap-4"
+          className="card p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4"
           style={{ borderLeft: '4px solid var(--color-accent)' }}
         >
           <div
@@ -340,7 +340,7 @@ export default function UserProfile({ onNavigate }: UserProfileProps) {
           </h3>
           <div className="space-y-3">
             <div
-              className="flex items-center gap-4 p-4 rounded-xl border"
+              className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 rounded-xl border"
               style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
             >
               <div
@@ -362,7 +362,7 @@ export default function UserProfile({ onNavigate }: UserProfileProps) {
               </button>
             </div>
             <div
-              className="flex items-center gap-4 p-4 rounded-xl border"
+              className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 rounded-xl border"
               style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
             >
               <div
@@ -415,7 +415,7 @@ export default function UserProfile({ onNavigate }: UserProfileProps) {
                     {form.title}
                   </h4>
                   <p className="text-xs mt-0.5" style={{ color: 'var(--color-muted)' }}>
-                    PDF · {form.size}
+                    PDF ï¿½ {form.size}
                   </p>
                 </div>
                 <button

@@ -42,7 +42,7 @@ function StatFloat({
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay }}
-      className="bg-white/[0.07] border border-white/[0.13] rounded-xl px-4 py-3 backdrop-blur-sm"
+      className="hero-stat-float bg-white/[0.07] border border-white/[0.13] rounded-xl px-4 py-3 backdrop-blur-sm"
     >
       <p
         className="text-2xl font-bold text-white leading-none"
@@ -73,12 +73,12 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
   }, []);
 
   return (
-    <div className="flex flex-col">
+    <div className="landing-page flex flex-col">
 
       {/* ─── HERO ──────────────────────────────────────────── */}
       <section
         ref={heroRef}
-        className="relative overflow-hidden min-h-[92vh] flex flex-col justify-center hero-mesh grain"
+        className="relative overflow-hidden min-h-[86vh] sm:min-h-[92vh] flex flex-col justify-center hero-mesh grain"
       >
         {/* Dot matrix texture */}
         <div
@@ -94,9 +94,9 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
 
         <motion.div
           style={{ opacity: heroOpacity, y: heroY }}
-          className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 w-full"
+          className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-18 sm:py-24 w-full"
         >
-          <div className="grid lg:grid-cols-[1fr_400px] gap-16 items-start">
+          <div className="grid lg:grid-cols-[1fr_400px] gap-10 lg:gap-16 items-start">
 
             {/* Left */}
             <div>
@@ -107,7 +107,7 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
                 transition={{ duration: 0.45 }}
                 className="flex items-center gap-3 mb-7"
               >
-                <span className="overline" style={{ color: '#E8A855' }}>
+                <span className="overline" style={{ color: 'var(--color-accent-300)' }}>
                   {t('landing.gov_badge')}
                 </span>
                 <span className="text-white/25 text-xs">·</span>
@@ -124,14 +124,14 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
                 className="text-white leading-[1.07]"
                 style={{
                   fontFamily: 'Lora, Georgia, serif',
-                  fontSize: 'clamp(3rem, 6.5vw, 5.5rem)',
+                  fontSize: 'clamp(2.25rem, 7vw, 5.5rem)',
                   fontWeight: 400,
                 }}
               >
                 {t('landing.hero_line_1')}{' '}
                 {t('landing.hero_line_2')}
                 <br />
-                <em className="not-italic" style={{ color: '#E8A855' }}>
+                <em className="not-italic" style={{ color: 'var(--color-accent-300)' }}>
                   {t('landing.hero_line_3')}
                 </em>
               </motion.h1>
@@ -140,7 +140,7 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.55, delay: 0.18 }}
-                className="text-white/55 text-base md:text-lg max-w-[34rem] leading-relaxed mt-6 mb-9"
+                className="text-white/65 text-base md:text-lg max-w-[34rem] leading-relaxed mt-5 mb-8"
                 style={{ fontFamily: 'Inter, sans-serif' }}
               >
                 {t('landing.hero_subtitle', {
@@ -187,7 +187,7 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
                 ].map((b) => (
                   <span
                     key={b}
-                    className="flex items-center gap-1.5 text-white/45 text-xs"
+                    className="trust-chip flex items-center gap-1.5 text-white/45 text-xs"
                     style={{ fontFamily: 'Inter, sans-serif' }}
                   >
                     <CheckCircle2 className="size-3 text-emerald-400 shrink-0" />
@@ -406,13 +406,13 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
       </section>
 
       {/* ─── FEATURES — Asymmetric two-column ──────────────── */}
-      <section className="bg-primary-900 py-24 overflow-hidden relative">
+      <section className="bg-primary-900 py-20 sm:py-24 overflow-hidden relative">
         {/* Warm radial glow */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-accent/8 blur-[100px] pointer-events-none" />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
           <div className="mb-16">
-            <p className="overline mb-3" style={{ color: '#E8A855' }}>
+            <p className="overline mb-3" style={{ color: 'var(--color-accent-300)' }}>
               {t('landing.features_badge')}
             </p>
             <h2
@@ -433,7 +433,7 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              className="lg:row-span-2 bg-primary-800 border border-white/10 rounded-2xl p-8 flex flex-col justify-between"
+              className="feature-hero-card lg:row-span-2 bg-primary-800 border border-white/10 rounded-2xl p-6 sm:p-8 flex flex-col justify-between"
             >
               <div>
                 <div className="size-12 rounded-xl bg-accent/15 flex items-center justify-center mb-6">
@@ -473,7 +473,7 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: 0.05 + i * 0.08 }}
-                className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-6 hover:bg-white/[0.07] transition-colors"
+                className="feature-tile bg-white/[0.05] border border-white/[0.10] rounded-2xl p-5 sm:p-6 hover:bg-white/[0.08] transition-colors"
               >
                 <div className={`size-9 rounded-lg ${f.bg} flex items-center justify-center mb-4`}>
                   <f.icon className={`size-5 ${f.color}`} />
@@ -563,13 +563,13 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
       </section>
 
       {/* ─── CTA STRIP ─────────────────────────────────────── */}
-      <section className="py-20 bg-primary relative overflow-hidden">
+      <section className="landing-cta py-20 bg-primary relative overflow-hidden">
         {/* Warm accent mesh */}
         <div className="absolute -top-20 -right-20 w-[400px] h-[400px] rounded-full bg-accent/15 blur-[80px] pointer-events-none" />
         <div className="absolute -bottom-20 -left-20 w-[300px] h-[300px] rounded-full bg-primary-400/10 blur-[80px] pointer-events-none" />
 
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative">
-          <p className="overline mb-4" style={{ color: '#E8A855' }}>
+          <p className="overline mb-4" style={{ color: 'var(--color-accent-300)' }}>
             Ready to start?
           </p>
           <h2
@@ -606,7 +606,7 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
       </section>
 
       {/* ─── FOOTER ────────────────────────────────────────── */}
-      <footer className="bg-ink text-white/40 py-12">
+      <footer className="landing-footer bg-ink text-white/40 py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row items-start justify-between gap-8 pb-8 border-b border-white/8">
 
@@ -624,7 +624,7 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
             </div>
 
             {/* Nav columns */}
-            <div className="flex gap-12">
+            <div className="flex flex-wrap gap-8 sm:gap-12">
               <div className="space-y-2">
                 {(['about', 'schemes', 'assistant'] as View[]).map((v) => (
                   <button

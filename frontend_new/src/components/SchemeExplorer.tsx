@@ -97,22 +97,22 @@ export default function SchemeExplorer({ onSchemeSelect }: SchemeExplorerProps =
   };
 
   return (
-    <div className="min-h-screen" style={{ background: 'var(--color-surface)' }}>
+    <div className="schemes-page min-h-screen" style={{ background: 'var(--color-surface)' }}>
       {/* ── Page Header ── */}
       <div style={{ background: 'var(--color-parchment)', borderBottom: '1px solid var(--color-border)' }}>
-        <div className="max-w-7xl mx-auto px-6 pt-8 pb-5">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8 pb-5">
           <div className="flex flex-col lg:flex-row lg:items-end gap-6">
             <div className="flex-1">
               <span className="overline">{t('schemes.subtitle')}</span>
               <h1
-                className="font-display text-3xl font-bold mt-1"
+                className="font-display text-2xl sm:text-3xl font-bold mt-1"
                 style={{ color: 'var(--color-ink)' }}
               >
                 {t('schemes.title')}
               </h1>
             </div>
             {/* Search */}
-            <form onSubmit={handleSearch} className="flex-1 max-w-lg">
+            <form onSubmit={handleSearch} className="flex-1 max-w-lg w-full">
               <div className="relative flex items-center">
                 <Search
                   className="absolute left-4 size-4.5 pointer-events-none"
@@ -142,7 +142,7 @@ export default function SchemeExplorer({ onSchemeSelect }: SchemeExplorerProps =
               className="flex shrink-0 items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-bold border transition-all"
               style={
                 !activeCategory
-                  ? { background: 'var(--color-primary)', color: '#fff', border: '1.5px solid var(--color-primary)', boxShadow: '0 2px 8px rgba(11,30,52,0.2)' }
+                  ? { background: 'var(--color-primary)', color: '#fff', border: '1.5px solid var(--color-primary)', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }
                   : { background: 'var(--color-parchment)', color: 'var(--color-muted)', border: '1.5px solid var(--color-border)' }
               }
             >
@@ -155,7 +155,7 @@ export default function SchemeExplorer({ onSchemeSelect }: SchemeExplorerProps =
                 className="flex shrink-0 items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-bold border transition-all"
                 style={
                   activeCategory === cat.label
-                    ? { background: 'var(--color-primary)', color: '#fff', border: '1.5px solid var(--color-primary)', boxShadow: '0 2px 8px rgba(11,30,52,0.2)' }
+                    ? { background: 'var(--color-primary)', color: '#fff', border: '1.5px solid var(--color-primary)', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }
                     : { background: 'var(--color-parchment)', color: 'var(--color-muted)', border: '1.5px solid var(--color-border)' }
                 }
               >
@@ -168,7 +168,7 @@ export default function SchemeExplorer({ onSchemeSelect }: SchemeExplorerProps =
       </div>
 
       {/* ── Main Content ── */}
-      <main className="max-w-7xl mx-auto px-6 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         <div className="flex items-center justify-between mb-6">
           <p className="text-sm font-medium text-muted">
             {loading
@@ -243,7 +243,10 @@ export default function SchemeExplorer({ onSchemeSelect }: SchemeExplorerProps =
                     if (onSchemeSelect) onSchemeSelect(scheme);
                   }}
                   onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLElement).style.boxShadow = '0 8px 24px rgba(26,18,8,0.12), 0 2px 6px rgba(26,18,8,0.06)';
+                    const dark = document.documentElement.classList.contains('dark');
+                    (e.currentTarget as HTMLElement).style.boxShadow = dark
+                      ? '0 1px 0 rgba(255,255,255,0.04), 0 18px 30px rgba(0,0,0,0.42)'
+                      : '0 8px 24px rgba(26,18,8,0.12), 0 2px 6px rgba(26,18,8,0.06)';
                     (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)';
                   }}
                   onMouseLeave={(e) => {
@@ -381,14 +384,14 @@ export default function SchemeExplorer({ onSchemeSelect }: SchemeExplorerProps =
 
         {/* Pagination */}
         {!loading && totalPages > 1 && (
-          <div className="flex items-center justify-center gap-2 mt-8 mb-4">
+          <div className="flex flex-wrap items-center justify-center gap-2 mt-8 mb-4">
             <button
               className="btn btn-ghost py-2! px-4! text-xs! flex items-center gap-1.5"
               onClick={() => goToPage(currentPage - 1)}
               disabled={currentPage === 1}
             >
               <ChevronLeft className="size-3.5" />
-              {t('schemes.previous')}
+              <span className="hidden sm:inline">{t('schemes.previous')}</span>
             </button>
 
             <div className="flex gap-1">
@@ -426,7 +429,7 @@ export default function SchemeExplorer({ onSchemeSelect }: SchemeExplorerProps =
               onClick={() => goToPage(currentPage + 1)}
               disabled={currentPage === totalPages}
             >
-              {t('schemes.next')}
+              <span className="hidden sm:inline">{t('schemes.next')}</span>
               <ChevronRight className="size-3.5" />
             </button>
           </div>

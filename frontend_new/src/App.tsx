@@ -17,12 +17,9 @@ import {
   LogOut,
   Menu,
   X,
-  Sun,
-  Moon,
 } from 'lucide-react';
 import { View, Scheme } from './types';
 import { AuthProvider, useAuth } from './AuthContext';
-import { useTheme } from './ThemeContext';
 
 // Components
 import LandingPage from './components/LandingPage';
@@ -58,7 +55,6 @@ function LogoMark({ className = '' }: { className?: string }) {
 function NavBar() {
   const { t } = useTranslation();
   const { isAuthenticated, user, logout } = useAuth();
-  const { theme, toggleTheme } = useTheme();
   const [mobileOpen, setMobileOpen] = useState(false);
   const routerNavigate = useNavigate();
   const location = useLocation();
@@ -119,13 +115,6 @@ function NavBar() {
 
           {/* Desktop Auth */}
           <div className="hidden md:flex items-center gap-3 shrink-0">
-            <button
-              onClick={toggleTheme}
-              className="size-9 flex items-center justify-center rounded-lg hover:bg-surface-2 text-muted hover:text-ink transition-colors"
-              aria-label="Toggle dark mode"
-            >
-              {theme === 'dark' ? <Sun className="size-4" /> : <Moon className="size-4" />}
-            </button>
             <LanguageSelector />
             {isAuthenticated ? (
               <div className="flex items-center gap-2">
@@ -192,13 +181,6 @@ function NavBar() {
                   </button>
                 ))}
                 <div className="pt-3 border-t border-border mt-2 flex items-center gap-2">
-                  <button
-                    onClick={toggleTheme}
-                    className="size-9 flex items-center justify-center rounded-lg hover:bg-surface-2 text-muted hover:text-ink transition-colors"
-                    aria-label="Toggle dark mode"
-                  >
-                    {theme === 'dark' ? <Sun className="size-4" /> : <Moon className="size-4" />}
-                  </button>
                   <LanguageSelector />
                   {isAuthenticated ? (
                     <div className="flex gap-2">
