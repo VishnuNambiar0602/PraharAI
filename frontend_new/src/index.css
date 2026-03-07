@@ -134,6 +134,27 @@
 .marquee-inner { animation: marquee 28s linear infinite; }
 .marquee-inner:hover { animation-play-state: paused; }
 
+/* ── Chat typing dots ── */
+@keyframes chat-dot-bounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+  30%  { transform: translateY(-7px); opacity: 1; }
+}
+
+/* ── Fade-up entrance ── */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-up { animation: fade-up 0.35s ease both; }
+
+/* ── Pulse ring (avatar online indicator) ── */
+@keyframes pulse-ring {
+  0%   { box-shadow: 0 0 0 0 rgba(34,197,94,0.45); }
+  70%  { box-shadow: 0 0 0 6px rgba(34,197,94,0); }
+  100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); }
+}
+.pulse-ring { animation: pulse-ring 2.2s ease-out infinite; }
+
 /* ── Card base ── */
 .card {
   background: var(--color-parchment);

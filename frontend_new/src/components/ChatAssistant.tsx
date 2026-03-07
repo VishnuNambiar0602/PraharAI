@@ -1,4 +1,4 @@
-import { Send, Mic, Bot, User, ChevronRight, Sparkles, Loader2, AlertCircle } from 'lucide-react';
+import { Send, Bot, User, ChevronRight, AlertCircle } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { Message } from '../types';
 import { sendChatMessage } from '../api';
@@ -80,135 +80,300 @@ export default function ChatAssistant() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] bg-surface">
+    <div className="flex flex-col" style={{ height: 'calc(100vh - 3.75rem)' }}>
+
+      {/* ── Gradient accent stripe ── */}
+      <div
+        style={{
+          height: '2px',
+          flexShrink: 0,
+          background: 'linear-gradient(90deg, var(--color-primary) 0%, var(--color-accent) 50%, var(--color-primary) 100%)',
+        }}
+      />
+
       {/* ── Chat Header ── */}
-      <div className="bg-white border-b border-border px-6 py-4 flex items-center justify-between shrink-0">
+      <div
+        className="shrink-0 px-5 py-3.5 flex items-center justify-between"
+        style={{
+          background: 'var(--color-parchment)',
+          borderBottom: '1px solid var(--color-border)',
+        }}
+      >
         <div className="flex items-center gap-3">
           <div className="relative">
-            <div className="size-10 rounded-full bg-primary flex items-center justify-center">
+            <div
+              className="size-10 rounded-xl flex items-center justify-center"
+              style={{
+                background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-600) 100%)',
+                boxShadow: '0 3px 10px rgba(11,30,52,0.28)',
+              }}
+            >
               <Bot className="size-5 text-white" />
             </div>
-            <span className="absolute bottom-0 right-0 size-2.5 rounded-full bg-green-500 border-2 border-white" />
+            <span
+              className="absolute -bottom-0.5 -right-0.5 size-3 rounded-full border-2 pulse-ring"
+              style={{ background: '#22c55e', borderColor: 'var(--color-parchment)' }}
+            />
           </div>
           <div>
-            <h1 className="font-semibold text-ink text-sm">Prahar AI Assistant</h1>
-            <p className="text-[10px] text-green-600 font-semibold uppercase tracking-widest">
-              Online
+            <p
+              className="font-bold text-sm leading-none"
+              style={{ color: 'var(--color-ink)', fontFamily: 'Plus Jakarta Sans, sans-serif' }}
+            >
+              Prahar AI
+            </p>
+            <p
+              className="text-[10px] font-semibold mt-1"
+              style={{
+                color: '#16a34a',
+                fontFamily: 'Syne, sans-serif',
+                letterSpacing: '0.1em',
+                textTransform: 'uppercase',
+              }}
+            >
+              Active · All India
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          {!isAuthenticated && (
-            <span className="inline-flex items-center gap-1 bg-amber-50 border border-amber-200 text-amber-700 text-[10px] font-semibold px-2.5 py-1 rounded-full">
-              <AlertCircle className="size-3" /> Sign in for personalised results
-            </span>
-          )}
-          <span className="inline-flex items-center gap-1 bg-primary-50 text-primary text-[10px] font-semibold px-2.5 py-1 rounded-full border border-primary-100">
-            <Sparkles className="size-3" /> Powered by Prahar AI
+
+        {!isAuthenticated && (
+          <span
+            className="pill"
+            style={{
+              background: 'var(--color-accent-50)',
+              color: 'var(--color-accent-700)',
+              border: '1px solid var(--color-accent-100)',
+              fontSize: '0.7rem',
+            }}
+          >
+            <AlertCircle className="size-3" /> Sign in for better results
           </span>
-        </div>
+        )}
       </div>
 
       {/* ── Messages ── */}
-      <main className="flex-1 overflow-y-auto px-4 md:px-8 py-6 space-y-5 no-scrollbar max-w-4xl mx-auto w-full">
-        {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}
-          >
+      <main
+        className="flex-1 overflow-y-auto thin-scroll"
+        style={{
+          paddingTop: '1.5rem',
+          paddingBottom: '1.5rem',
+          paddingLeft: 'clamp(1rem, 5vw, 3rem)',
+          paddingRight: 'clamp(1rem, 5vw, 3rem)',
+          background: 'var(--color-surface)',
+          backgroundImage: 'radial-gradient(var(--color-border) 1px, transparent 1px)',
+          backgroundSize: '22px 22px',
+        }}
+      >
+        <div className="max-w-3xl mx-auto w-full space-y-5">
+          {messages.map((msg) => (
             <div
-              className={`size-8 rounded-full flex items-center justify-center shrink-0 ${
-                msg.role === 'assistant' ? 'bg-primary text-white' : 'bg-primary-100 text-primary'
-              }`}
+              key={msg.id}
+              className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}
             >
-              {msg.role === 'assistant' ? <Bot className="size-4" /> : <User className="size-4" />}
-            </div>
-            <div className={`max-w-[75%] space-y-2 ${msg.role === 'user' ? 'items-end' : ''}`}>
+              {/* Avatar */}
               <div
-                className={`px-4 py-3 rounded-xl ${
-                  msg.role === 'assistant'
-                    ? 'bg-white border border-border text-ink shadow-sm rounded-tl-sm'
-                    : 'bg-primary text-white rounded-tr-sm'
-                }`}
+                className="size-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5"
+                style={{
+                  background:
+                    msg.role === 'assistant'
+                      ? 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-600) 100%)'
+                      : 'var(--color-accent)',
+                  boxShadow:
+                    msg.role === 'assistant'
+                      ? '0 2px 6px rgba(11,30,52,0.25)'
+                      : '0 2px 6px rgba(200,112,13,0.3)',
+                }}
               >
-                <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
-                {msg.schemes && (
-                  <div className="mt-3 space-y-2 border-t border-white/20 pt-3">
-                    {msg.schemes.map((s) => (
-                      <div key={s.id} className="bg-white/10 border border-white/20 p-3 rounded-lg">
-                        <p className="font-semibold text-sm">{s.title}</p>
-                        <p className="text-xs opacity-75 mt-0.5">{s.eligibility}</p>
-                        <button className="mt-2 text-xs font-semibold flex items-center gap-1 opacity-90 hover:opacity-100">
-                          View Details <ChevronRight className="size-3" />
-                        </button>
-                      </div>
+                {msg.role === 'assistant' ? (
+                  <Bot className="size-3.5 text-white" />
+                ) : (
+                  <User className="size-3.5 text-white" />
+                )}
+              </div>
+
+              {/* Bubble + metadata */}
+              <div
+                className={`flex flex-col gap-1.5 max-w-[78%] ${msg.role === 'user' ? 'items-end' : 'items-start'}`}
+              >
+                <div
+                  className="px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap"
+                  style={
+                    msg.role === 'assistant'
+                      ? {
+                          borderRadius: '2px 18px 18px 18px',
+                          background: 'var(--color-parchment)',
+                          border: '1px solid var(--color-border)',
+                          color: 'var(--color-ink)',
+                          boxShadow: '0 2px 8px rgba(26,18,8,0.07), 0 1px 2px rgba(26,18,8,0.04)',
+                          fontFamily: 'Plus Jakarta Sans, sans-serif',
+                        }
+                      : {
+                          borderRadius: '18px 2px 18px 18px',
+                          background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-800) 100%)',
+                          color: 'rgba(255,255,255,0.93)',
+                          boxShadow: '0 2px 8px rgba(11,30,52,0.25)',
+                          fontFamily: 'Plus Jakarta Sans, sans-serif',
+                        }
+                  }
+                >
+                  {msg.content}
+                  {msg.schemes && (
+                    <div
+                      className="mt-3 space-y-2 pt-3"
+                      style={{ borderTop: '1px solid rgba(255,255,255,0.18)' }}
+                    >
+                      {msg.schemes.map((s) => (
+                        <div
+                          key={s.id}
+                          className="p-3 rounded-xl"
+                          style={{
+                            background: 'rgba(255,255,255,0.1)',
+                            border: '1px solid rgba(255,255,255,0.15)',
+                          }}
+                        >
+                          <p className="font-semibold text-sm">{s.title}</p>
+                          <p className="text-xs opacity-70 mt-0.5">{s.eligibility}</p>
+                          <button className="mt-2 text-xs font-semibold flex items-center gap-1 opacity-80 hover:opacity-100 transition-opacity">
+                            View Details <ChevronRight className="size-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <span
+                  className="text-[10px] px-1"
+                  style={{ color: 'var(--color-muted-2)', fontFamily: 'Plus Jakarta Sans, sans-serif' }}
+                >
+                  {msg.timestamp}
+                </span>
+
+                {msg.suggestions && (
+                  <div className="flex flex-wrap gap-1.5 mt-0.5">
+                    {msg.suggestions.map((s, i) => (
+                      <button
+                        key={i}
+                        onClick={() => handleSend(s)}
+                        disabled={loading}
+                        className="px-3 py-1.5 rounded-full text-xs font-semibold transition-all disabled:opacity-40 active:scale-95"
+                        style={{
+                          background: 'var(--color-parchment)',
+                          border: '1.5px solid var(--color-border)',
+                          color: 'var(--color-primary)',
+                          fontFamily: 'Plus Jakarta Sans, sans-serif',
+                          boxShadow: '0 1px 3px rgba(26,18,8,0.06)',
+                        }}
+                        onMouseEnter={(e) => {
+                          const t = e.currentTarget;
+                          t.style.borderColor = 'var(--color-accent)';
+                          t.style.color = 'var(--color-accent-700)';
+                          t.style.background = 'var(--color-accent-50)';
+                        }}
+                        onMouseLeave={(e) => {
+                          const t = e.currentTarget;
+                          t.style.borderColor = 'var(--color-border)';
+                          t.style.color = 'var(--color-primary)';
+                          t.style.background = 'var(--color-parchment)';
+                        }}
+                      >
+                        {s}
+                      </button>
                     ))}
                   </div>
                 )}
               </div>
-              <p
-                className="text-[10px] text-muted font-medium px-1 block ${
-                msg.role === 'user' ? 'text-right' : ''
-              }"
-              >
-                {msg.timestamp}
-              </p>
-              {msg.suggestions && (
-                <div className="flex flex-wrap gap-2">
-                  {msg.suggestions.map((s, i) => (
-                    <button
-                      key={i}
-                      onClick={() => handleSend(s)}
-                      disabled={loading}
-                      className="px-3 py-1.5 bg-white border border-border rounded-full text-xs font-medium text-primary hover:bg-primary-50 hover:border-primary/40 transition-colors disabled:opacity-40"
-                    >
-                      {s}
-                    </button>
-                  ))}
-                </div>
-              )}
             </div>
-          </div>
-        ))}
+          ))}
 
-        {loading && (
-          <div className="flex gap-3">
-            <div className="size-8 rounded-full bg-primary flex items-center justify-center">
-              <Bot className="size-4 text-white" />
+          {/* ── Typing indicator — 3 bouncing dots ── */}
+          {loading && (
+            <div className="flex gap-3">
+              <div
+                className="size-8 rounded-xl flex items-center justify-center shrink-0"
+                style={{
+                  background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-600) 100%)',
+                  boxShadow: '0 2px 6px rgba(11,30,52,0.25)',
+                }}
+              >
+                <Bot className="size-3.5 text-white" />
+              </div>
+              <div
+                className="px-5 py-4 flex items-center gap-1.5"
+                style={{
+                  borderRadius: '2px 18px 18px 18px',
+                  background: 'var(--color-parchment)',
+                  border: '1px solid var(--color-border)',
+                  boxShadow: '0 2px 8px rgba(26,18,8,0.07)',
+                }}
+              >
+                {[0, 1, 2].map((i) => (
+                  <span
+                    key={i}
+                    className="size-2 rounded-full block"
+                    style={{
+                      background: 'var(--color-muted)',
+                      animation: `chat-dot-bounce 1.3s ${i * 0.18}s ease-in-out infinite`,
+                    }}
+                  />
+                ))}
+              </div>
             </div>
-            <div className="bg-white border border-border rounded-xl rounded-tl-sm px-4 py-3 flex items-center gap-2">
-              <Loader2 className="size-4 text-primary animate-spin" />
-              <span className="text-sm text-muted">Prahar is thinking…</span>
-            </div>
-          </div>
-        )}
-        <div ref={bottomRef} />
+          )}
+
+          <div ref={bottomRef} />
+        </div>
       </main>
 
-      {/* ── Input ── */}
-      <div className="bg-white border-t border-border px-4 py-4 pb-6 md:pb-4 shrink-0">
-        <div className="max-w-4xl mx-auto flex items-end gap-3">
+      {/* ── Input bar ── */}
+      <div
+        className="shrink-0 px-4 pt-3 pb-4"
+        style={{
+          background: 'var(--color-parchment)',
+          borderTop: '1px solid var(--color-border)',
+        }}
+      >
+        <div className="max-w-3xl mx-auto flex items-center gap-2.5">
           <div className="flex-1 relative">
             <input
               ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
-              placeholder="Ask about a scheme, eligibility, or benefit…"
+              placeholder="Ask about schemes, eligibility, or benefits…"
               disabled={loading}
-              className="input-base py-3.5! pr-14!"
+              className="input-base"
+              style={{
+                paddingRight: '3.25rem',
+                paddingTop: '0.75rem',
+                paddingBottom: '0.75rem',
+                borderRadius: '14px',
+              }}
             />
             <button
               onClick={() => handleSend()}
               disabled={loading || !input.trim()}
-              className="absolute right-2 top-1/2 -translate-y-1/2 size-9 bg-primary rounded-lg flex items-center justify-center text-white hover:bg-primary-700 transition-colors disabled:opacity-40 disabled:pointer-events-none"
+              className="absolute right-2 top-1/2 -translate-y-1/2 size-8 rounded-xl flex items-center justify-center disabled:opacity-35 disabled:pointer-events-none"
+              style={{
+                background: input.trim() ? 'var(--color-accent)' : 'var(--color-primary)',
+                boxShadow: input.trim() ? '0 2px 8px rgba(200,112,13,0.4)' : '0 2px 8px rgba(11,30,52,0.2)',
+                transform: `scale(${input.trim() ? 1 : 0.88})`,
+                transition: 'background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease',
+              }}
             >
-              <Send className="size-4" />
+              <Send className="size-3.5 text-white" />
             </button>
           </div>
         </div>
-        <p className="text-center text-[10px] text-muted mt-2 uppercase tracking-widest">
-          Powered by Digital India · Prahar AI
+        <p
+          className="text-center text-[10px] mt-2"
+          style={{
+            color: 'var(--color-muted-2)',
+            fontFamily: 'Plus Jakarta Sans, sans-serif',
+            letterSpacing: '0.05em',
+          }}
+        >
+          Prahar AI · Powered by Digital India
         </p>
       </div>
     </div>

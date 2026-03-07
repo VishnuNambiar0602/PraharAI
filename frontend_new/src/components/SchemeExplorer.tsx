@@ -1,7 +1,6 @@
 import { motion } from 'motion/react';
 import {
   Search,
-  Filter,
   ExternalLink,
   School,
   Tractor as Agriculture,
@@ -10,6 +9,7 @@ import {
   Map,
   User,
   Zap,
+  Filter,
   AlertCircle,
   BookOpen,
   ChevronLeft,
@@ -20,10 +20,7 @@ import { useState, useEffect, FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Scheme } from '../types';
 import { fetchSchemes } from '../api';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
-import { Badge } from './ui/badge';
-import { Button } from './ui/button';
-import { Skeleton } from './ui/skeleton';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, Badge, Button, Skeleton } from './ui';
 
 const CATEGORIES = [
   { icon: Agriculture, label: 'Farmer', labelKey: 'schemes.category_farmer' },
@@ -101,19 +98,27 @@ export default function SchemeExplorer({ onSchemeSelect }: SchemeExplorerProps =
   };
 
   return (
-    <div className="min-h-screen bg-surface">
+    <div className="min-h-screen" style={{ background: 'var(--color-surface)' }}>
       {/* ── Page Header ── */}
-      <div className="bg-white border-b border-border">
-        <div className="max-w-7xl mx-auto px-6 py-8">
-          <div className="flex flex-col lg:flex-row lg:items-center gap-6">
+      <div style={{ background: 'var(--color-parchment)', borderBottom: '1px solid var(--color-border)' }}>
+        <div className="max-w-7xl mx-auto px-6 pt-8 pb-5">
+          <div className="flex flex-col lg:flex-row lg:items-end gap-6">
             <div className="flex-1">
-              <h1 className="font-display text-3xl font-bold text-ink">{t('schemes.title')}</h1>
-              <p className="text-muted text-sm mt-1">{t('schemes.subtitle')}</p>
+              <span className="overline">{t('schemes.subtitle')}</span>
+              <h1
+                className="font-display text-3xl font-bold mt-1"
+                style={{ color: 'var(--color-ink)' }}
+              >
+                {t('schemes.title')}
+              </h1>
             </div>
             {/* Search */}
             <form onSubmit={handleSearch} className="flex-1 max-w-lg">
               <div className="relative flex items-center">
-                <Search className="absolute left-4 text-muted size-5 pointer-events-none" />
+                <Search
+                  className="absolute left-4 size-4.5 pointer-events-none"
+                  style={{ color: 'var(--color-muted)' }}
+                />
                 <input
                   className="input-base pl-12! pr-28!"
                   placeholder={t('schemes.search_placeholder')}
@@ -121,7 +126,7 @@ export default function SchemeExplorer({ onSchemeSelect }: SchemeExplorerProps =
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                 />
-                <button type="submit" className="absolute right-2 btn-navy py-1.5! px-4! text-xs!">
+                <button type="submit" className="btn btn-navy absolute right-2 py-1.5! px-4! text-xs!">
                   {t('common.search')}
                 </button>
               </div>
@@ -129,17 +134,18 @@ export default function SchemeExplorer({ onSchemeSelect }: SchemeExplorerProps =
           </div>
 
           {/* Category pills */}
-          <div className="flex gap-2 mt-5 overflow-x-auto no-scrollbar">
+          <div className="flex gap-2 mt-5 overflow-x-auto no-scrollbar pb-1">
             <button
               onClick={() => {
                 setActiveCategory('');
                 loadSchemes(query, '');
               }}
-              className={`flex shrink-0 items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold border transition-colors ${
+              className="flex shrink-0 items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-bold border transition-all"
+              style={
                 !activeCategory
-                  ? 'bg-primary text-white border-primary'
-                  : 'bg-white text-muted border-border hover:border-primary/40 hover:text-primary'
-              }`}
+                  ? { background: 'var(--color-primary)', color: '#fff', border: '1.5px solid var(--color-primary)', boxShadow: '0 2px 8px rgba(11,30,52,0.2)' }
+                  : { background: 'var(--color-parchment)', color: 'var(--color-muted)', border: '1.5px solid var(--color-border)' }
+              }
             >
               <Filter className="size-3.5" /> {t('schemes.all_categories')}
             </button>
@@ -147,11 +153,12 @@ export default function SchemeExplorer({ onSchemeSelect }: SchemeExplorerProps =
               <button
                 key={i}
                 onClick={() => handleCategory(cat.label)}
-                className={`flex shrink-0 items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold border transition-colors ${
+                className="flex shrink-0 items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-bold border transition-all"
+                style={
                   activeCategory === cat.label
-                    ? 'bg-primary text-white border-primary'
-                    : 'bg-white text-muted border-border hover:border-primary/40 hover:text-primary'
-                }`}
+                    ? { background: 'var(--color-primary)', color: '#fff', border: '1.5px solid var(--color-primary)', boxShadow: '0 2px 8px rgba(11,30,52,0.2)' }
+                    : { background: 'var(--color-parchment)', color: 'var(--color-muted)', border: '1.5px solid var(--color-border)' }
+                }
               >
                 <cat.icon className="size-3.5" />
                 {t(cat.labelKey)}
@@ -177,16 +184,22 @@ export default function SchemeExplorer({ onSchemeSelect }: SchemeExplorerProps =
         {loading && (
           <div className="grid lg:grid-cols-2 xl:grid-cols-3 gap-5 pb-8">
             {Array.from({ length: 6 }).map((_, idx) => (
-              <Card key={idx} className="p-6">
-                <div className="flex items-start justify-between gap-3 mb-4">
-                  <Skeleton className="h-6 w-3/4" />
-                  <Skeleton className="h-5 w-16 rounded-full" />
+              <div key={idx} className="card overflow-hidden">
+                <div style={{ height: '3px', background: 'var(--color-border)' }} />
+                <div className="p-5">
+                  <div className="flex items-start justify-between gap-3 mb-4">
+                    <div className="shimmer h-5 w-3/4 rounded-md" />
+                    <div className="shimmer h-5 w-16 rounded-full" />
+                  </div>
+                  <div className="shimmer h-3.5 w-full rounded mb-2" />
+                  <div className="shimmer h-3.5 w-5/6 rounded mb-4" />
+                  <div className="shimmer h-14 w-full rounded-xl mb-4" />
+                  <div className="flex gap-2">
+                    <div className="shimmer h-9 flex-1 rounded-lg" />
+                    <div className="shimmer h-9 flex-1 rounded-lg" />
+                  </div>
                 </div>
-                <Skeleton className="h-4 w-full mb-2" />
-                <Skeleton className="h-4 w-5/6 mb-4" />
-                <Skeleton className="h-16 w-full rounded-lg mb-4" />
-                <Skeleton className="h-10 w-full" />
-              </Card>
+              </div>
             ))}
           </div>
         )}
@@ -218,93 +231,145 @@ export default function SchemeExplorer({ onSchemeSelect }: SchemeExplorerProps =
             displayedSchemes.map((scheme, idx) => (
               <motion.div
                 key={scheme.id}
-                initial={{ opacity: 0, y: 10 }}
+                initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: Math.min(idx * 0.04, 0.4) }}
+                transition={{ delay: Math.min(idx * 0.04, 0.4), duration: 0.3 }}
+                className="h-full"
               >
-                <Card
-                  className="h-full flex flex-col hover:shadow-lg transition-all duration-200 cursor-pointer"
+                <div
+                  className="card h-full flex flex-col cursor-pointer overflow-hidden"
+                  style={{ transition: 'box-shadow 0.2s ease, transform 0.2s ease' }}
                   onClick={(e) => {
-                    // Don't trigger if clicking on buttons or links
                     if ((e.target as HTMLElement).closest('a, button')) return;
                     if (onSchemeSelect) onSchemeSelect(scheme);
                   }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLElement).style.boxShadow = '0 8px 24px rgba(26,18,8,0.12), 0 2px 6px rgba(26,18,8,0.06)';
+                    (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)';
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLElement).style.boxShadow = '';
+                    (e.currentTarget as HTMLElement).style.transform = '';
+                  }}
                 >
-                  <CardHeader>
-                    <div className="flex items-start justify-between gap-3 mb-2">
-                      <CardTitle className="text-base leading-snug flex-1">
-                        {scheme.title}
-                      </CardTitle>
-                      <Badge variant="secondary" className="shrink-0">
-                        {scheme.category || t('schemes.general')}
-                      </Badge>
-                    </div>
-                    {scheme.description && (
-                      <CardDescription className="line-clamp-2">
-                        {scheme.description}
-                      </CardDescription>
-                    )}
-                  </CardHeader>
+                  {/* Accent top stripe */}
+                  <div
+                    style={{
+                      height: '3px',
+                      background: 'linear-gradient(90deg, var(--color-primary) 0%, var(--color-accent) 100%)',
+                      flexShrink: 0,
+                    }}
+                  />
 
-                  <CardContent className="flex-1 flex flex-col gap-4">
+                  <div className="p-5 flex-1 flex flex-col gap-3">
+                    {/* Header row */}
+                    <div className="flex items-start justify-between gap-3">
+                      <h3
+                        className="font-semibold text-sm leading-snug flex-1"
+                        style={{ color: 'var(--color-ink)', fontFamily: 'Plus Jakarta Sans, sans-serif' }}
+                      >
+                        {scheme.title}
+                      </h3>
+                      <span
+                        className="shrink-0 text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
+                        style={{
+                          background: 'var(--color-primary-50)',
+                          color: 'var(--color-primary)',
+                          border: '1px solid var(--color-primary-100)',
+                        }}
+                      >
+                        {scheme.category || t('schemes.general')}
+                      </span>
+                    </div>
+
+                    {scheme.description && (
+                      <p className="text-xs line-clamp-2" style={{ color: 'var(--color-muted)' }}>
+                        {scheme.description}
+                      </p>
+                    )}
+
+                    {/* Benefits highlight */}
                     {(scheme.benefits || scheme.benefit) && (
-                      <div className="flex items-start gap-2 p-3 bg-accent-50 rounded-lg border-l-4 border-accent">
-                        <Zap className="size-4 text-accent shrink-0 mt-0.5" />
-                        <p className="text-xs font-semibold text-ink line-clamp-2">
+                      <div
+                        className="flex items-start gap-2 p-3 rounded-xl"
+                        style={{
+                          background: 'var(--color-accent-50)',
+                          borderLeft: '3px solid var(--color-accent)',
+                        }}
+                      >
+                        <Zap
+                          className="size-3.5 shrink-0 mt-0.5"
+                          style={{ color: 'var(--color-accent)' }}
+                        />
+                        <p
+                          className="text-xs font-semibold line-clamp-2"
+                          style={{ color: 'var(--color-ink)' }}
+                        >
                           {scheme.benefits || scheme.benefit}
                         </p>
                       </div>
                     )}
 
+                    {/* Eligibility */}
                     <div className="flex items-start gap-2">
-                      <User className="size-4 text-muted shrink-0 mt-0.5" />
+                      <User
+                        className="size-3.5 shrink-0 mt-0.5"
+                        style={{ color: 'var(--color-muted)' }}
+                      />
                       <div className="min-w-0 flex-1">
-                        <p className="text-[10px] font-bold text-muted uppercase tracking-wider">
+                        <p
+                          className="text-[9px] font-bold uppercase tracking-wider mb-0.5"
+                          style={{ color: 'var(--color-muted)' }}
+                        >
                           {t('schemes.eligibility')}
                         </p>
-                        <p className="text-xs text-ink mt-0.5 line-clamp-2">
+                        <p className="text-xs line-clamp-2" style={{ color: 'var(--color-ink)' }}>
                           {scheme.eligibility || t('schemes.view_details')}
                         </p>
                       </div>
                     </div>
 
+                    {/* State tag */}
                     {scheme.state && (
-                      <div className="flex items-center gap-2">
-                        <MapPin className="size-3.5 text-muted" />
-                        <Badge variant="outline" className="text-xs">
-                          {scheme.state}
-                        </Badge>
-                      </div>
+                      <span
+                        className="text-[10px] font-semibold px-2 py-0.5 rounded-full w-fit flex items-center gap-1"
+                        style={{
+                          background: 'var(--color-surface-2)',
+                          color: 'var(--color-muted)',
+                          border: '1px solid var(--color-border)',
+                        }}
+                      >
+                        <MapPin className="size-2.5" />
+                        {scheme.state}
+                      </span>
                     )}
 
+                    {/* Actions */}
                     <div className="mt-auto pt-2 flex gap-2">
-                      <Button
-                        variant="outline"
-                        className="flex-1"
-                        size="sm"
+                      <button
+                        className="btn btn-ghost flex-1 py-2! text-xs!"
                         onClick={(e) => {
                           e.stopPropagation();
                           if (onSchemeSelect) onSchemeSelect(scheme);
                         }}
                       >
                         {t('schemes.view_details')}
-                      </Button>
-                      <Button asChild variant="default" className="flex-1" size="sm">
-                        <a
-                          href={
-                            scheme.applicationUrl ||
-                            `https://www.myscheme.gov.in/search?q=${encodeURIComponent(scheme.id)}`
-                          }
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {t('schemes.apply_now')} <ExternalLink className="size-3.5" />
-                        </a>
-                      </Button>
+                      </button>
+                      <a
+                        href={
+                          scheme.applicationUrl ||
+                          `https://www.myscheme.gov.in/search?q=${encodeURIComponent(scheme.id)}`
+                        }
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="btn btn-navy flex-1 py-2! text-xs!"
+                      >
+                        {t('schemes.apply_now')} <ExternalLink className="size-3" />
+                      </a>
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </div>
               </motion.div>
             ))}
         </div>
@@ -312,19 +377,18 @@ export default function SchemeExplorer({ onSchemeSelect }: SchemeExplorerProps =
         {/* Pagination */}
         {!loading && schemes.length > ITEMS_PER_PAGE && (
           <div className="flex items-center justify-center gap-2 mt-8 mb-4">
-            <Button
-              variant="outline"
-              size="sm"
+            <button
+              className="btn btn-ghost py-2! px-4! text-xs! flex items-center gap-1.5"
               onClick={() => goToPage(currentPage - 1)}
               disabled={currentPage === 1}
             >
-              <ChevronLeft className="size-4" />
+              <ChevronLeft className="size-3.5" />
               {t('schemes.previous')}
-            </Button>
+            </button>
 
             <div className="flex gap-1">
               {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
-                let pageNum;
+                let pageNum: number;
                 if (totalPages <= 7) {
                   pageNum = i + 1;
                 } else if (currentPage <= 4) {
@@ -336,28 +400,30 @@ export default function SchemeExplorer({ onSchemeSelect }: SchemeExplorerProps =
                 }
 
                 return (
-                  <Button
+                  <button
                     key={pageNum}
-                    variant={currentPage === pageNum ? 'default' : 'ghost'}
-                    size="sm"
                     onClick={() => goToPage(pageNum)}
-                    className="w-9"
+                    className="size-9 rounded-lg flex items-center justify-center text-xs font-bold transition-all"
+                    style={
+                      currentPage === pageNum
+                        ? { background: 'var(--color-primary)', color: '#fff' }
+                        : { background: 'transparent', color: 'var(--color-muted)' }
+                    }
                   >
                     {pageNum}
-                  </Button>
+                  </button>
                 );
               })}
             </div>
 
-            <Button
-              variant="outline"
-              size="sm"
+            <button
+              className="btn btn-ghost py-2! px-4! text-xs! flex items-center gap-1.5"
               onClick={() => goToPage(currentPage + 1)}
               disabled={currentPage === totalPages}
             >
               {t('schemes.next')}
-              <ChevronRight className="size-4" />
-            </Button>
+              <ChevronRight className="size-3.5" />
+            </button>
           </div>
         )}
       </main>

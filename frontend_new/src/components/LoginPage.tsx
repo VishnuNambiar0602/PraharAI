@@ -135,30 +135,64 @@ export default function LoginPage({ onNavigate, onLoginSuccess }: LoginPageProps
   return (
     <div className="min-h-screen flex">
       {/* ── Left Branding Panel ── */}
-      <div className="hidden lg:flex lg:w-5/12 bg-primary flex-col justify-between p-12 relative overflow-hidden">
-        <div className="absolute -right-16 -bottom-16 w-80 h-80 opacity-5">
-          <svg viewBox="0 0 100 100" fill="none" className="w-full h-full">
-            <circle cx="50" cy="50" r="46" stroke="white" strokeWidth="1.5" />
-            <circle cx="50" cy="50" r="8" stroke="white" strokeWidth="1.5" />
+      <div
+        className="hidden lg:flex lg:w-5/12 flex-col justify-between p-12 relative overflow-hidden"
+        style={{ background: 'var(--color-primary)' }}
+      >
+        {/* Background geometric pattern */}
+        <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
+          {/* Large concentric circles */}
+          <svg
+            viewBox="0 0 600 600"
+            className="absolute -right-32 -top-32 w-[480px] h-[480px] opacity-[0.06]"
+            fill="none"
+          >
+            {[46, 92, 138, 184, 230, 276].map((r, i) => (
+              <circle key={i} cx="300" cy="300" r={r} stroke="white" strokeWidth="1" />
+            ))}
             {Array.from({ length: 24 }).map((_, i) => {
-              const a = (i * 360) / 24,
-                r = (a * Math.PI) / 180;
+              const angle = (i * 360) / 24;
+              const rad = (angle * Math.PI) / 180;
               return (
                 <line
                   key={i}
-                  x1={50 + 10 * Math.cos(r)}
-                  y1={50 + 10 * Math.sin(r)}
-                  x2={50 + 44 * Math.cos(r)}
-                  y2={50 + 44 * Math.sin(r)}
+                  x1={300 + 50 * Math.cos(rad)}
+                  y1={300 + 50 * Math.sin(rad)}
+                  x2={300 + 274 * Math.cos(rad)}
+                  y2={300 + 274 * Math.sin(rad)}
                   stroke="white"
-                  strokeWidth="1"
+                  strokeWidth="0.8"
                 />
               );
             })}
+            <circle cx="300" cy="300" r="20" stroke="white" strokeWidth="2" fill="none" />
           </svg>
+          {/* Bottom left circles */}
+          <svg
+            viewBox="0 0 300 300"
+            className="absolute -left-16 -bottom-16 w-64 h-64 opacity-[0.05]"
+            fill="none"
+          >
+            {[32, 64, 96, 128].map((r, i) => (
+              <circle key={i} cx="150" cy="150" r={r} stroke="white" strokeWidth="1" />
+            ))}
+          </svg>
+          {/* Diagonal grid lines */}
+          <div
+            className="absolute inset-0"
+            style={{
+              backgroundImage:
+                'repeating-linear-gradient(135deg, rgba(255,255,255,0.03) 0px, rgba(255,255,255,0.03) 1px, transparent 1px, transparent 40px)',
+            }}
+          />
         </div>
-        <button onClick={() => onNavigate('home')} className="flex items-center gap-3">
-          <div className="size-10 bg-white/10 rounded-xl flex items-center justify-center">
+
+        {/* Logo */}
+        <button onClick={() => onNavigate('home')} className="flex items-center gap-3 relative z-10">
+          <div
+            className="size-10 rounded-xl flex items-center justify-center"
+            style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)' }}
+          >
             <svg viewBox="0 0 100 100" className="size-6 text-white" fill="none">
               <circle cx="50" cy="50" r="46" stroke="currentColor" strokeWidth="5" />
               <circle cx="50" cy="50" r="8" stroke="currentColor" strokeWidth="5" />
@@ -179,37 +213,92 @@ export default function LoginPage({ onNavigate, onLoginSuccess }: LoginPageProps
               })}
             </svg>
           </div>
-          <span className="font-display text-2xl font-bold text-white">Prahar AI</span>
+          <span
+            className="font-display text-2xl font-bold text-white"
+            style={{ letterSpacing: '-0.02em' }}
+          >
+            Prahar AI
+          </span>
         </button>
-        <div className="space-y-6">
+
+        {/* Hero text */}
+        <div className="space-y-6 relative z-10">
           <div>
-            <h2 className="font-display text-4xl font-bold text-white leading-tight mb-4">
+            <h2
+              className="font-display text-4xl font-bold text-white leading-tight mb-4"
+              style={{ letterSpacing: '-0.02em' }}
+            >
               {t('auth.left_title_line_1')}
               <br />
-              <span className="text-accent italic">{t('auth.left_title_line_2')}</span>
+              <span style={{ color: 'var(--color-accent-300)', fontStyle: 'italic' }}>
+                {t('auth.left_title_line_2')}
+              </span>
             </h2>
-            <p className="text-white/60 text-base leading-relaxed max-w-sm">
+            <p
+              className="text-base leading-relaxed max-w-sm"
+              style={{ color: 'rgba(255,255,255,0.6)' }}
+            >
               {t('auth.left_subtitle')}
             </p>
           </div>
-          <div className="space-y-3">
+
+          {/* Feature points */}
+          <div className="space-y-3.5">
             {[t('auth.left_point_1'), t('auth.left_point_2'), t('auth.left_point_3')].map(
               (p, i) => (
                 <div key={i} className="flex items-center gap-3">
-                  <CheckCircle2 className="size-4 text-accent shrink-0" />
-                  <span className="text-white/75 text-sm">{p}</span>
+                  <div
+                    className="size-5 rounded-full flex items-center justify-center shrink-0"
+                    style={{ background: 'rgba(200,168,85,0.25)', border: '1px solid rgba(200,168,85,0.4)' }}
+                  >
+                    <CheckCircle2
+                      className="size-3"
+                      style={{ color: 'var(--color-accent-300)' }}
+                    />
+                  </div>
+                  <span className="text-sm" style={{ color: 'rgba(255,255,255,0.75)' }}>
+                    {p}
+                  </span>
                 </div>
-              )
+              ),
             )}
           </div>
+
+          {/* Stat row */}
+          <div
+            className="flex gap-6 pt-4"
+            style={{ borderTop: '1px solid rgba(255,255,255,0.12)' }}
+          >
+            {[
+              { n: '500+', label: 'Schemes' },
+              { n: '28', label: 'States' },
+              { n: '10L+', label: 'Beneficiaries' },
+            ].map(({ n, label }) => (
+              <div key={label}>
+                <p
+                  className="font-display text-2xl font-bold text-white"
+                  style={{ letterSpacing: '-0.02em' }}
+                >
+                  {n}
+                </p>
+                <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                  {label}
+                </p>
+              </div>
+            ))}
+          </div>
         </div>
-        <p className="text-white/30 text-xs">
+
+        <p className="text-xs relative z-10" style={{ color: 'rgba(255,255,255,0.28)' }}>
           © {new Date().getFullYear()} Prahar AI · {t('auth.left_footer_partner')}
         </p>
       </div>
 
       {/* ── Right Form Panel ── */}
-      <div className="flex-1 flex items-center justify-center px-6 py-12 bg-surface">
+      <div
+        className="flex-1 flex items-center justify-center px-6 py-12"
+        style={{ background: 'var(--color-surface)' }}
+      >
         <motion.div
           key={mode}
           initial={{ opacity: 0, x: 12 }}
@@ -219,21 +308,29 @@ export default function LoginPage({ onNavigate, onLoginSuccess }: LoginPageProps
         >
           <button
             onClick={() => onNavigate('home')}
-            className="lg:hidden flex items-center gap-1 text-sm text-muted mb-6 hover:text-primary transition-colors"
+            className="lg:hidden flex items-center gap-1 text-sm mb-6 transition-colors"
+            style={{ color: 'var(--color-muted)' }}
           >
             <ChevronLeft className="size-4" /> {t('auth.back_home')}
           </button>
+
           <div className="mb-8">
-            <h1 className="font-display text-3xl font-bold text-ink mb-2">
+            <h1
+              className="font-display text-3xl font-bold mb-2"
+              style={{ color: 'var(--color-ink)', letterSpacing: '-0.01em' }}
+            >
               {mode === 'login' ? t('auth.welcome_back') : t('auth.create_account')}
             </h1>
-            <p className="text-muted text-sm">
+            <p className="text-sm" style={{ color: 'var(--color-muted)' }}>
               {mode === 'login' ? t('auth.login_subtitle') : t('auth.register_subtitle')}
             </p>
           </div>
 
-          {/* Tab Switcher with Animation */}
-          <div className="relative flex gap-1 p-1 bg-white border border-border rounded-lg mb-6">
+          {/* Tab Switcher */}
+          <div
+            className="relative flex gap-1 p-1 rounded-xl mb-6"
+            style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}
+          >
             <AnimatePresence mode="wait">
               {(['login', 'register'] as const).map((m) => (
                 <button
@@ -243,15 +340,15 @@ export default function LoginPage({ onNavigate, onLoginSuccess }: LoginPageProps
                     setError('');
                     setSuccessMessage('');
                   }}
-                  className={`relative flex-1 py-2 rounded-md text-sm font-semibold transition-colors z-10 ${
-                    mode === m ? 'text-white' : 'text-muted hover:text-ink'
-                  }`}
+                  className="relative flex-1 py-2.5 rounded-lg text-sm font-semibold transition-colors z-10"
+                  style={{ color: mode === m ? '#fff' : 'var(--color-muted)' }}
                 >
                   {mode === m && (
                     <motion.div
                       layoutId="activeTab"
-                      className="absolute inset-0 bg-primary rounded-md shadow-sm"
-                      transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
+                      className="absolute inset-0 rounded-lg shadow-sm"
+                      style={{ background: 'var(--color-primary)' }}
+                      transition={{ type: 'spring', bounce: 0.2, duration: 0.5 }}
                     />
                   )}
                   <span className="relative z-10">
@@ -269,7 +366,12 @@ export default function LoginPage({ onNavigate, onLoginSuccess }: LoginPageProps
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                className="mb-4 px-4 py-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm flex items-center gap-2"
+                className="mb-4 px-4 py-3 rounded-xl text-sm flex items-center gap-2"
+                style={{
+                  background: 'var(--color-success-50)',
+                  border: '1px solid var(--color-success-100)',
+                  color: 'var(--color-success)',
+                }}
               >
                 <CheckCircle2 className="size-4 shrink-0" />
                 {successMessage}
@@ -281,7 +383,8 @@ export default function LoginPage({ onNavigate, onLoginSuccess }: LoginPageProps
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm flex items-center gap-2"
+              className="mb-4 px-4 py-3 rounded-xl text-sm flex items-center gap-2"
+              style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#B91C1C' }}
             >
               <X className="size-4 shrink-0" />
               {error}
@@ -411,7 +514,7 @@ export default function LoginPage({ onNavigate, onLoginSuccess }: LoginPageProps
                           id="gender"
                           value={form.gender}
                           onChange={(e) => update('gender', e.target.value)}
-                          className="flex h-10 w-full rounded-lg border border-border bg-white px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                          className="input-base"
                         >
                           <option value="">{t('auth.select')}</option>
                           <option value="Male">{t('auth.gender_male')}</option>
@@ -426,7 +529,7 @@ export default function LoginPage({ onNavigate, onLoginSuccess }: LoginPageProps
                         id="state"
                         value={form.state}
                         onChange={(e) => update('state', e.target.value)}
-                        className="flex h-10 w-full rounded-lg border border-border bg-white px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="input-base"
                       >
                         <option value="">{t('auth.state_select')}</option>
                         {INDIA_STATES.map((s) => (
@@ -452,22 +555,29 @@ export default function LoginPage({ onNavigate, onLoginSuccess }: LoginPageProps
               </motion.div>
             </AnimatePresence>
 
-            <Button type="submit" disabled={loading} className="w-full py-3! text-base mt-2">
+            <button
+              type="submit"
+              disabled={loading}
+              className="btn btn-navy w-full py-3! text-sm! mt-2"
+            >
               {loading ? (
                 <>
                   <Loader2 className="size-4 animate-spin" /> {t('auth.processing')}
                 </>
               ) : (
                 <>
-                  {mode === 'login' ? t('auth.sign_in_button') : t('auth.create_button')}{' '}
+                  {mode === 'login' ? t('auth.sign_in_button') : t('auth.create_button')}
                   <ArrowRight className="size-4" />
                 </>
               )}
-            </Button>
+            </button>
           </form>
 
-          <div className="mt-6 flex items-center gap-2 text-xs text-muted">
-            <ShieldCheck className="size-3.5 shrink-0" />
+          <div
+            className="mt-6 flex items-center gap-2 text-xs"
+            style={{ color: 'var(--color-muted)' }}
+          >
+            <ShieldCheck className="size-3.5 shrink-0" style={{ color: 'var(--color-success)' }} />
             {t('auth.security_notice')}
           </div>
         </motion.div>
