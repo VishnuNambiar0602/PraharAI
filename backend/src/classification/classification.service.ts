@@ -234,6 +234,8 @@ export class ClassificationService {
     multiGroupThreshold: number
   ): Promise<UserGroupAssignment> {
     return new Promise((resolve, reject) => {
+      let settled = false;
+
       // Check if model file exists
       if (!fs.existsSync(this.modelPath)) {
         reject(new Error(`Classifier model not found at ${this.modelPath}`));
@@ -254,6 +256,13 @@ export class ClassificationService {
       let stdout = '';
       let stderr = '';
 
+      const timeoutHandle = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        python.kill();
+        reject(new Error('Classification timeout (5 seconds exceeded)'));
+      }, 5000);
+
       python.stdout.on('data', (data) => {
         stdout += data.toString();
       });
@@ -263,6 +272,10 @@ export class ClassificationService {
       });
 
       python.on('close', (code) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeoutHandle);
+
         if (code !== 0) {
           reject(new Error(`Python classifier failed: ${stderr}`));
           return;
@@ -296,11 +309,12 @@ export class ClassificationService {
       python.stdin.write(input);
       python.stdin.end();
 
-      // Set timeout (5 seconds per requirement 2.3)
-      setTimeout(() => {
-        python.kill();
-        reject(new Error('Classification timeout (5 seconds exceeded)'));
-      }, 5000);
+      python.on('error', (error) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeoutHandle);
+        reject(new Error(`Failed to start Python classifier: ${error.message}`));
+      });
     });
   }
 
