@@ -14,6 +14,7 @@ export interface Scheme {
   title: string;
   description?: string;
   category: string;
+  state?: string;
   benefits?: string;
   eligibility: string;
   applicationUrl?: string; // Direct link to apply on myscheme.gov.in
