@@ -10,6 +10,7 @@ import {
   Target,
   ArrowUpRight,
   ChevronRight,
+  CheckCircle2,
 } from 'lucide-react';
 import { Skeleton } from './ui/skeleton';
 import { Scheme } from '../types';
@@ -94,7 +95,7 @@ export default function Dashboard({ user, onNavigate }: DashboardProps) {
             <h1
               className="text-white leading-tight mb-2"
               style={{
-                fontFamily: 'Instrument Serif, Georgia, serif',
+                fontFamily: 'Lora, Georgia, serif',
                 fontSize: 'clamp(1.8rem, 3vw, 2.6rem)',
                 fontWeight: 400,
               }}
@@ -105,7 +106,7 @@ export default function Dashboard({ user, onNavigate }: DashboardProps) {
               className="max-w-lg"
               style={{
                 color: 'rgba(255,255,255,0.5)',
-                fontFamily: 'Plus Jakarta Sans, sans-serif',
+                fontFamily: 'Inter, sans-serif',
                 fontSize: '0.9rem',
                 lineHeight: '1.6',
               }}
@@ -131,11 +132,11 @@ export default function Dashboard({ user, onNavigate }: DashboardProps) {
               >
                 <span
                   className="text-xl font-bold text-white"
-                  style={{ fontFamily: 'Instrument Serif, Georgia, serif' }}
+                  style={{ fontFamily: 'Lora, Georgia, serif' }}
                 >
                   {s.value}
                 </span>
-                <span style={{ color: 'rgba(255,255,255,0.4)', fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: '0.72rem' }}>
+                <span style={{ color: 'rgba(255,255,255,0.4)', fontFamily: 'Inter, sans-serif', fontSize: '0.72rem' }}>
                   {s.label}
                 </span>
               </motion.div>
@@ -164,7 +165,7 @@ export default function Dashboard({ user, onNavigate }: DashboardProps) {
                   <Target className="size-5" style={{ color: 'var(--color-accent)' }} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-sm" style={{ color: 'var(--color-ink)', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
+                  <p className="font-semibold text-sm" style={{ color: 'var(--color-ink)', fontFamily: 'Inter, sans-serif' }}>
                     Complete your profile for better matches
                   </p>
                   <div className="flex items-center gap-2 mt-1.5">
@@ -177,7 +178,7 @@ export default function Dashboard({ user, onNavigate }: DashboardProps) {
                         transition={{ duration: 0.9, ease: 'easeOut', delay: 0.3 }}
                       />
                     </div>
-                    <span className="text-xs font-bold" style={{ color: 'var(--color-accent)', fontFamily: 'Syne, sans-serif' }}>
+                    <span className="text-xs font-bold" style={{ color: 'var(--color-accent)', fontFamily: 'Space Grotesk, sans-serif' }}>
                       {completeness}%
                     </span>
                   </div>
@@ -193,7 +194,7 @@ export default function Dashboard({ user, onNavigate }: DashboardProps) {
                   <TrendingUp className="size-4" style={{ color: 'var(--color-accent)' }} />
                   <h2
                     className="font-semibold"
-                    style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: '0.95rem', color: 'var(--color-ink)' }}
+                    style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.95rem', color: 'var(--color-ink)' }}
                   >
                     Recommended for You
                   </h2>
@@ -201,7 +202,7 @@ export default function Dashboard({ user, onNavigate }: DashboardProps) {
                 <button
                   onClick={() => onNavigate('schemes')}
                   className="flex items-center gap-1 text-xs font-semibold hover:underline"
-                  style={{ color: 'var(--color-accent)', fontFamily: 'Plus Jakarta Sans, sans-serif' }}
+                  style={{ color: 'var(--color-accent)', fontFamily: 'Inter, sans-serif' }}
                 >
                   View all <ChevronRight className="size-3" />
                 </button>
@@ -227,7 +228,7 @@ export default function Dashboard({ user, onNavigate }: DashboardProps) {
                     <div className="flex items-start justify-between gap-3 mb-1.5">
                       <h4
                         className="font-semibold text-sm leading-snug flex-1 group-hover:text-accent transition-colors"
-                        style={{ color: 'var(--color-ink)', fontFamily: 'Plus Jakarta Sans, sans-serif' }}
+                        style={{ color: 'var(--color-ink)', fontFamily: 'Inter, sans-serif' }}
                       >
                         {scheme.title}
                       </h4>
@@ -235,13 +236,13 @@ export default function Dashboard({ user, onNavigate }: DashboardProps) {
                         <span className="pill pill-primary text-[10px] shrink-0">{scheme.category}</span>
                       )}
                     </div>
-                    <p className="text-xs line-clamp-2" style={{ color: 'var(--color-muted)', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
+                    <p className="text-xs line-clamp-2" style={{ color: 'var(--color-muted)', fontFamily: 'Inter, sans-serif' }}>
                       {scheme.description || 'Government benefit scheme'}
                     </p>
                     <div className="flex items-center justify-end mt-2">
                       <span
                         className="text-[11px] font-semibold flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                        style={{ color: 'var(--color-accent)', fontFamily: 'Syne, sans-serif' }}
+                        style={{ color: 'var(--color-accent)', fontFamily: 'Space Grotesk, sans-serif' }}
                       >
                         View details <ArrowUpRight className="size-3" />
                       </span>
@@ -252,7 +253,7 @@ export default function Dashboard({ user, onNavigate }: DashboardProps) {
                 {!loading && recommendations.length === 0 && (
                   <div className="card p-10 text-center">
                     <FileText className="size-10 mx-auto mb-3 opacity-20" style={{ color: 'var(--color-muted)' }} />
-                    <p className="text-sm" style={{ color: 'var(--color-muted)', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
+                    <p className="text-sm" style={{ color: 'var(--color-muted)', fontFamily: 'Inter, sans-serif' }}>
                       No recommendations yet — browse all schemes to get started
                     </p>
                     <button onClick={() => onNavigate('schemes')} className="btn btn-primary mt-4 text-xs">
@@ -285,7 +286,7 @@ export default function Dashboard({ user, onNavigate }: DashboardProps) {
                     </div>
                     <span
                       className="text-sm font-medium flex-1"
-                      style={{ color: 'var(--color-ink)', fontFamily: 'Plus Jakarta Sans, sans-serif' }}
+                      style={{ color: 'var(--color-ink)', fontFamily: 'Inter, sans-serif' }}
                     >
                       {action.label}
                     </span>
@@ -301,13 +302,13 @@ export default function Dashboard({ user, onNavigate }: DashboardProps) {
                 <Clock className="size-4" style={{ color: 'var(--color-muted)' }} />
                 <p
                   className="font-semibold text-sm"
-                  style={{ color: 'var(--color-ink)', fontFamily: 'Plus Jakarta Sans, sans-serif' }}
+                  style={{ color: 'var(--color-ink)', fontFamily: 'Inter, sans-serif' }}
                 >
                   Recent Activity
                 </p>
               </div>
               <div className="py-6 text-center">
-                <p className="text-xs" style={{ color: 'var(--color-muted-2)', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
+                <p className="text-xs" style={{ color: 'var(--color-muted-2)', fontFamily: 'Inter, sans-serif' }}>
                   Your activity will appear here as you explore schemes.
                 </p>
               </div>
@@ -324,16 +325,16 @@ export default function Dashboard({ user, onNavigate }: DashboardProps) {
             >
               <div className="flex items-center gap-2 mb-2">
                 <Sparkles className="size-4" style={{ color: '#E8A855' }} />
-                <p className="text-white text-sm font-semibold" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
+                <p className="text-white text-sm font-semibold" style={{ fontFamily: 'Inter, sans-serif' }}>
                   Ask Prahar AI
                 </p>
               </div>
-              <p className="text-xs mb-3" style={{ color: 'rgba(255,255,255,0.45)', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
+              <p className="text-xs mb-3" style={{ color: 'rgba(255,255,255,0.45)', fontFamily: 'Inter, sans-serif' }}>
                 Chat with our AI to instantly find schemes you qualify for.
               </p>
               <span
                 className="flex items-center gap-1 text-xs font-bold"
-                style={{ color: '#E8A855', fontFamily: 'Syne, sans-serif' }}
+                style={{ color: '#E8A855', fontFamily: 'Space Grotesk, sans-serif' }}
               >
                 Start a conversation <ArrowUpRight className="size-3" />
               </span>

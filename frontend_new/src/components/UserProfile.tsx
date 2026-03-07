@@ -1,4 +1,4 @@
-﻿import { User, MapPin, ShieldCheck, Edit3, CheckCircle2, Calendar, FileText, Upload, Download, Eye, LayoutGrid, LogOut, ChevronRight } from 'lucide-react';
+import { User, MapPin, ShieldCheck, Edit3, CheckCircle2, Calendar, FileText, Upload, Download, Eye, LayoutGrid, LogOut, ChevronRight } from 'lucide-react';
 import { useAuth } from '../AuthContext';
 import { View } from '../types';
 
@@ -10,14 +10,14 @@ export default function UserProfile({ onNavigate }: UserProfileProps) {
   const { user, logout } = useAuth();
 
   const displayName = user?.name || user?.email?.split('@')[0] || 'User';
-  const displayAge = user?.age ?? '—';
-  const displayState = user?.state || '—';
-  const displayIncome = user?.income ? `₹${(user.income / 100000).toFixed(1)}L` : '—';
+  const displayAge = user?.age ?? '�';
+  const displayState = user?.state || '�';
+  const displayIncome = user?.income ? `?${(user.income / 100000).toFixed(1)}L` : '�';
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--color-surface)' }}>
 
-      {/* ── Profile Banner ── */}
+      {/* -- Profile Banner -- */}
       <div
         style={{
           background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-700) 60%, var(--color-primary-600) 100%)',
@@ -84,7 +84,7 @@ export default function UserProfile({ onNavigate }: UserProfileProps) {
               {displayName}
             </h1>
             <div className="flex flex-wrap gap-3 mt-1">
-              {displayAge !== '—' && (
+              {displayAge !== '�' && (
                 <span
                   className="text-xs flex items-center gap-1"
                   style={{ color: 'rgba(255,255,255,0.55)' }}
@@ -92,7 +92,7 @@ export default function UserProfile({ onNavigate }: UserProfileProps) {
                   <User className="size-3" /> Age {displayAge}
                 </span>
               )}
-              {displayState !== '—' && (
+              {displayState !== '�' && (
                 <span
                   className="text-xs flex items-center gap-1"
                   style={{ color: 'rgba(255,255,255,0.55)' }}
@@ -100,7 +100,7 @@ export default function UserProfile({ onNavigate }: UserProfileProps) {
                   <MapPin className="size-3" /> {displayState}
                 </span>
               )}
-              {displayIncome !== '—' && (
+              {displayIncome !== '�' && (
                 <span
                   className="text-xs flex items-center gap-1"
                   style={{ color: 'rgba(255,255,255,0.55)' }}
@@ -140,7 +140,7 @@ export default function UserProfile({ onNavigate }: UserProfileProps) {
 
       <main className="max-w-5xl mx-auto px-6 py-8 space-y-6 pb-16">
 
-        {/* ── Stats Row ── */}
+        {/* -- Stats Row -- */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[
             { label: 'Eligible Schemes', value: '05', icon: LayoutGrid, accent: 'var(--color-primary)' },
@@ -182,7 +182,7 @@ export default function UserProfile({ onNavigate }: UserProfileProps) {
           ))}
         </div>
 
-        {/* ── Aadhaar Verification ── */}
+        {/* -- Aadhaar Verification -- */}
         <div className="card p-5 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div
@@ -212,7 +212,7 @@ export default function UserProfile({ onNavigate }: UserProfileProps) {
           </span>
         </div>
 
-        {/* ── Deadline Alert ── */}
+        {/* -- Deadline Alert -- */}
         <div
           className="card p-5 flex items-center gap-4"
           style={{ borderLeft: '4px solid var(--color-accent)' }}
@@ -243,7 +243,7 @@ export default function UserProfile({ onNavigate }: UserProfileProps) {
           </span>
         </div>
 
-        {/* ── Active Applications ── */}
+        {/* -- Active Applications -- */}
         <div className="card p-6">
           <div className="flex items-center justify-between mb-5">
             <h3
@@ -330,7 +330,7 @@ export default function UserProfile({ onNavigate }: UserProfileProps) {
           </button>
         </div>
 
-        {/* ── Required Documents ── */}
+        {/* -- Required Documents -- */}
         <div className="card p-6">
           <h3
             className="font-display text-lg font-bold mb-5"
@@ -389,7 +389,7 @@ export default function UserProfile({ onNavigate }: UserProfileProps) {
           </div>
         </div>
 
-        {/* ── Download Forms ── */}
+        {/* -- Download Forms -- */}
         <div className="card p-6">
           <h3 className="font-display text-lg font-bold mb-5" style={{ color: 'var(--color-ink)' }}>
             Download Forms
@@ -415,7 +415,7 @@ export default function UserProfile({ onNavigate }: UserProfileProps) {
                     {form.title}
                   </h4>
                   <p className="text-xs mt-0.5" style={{ color: 'var(--color-muted)' }}>
-                    PDF · {form.size}
+                    PDF � {form.size}
                   </p>
                 </div>
                 <button

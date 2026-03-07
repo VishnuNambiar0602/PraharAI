@@ -183,7 +183,7 @@ export default function SchemeDetail({ scheme, onBack }: SchemeDetailProps) {
                   <CardContent className="space-y-4">
                     <p className="text-muted text-sm">{t('scheme_detail.help_text')}</p>
                     <Button asChild className="w-full sm:w-auto">
-                      <a href={scheme.applicationUrl} target="_blank" rel="noopener noreferrer">
+                      <a href={scheme.applicationUrl} className="flex gap-2 items-center" target="_blank" rel="noopener noreferrer">
                         {t('scheme_detail.apply_button')}
                         <ExternalLink className="size-4" />
                       </a>

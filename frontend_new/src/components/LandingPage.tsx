@@ -46,7 +46,7 @@ function StatFloat({
     >
       <p
         className="text-2xl font-bold text-white leading-none"
-        style={{ fontFamily: 'Instrument Serif, Georgia, serif' }}
+        style={{ fontFamily: 'Lora, Georgia, serif' }}
       >
         {value}
       </p>
@@ -94,7 +94,7 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
 
         <motion.div
           style={{ opacity: heroOpacity, y: heroY }}
-          className="relative max-w-7xl mx-auto px-6 py-24 w-full"
+          className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 w-full"
         >
           <div className="grid lg:grid-cols-[1fr_400px] gap-16 items-start">
 
@@ -123,7 +123,7 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
                 transition={{ duration: 0.6, delay: 0.08 }}
                 className="text-white leading-[1.07]"
                 style={{
-                  fontFamily: 'Instrument Serif, Georgia, serif',
+                  fontFamily: 'Lora, Georgia, serif',
                   fontSize: 'clamp(3rem, 6.5vw, 5.5rem)',
                   fontWeight: 400,
                 }}
@@ -141,7 +141,7 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.55, delay: 0.18 }}
                 className="text-white/55 text-base md:text-lg max-w-[34rem] leading-relaxed mt-6 mb-9"
-                style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}
+                style={{ fontFamily: 'Inter, sans-serif' }}
               >
                 {t('landing.hero_subtitle', {
                   count: schemeCount
@@ -188,7 +188,7 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
                   <span
                     key={b}
                     className="flex items-center gap-1.5 text-white/45 text-xs"
-                    style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}
+                    style={{ fontFamily: 'Inter, sans-serif' }}
                   >
                     <CheckCircle2 className="size-3 text-emerald-400 shrink-0" />
                     {b}
@@ -225,7 +225,7 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
                   <div className="flex-1 min-w-0">
                     <p
                       className="text-white text-sm font-semibold"
-                      style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}
+                      style={{ fontFamily: 'Inter, sans-serif' }}
                     >
                       {t('landing.match_engine_title')}
                     </p>
@@ -264,7 +264,7 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
                           className="absolute inset-0 flex items-center justify-center text-[9px] font-black"
                           style={{
                             color: `hsl(${s.hue}, 55%, 40%)`,
-                            fontFamily: 'Plus Jakarta Sans, sans-serif',
+                            fontFamily: 'Inter, sans-serif',
                           }}
                         >
                           {s.match}
@@ -312,11 +312,11 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
                 <span key={i} className="flex items-center gap-3 shrink-0">
                   <span
                     className="text-sm font-bold text-primary"
-                    style={{ fontFamily: 'Instrument Serif, Georgia, serif' }}
+                    style={{ fontFamily: 'Lora, Georgia, serif' }}
                   >
                     {item.value}
                   </span>
-                  <span className="text-xs text-muted" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
+                  <span className="text-xs text-muted" style={{ fontFamily: 'Inter, sans-serif' }}>
                     {item.label}
                   </span>
                   <span className="text-border text-xl leading-none select-none border-r border-border-dark h-4" />
@@ -328,24 +328,22 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
       </section>
 
       {/* ─── HOW IT WORKS ─────────────────────────────────── */}
-      <section className="py-24 px-6">
-        <div className="max-w-7xl mx-auto">
+      <section className="py-24 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
           {/* Heading row */}
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-16">
-            <div>
-              <p className="overline mb-3">{t('landing.simple_process')}</p>
-              <h2 className="section-title" style={{ fontSize: 'clamp(2rem, 4vw, 2.8rem)' }}>
-                {t('landing.how_it_works_title')}
-              </h2>
-            </div>
-            <p className="text-muted text-sm max-w-xs leading-relaxed" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
+          <div className="text-center mb-16">
+            <p className="overline mb-3">{t('landing.simple_process')}</p>
+            <h2 className="section-title" style={{ fontSize: 'clamp(2rem, 4vw, 2.8rem)' }}>
+              {t('landing.how_it_works_title')}
+            </h2>
+            <p className="text-muted text-base max-w-md mx-auto mt-4 leading-relaxed" style={{ fontFamily: 'Inter, sans-serif' }}>
               {t('landing.how_it_works_subtitle')}
             </p>
           </div>
 
-          {/* Steps — editorial numbered layout */}
-          <div className="grid md:grid-cols-3 gap-px bg-border rounded-2xl overflow-hidden">
+          {/* Steps — clean numbered card layout */}
+          <div className="grid md:grid-cols-3 gap-8">
             {[
               {
                 n: '01',
@@ -365,40 +363,39 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
             ].map((step, i) => (
               <motion.div
                 key={i}
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 24 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ delay: i * 0.1 }}
-                className="bg-parchment p-8 md:p-10 relative overflow-hidden group"
+                transition={{ delay: i * 0.12, duration: 0.5 }}
+                className="relative flex flex-col"
               >
-                {/* Large number art */}
-                <span
-                  className="absolute -top-4 -right-2 text-[8rem] font-bold leading-none select-none pointer-events-none transition-colors duration-300"
-                  style={{
-                    fontFamily: 'Instrument Serif, Georgia, serif',
-                    color: 'var(--color-border)',
-                  }}
-                >
-                  {step.n}
-                </span>
-                <div className="relative">
-                  <div
-                    className="size-10 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center mb-6"
-                  >
+                {/* Connector line between steps */}
+                {i < 2 && (
+                  <div className="hidden md:block absolute top-7 left-[calc(100%_+_16px)] w-[calc(100%_-_48px)] h-[2px] bg-gradient-to-r from-border to-transparent" />
+                )}
+
+                {/* Number badge */}
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="size-14 rounded-2xl bg-accent/10 border-2 border-accent/20 flex items-center justify-center shrink-0">
                     <span
-                      className="text-sm font-bold text-accent"
-                      style={{ fontFamily: 'Syne, sans-serif' }}
+                      className="text-xl font-bold text-accent"
+                      style={{ fontFamily: 'Space Grotesk, sans-serif' }}
                     >
                       {step.n}
                     </span>
                   </div>
+                  <div className="h-px flex-1 bg-border md:hidden" />
+                </div>
+
+                {/* Content */}
+                <div className="bg-surface rounded-2xl border border-border p-7 flex-1 hover:border-accent/30 hover:shadow-md transition-all duration-300">
                   <h3
-                    className="text-lg font-bold text-ink mb-3"
-                    style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}
+                    className="text-lg font-semibold text-ink mb-3"
+                    style={{ fontFamily: 'Space Grotesk, sans-serif' }}
                   >
                     {step.title}
                   </h3>
-                  <p className="text-muted text-sm leading-relaxed" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
+                  <p className="text-muted text-sm leading-relaxed" style={{ fontFamily: 'Inter, sans-serif' }}>
                     {step.desc}
                   </p>
                 </div>
@@ -409,11 +406,11 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
       </section>
 
       {/* ─── FEATURES — Asymmetric two-column ──────────────── */}
-      <section className="bg-primary-900 py-24 px-6 overflow-hidden relative">
+      <section className="bg-primary-900 py-24 overflow-hidden relative">
         {/* Warm radial glow */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-accent/8 blur-[100px] pointer-events-none" />
 
-        <div className="max-w-7xl mx-auto relative">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
           <div className="mb-16">
             <p className="overline mb-3" style={{ color: '#E8A855' }}>
               {t('landing.features_badge')}
@@ -421,7 +418,7 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
             <h2
               className="text-white leading-[1.1]"
               style={{
-                fontFamily: 'Instrument Serif, Georgia, serif',
+                fontFamily: 'Lora, Georgia, serif',
                 fontSize: 'clamp(2rem, 4.5vw, 3.2rem)',
               }}
             >
@@ -444,11 +441,11 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
                 </div>
                 <h3
                   className="text-xl font-bold text-white mb-3"
-                  style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}
+                  style={{ fontFamily: 'Inter, sans-serif' }}
                 >
                   {t('landing.feature_1_title')}
                 </h3>
-                <p className="text-white/55 text-sm leading-relaxed" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
+                <p className="text-white/55 text-sm leading-relaxed" style={{ fontFamily: 'Inter, sans-serif' }}>
                   {t('landing.feature_1_desc')}
                 </p>
               </div>
@@ -456,7 +453,7 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
                 <button
                   onClick={() => onNavigate('schemes')}
                   className="flex items-center gap-2 text-accent-300 text-sm font-semibold hover:gap-3 transition-all"
-                  style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}
+                  style={{ fontFamily: 'Inter, sans-serif' }}
                 >
                   {t('landing.cta_check_eligibility')} <ArrowUpRight className="size-4" />
                 </button>
@@ -483,11 +480,11 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
                 </div>
                 <h3
                   className="text-white font-semibold text-sm mb-2"
-                  style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}
+                  style={{ fontFamily: 'Inter, sans-serif' }}
                 >
                   {t(f.titleKey)}
                 </h3>
-                <p className="text-white/40 text-xs leading-relaxed" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
+                <p className="text-white/40 text-xs leading-relaxed" style={{ fontFamily: 'Inter, sans-serif' }}>
                   {t(f.descKey)}
                 </p>
               </motion.div>
@@ -497,8 +494,8 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
       </section>
 
       {/* ─── FOR EVERY INDIAN ──────────────────────────────── */}
-      <section className="py-24 px-6 bg-surface-2">
-        <div className="max-w-7xl mx-auto">
+      <section className="py-24 bg-surface-2">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="mb-12">
             <p className="overline mb-3">{t('landing.inclusive_badge')}</p>
             <h2
@@ -549,14 +546,14 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
                 <w.icon className="size-7 text-primary mb-5 group-hover:text-accent transition-colors" />
                 <h3
                   className="font-bold text-ink text-base mb-2"
-                  style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}
+                  style={{ fontFamily: 'Inter, sans-serif' }}
                 >
                   {t(w.labelKey)}
                 </h3>
-                <p className="text-muted text-xs leading-relaxed mb-4" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
+                <p className="text-muted text-xs leading-relaxed mb-4" style={{ fontFamily: 'Inter, sans-serif' }}>
                   {t(w.descKey)}
                 </p>
-                <span className="text-xs font-semibold text-accent flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity" style={{ fontFamily: 'Syne, sans-serif' }}>
+                <span className="text-xs font-semibold text-accent flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
                   Explore <ArrowRight className="size-3" />
                 </span>
               </motion.button>
@@ -566,19 +563,19 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
       </section>
 
       {/* ─── CTA STRIP ─────────────────────────────────────── */}
-      <section className="py-20 px-6 bg-primary relative overflow-hidden">
+      <section className="py-20 bg-primary relative overflow-hidden">
         {/* Warm accent mesh */}
         <div className="absolute -top-20 -right-20 w-[400px] h-[400px] rounded-full bg-accent/15 blur-[80px] pointer-events-none" />
         <div className="absolute -bottom-20 -left-20 w-[300px] h-[300px] rounded-full bg-primary-400/10 blur-[80px] pointer-events-none" />
 
-        <div className="max-w-4xl mx-auto text-center relative">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative">
           <p className="overline mb-4" style={{ color: '#E8A855' }}>
             Ready to start?
           </p>
           <h2
             className="text-white leading-tight mb-6"
             style={{
-              fontFamily: 'Instrument Serif, Georgia, serif',
+              fontFamily: 'Lora, Georgia, serif',
               fontSize: 'clamp(2rem, 5vw, 3.5rem)',
             }}
           >
@@ -586,7 +583,7 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
           </h2>
           <p
             className="text-white/55 text-base md:text-lg mb-10 leading-relaxed max-w-2xl mx-auto"
-            style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}
+            style={{ fontFamily: 'Inter, sans-serif' }}
           >
             {t('landing.cta_subtitle')}
           </p>
@@ -609,19 +606,19 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
       </section>
 
       {/* ─── FOOTER ────────────────────────────────────────── */}
-      <footer className="bg-ink text-white/40 py-12 px-6">
-        <div className="max-w-7xl mx-auto">
+      <footer className="bg-ink text-white/40 py-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row items-start justify-between gap-8 pb-8 border-b border-white/8">
 
             {/* Brand */}
             <div>
               <p
                 className="text-xl text-white/90 font-semibold mb-1"
-                style={{ fontFamily: 'Syne, sans-serif' }}
+                style={{ fontFamily: 'Space Grotesk, sans-serif' }}
               >
                 Prahar AI
               </p>
-              <p className="text-xs max-w-[200px] leading-relaxed" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
+              <p className="text-xs max-w-[200px] leading-relaxed" style={{ fontFamily: 'Inter, sans-serif' }}>
                 {t('landing.footer_data_source')}
               </p>
             </div>
@@ -634,7 +631,7 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
                     key={v}
                     onClick={() => onNavigate(v)}
                     className="block text-xs hover:text-white transition-colors capitalize"
-                    style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}
+                    style={{ fontFamily: 'Inter, sans-serif' }}
                   >
                     {v === 'assistant' ? 'AI Assistant' : v.charAt(0).toUpperCase() + v.slice(1)}
                   </button>
@@ -646,7 +643,7 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
                     key={v}
                     onClick={() => onNavigate(v)}
                     className="block text-xs hover:text-white transition-colors capitalize"
-                    style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}
+                    style={{ fontFamily: 'Inter, sans-serif' }}
                   >
                     {v === 'partner' ? 'Partner Portal' : v.charAt(0).toUpperCase() + v.slice(1)}
                   </button>
@@ -655,11 +652,11 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
             </div>
           </div>
 
-          <p className="mt-6 text-xs text-center" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
+          <p className="mt-6 text-xs text-center" style={{ fontFamily: 'Inter, sans-serif' }}>
             {t('landing.footer_copyright', { year: new Date().getFullYear() })}
           </p>
         </div>
       </footer>
     </div>
   );
-}
+}

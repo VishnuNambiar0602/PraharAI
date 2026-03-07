@@ -262,22 +262,28 @@ export default function SchemeExplorer({ onSchemeSelect }: SchemeExplorerProps =
                   />
 
                   <div className="p-5 flex-1 flex flex-col gap-3">
-                    {/* Header row */}
-                    <div className="flex items-start justify-between gap-3">
-                      <h3
-                        className="font-semibold text-sm leading-snug flex-1"
-                        style={{ color: 'var(--color-ink)', fontFamily: 'Plus Jakarta Sans, sans-serif' }}
-                      >
-                        {scheme.title}
-                      </h3>
+                    {/* Title */}
+                    <h3
+                      className="font-semibold text-sm leading-snug"
+                      style={{ color: 'var(--color-ink)', fontFamily: 'Inter, sans-serif' }}
+                    >
+                      {scheme.title}
+                    </h3>
+
+                    {/* Category tag — sits below the title */}
+                    <div className="flex items-center gap-1.5">
                       <span
-                        className="shrink-0 text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
+                        className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-md"
                         style={{
-                          background: 'var(--color-primary-50)',
-                          color: 'var(--color-primary)',
+                          background: 'linear-gradient(135deg, var(--color-primary-50), var(--color-accent-50))',
+                          color: 'var(--color-primary-600)',
                           border: '1px solid var(--color-primary-100)',
                         }}
                       >
+                        <span
+                          className="size-1.5 rounded-full shrink-0"
+                          style={{ background: 'var(--color-accent)' }}
+                        />
                         {scheme.category || t('schemes.general')}
                       </span>
                     </div>

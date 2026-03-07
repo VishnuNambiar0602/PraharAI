@@ -1,6 +1,13 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
+import {
+  Routes,
+  Route,
+  useNavigate,
+  useLocation,
+  Navigate,
+} from 'react-router-dom';
 import {
   Home,
   LayoutGrid,
@@ -9,10 +16,8 @@ import {
   PhoneCall,
   LogIn,
   LogOut,
-  ChevronDown,
   Menu,
   X,
-  Bot,
 } from 'lucide-react';
 import { View, Scheme } from './types';
 import { AuthProvider, useAuth } from './AuthContext';
@@ -49,41 +54,44 @@ function LogoMark({ className = '' }: { className?: string }) {
 /* ─────────────────────────────────────────────
    Global Navigation Bar
 ───────────────────────────────────────────── */
-interface NavBarProps {
-  current: View;
-  onNavigate: (v: View) => void;
-}
-
-function NavBar({ current, onNavigate }: NavBarProps) {
+function NavBar() {
   const { t } = useTranslation();
   const { isAuthenticated, user, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const routerNavigate = useNavigate();
+  const location = useLocation();
 
-  const links: { id: View; labelKey: string }[] = [
-    { id: 'home', labelKey: 'nav.home' },
-    { id: 'schemes', labelKey: 'nav.schemes' },
-    { id: 'assistant', labelKey: 'nav.assistant' },
-    { id: 'about', labelKey: 'nav.about' },
-    { id: 'contact', labelKey: 'nav.contact' },
+  const links: { path: string; id: View; labelKey: string }[] = [
+    { path: '/',          id: 'home',      labelKey: 'nav.home' },
+    { path: '/schemes',   id: 'schemes',   labelKey: 'nav.schemes' },
+    { path: '/assistant', id: 'assistant', labelKey: 'nav.assistant' },
+    { path: '/about',     id: 'about',     labelKey: 'nav.about' },
+    { path: '/contact',   id: 'contact',   labelKey: 'nav.contact' },
   ];
 
-  const go = (v: View) => {
-    onNavigate(v);
+  const isActive = (path: string) => {
+    if (path === '/') return location.pathname === '/';
+    return location.pathname.startsWith(path);
+  };
+
+  const go = (path: string) => {
+    routerNavigate(path);
     setMobileOpen(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   return (
     <>
       <header className="sticky top-0 z-50 glass">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-[3.75rem] flex items-center justify-between gap-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-[3.75rem] flex items-center justify-between gap-4">
           {/* Logo */}
-          <button onClick={() => go('home')} className="flex items-center gap-2.5 shrink-0">
+          <button onClick={() => go('/')} className="flex items-center gap-2.5 shrink-0">
             <LogoMark className="size-9 text-primary" />
             <div className="leading-none">
-              <span className="block text-[1.1rem] font-bold text-primary tracking-[-0.02em]" style={{ fontFamily: 'Syne, sans-serif' }}>
+              <span className="block text-[1.1rem] font-bold text-primary tracking-[-0.02em]" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
                 Prahar AI
               </span>
-              <span className="text-[9px] font-semibold text-muted tracking-[0.15em] uppercase block" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
+              <span className="text-[9px] font-semibold text-muted tracking-[0.15em] uppercase block" style={{ fontFamily: 'Inter, sans-serif' }}>
                 {t('nav.citizen_welfare')}
               </span>
             </div>
@@ -93,17 +101,15 @@ function NavBar({ current, onNavigate }: NavBarProps) {
           <nav className="hidden md:flex items-center gap-0.5">
             {links.map((l) => (
               <button
-                key={l.id}
-                onClick={() => go(l.id)}
+                key={l.path}
+                onClick={() => go(l.path)}
                 className={`relative px-3.5 py-2 text-[0.82rem] font-semibold transition-colors ${
-                  current === l.id
-                    ? 'text-accent'
-                    : 'text-ink/70 hover:text-ink'
+                  isActive(l.path) ? 'text-accent' : 'text-ink/70 hover:text-ink'
                 }`}
-                style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}
+                style={{ fontFamily: 'Inter, sans-serif' }}
               >
                 {t(l.labelKey)}
-                {current === l.id && (
+                {isActive(l.path) && (
                   <span className="absolute bottom-0 left-3.5 right-3.5 h-[2px] rounded-full bg-accent" />
                 )}
               </button>
@@ -116,13 +122,13 @@ function NavBar({ current, onNavigate }: NavBarProps) {
             {isAuthenticated ? (
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => go('profile')}
+                  onClick={() => go('/profile')}
                   className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[0.8rem] font-semibold transition-colors ${
-                    current === 'profile'
+                    location.pathname === '/profile'
                       ? 'bg-primary text-white'
                       : 'bg-surface-2 text-ink hover:bg-border'
                   }`}
-                  style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}
+                  style={{ fontFamily: 'Inter, sans-serif' }}
                 >
                   <div className="size-6 rounded-full bg-accent/15 flex items-center justify-center">
                     <span className="text-[0.65rem] font-bold text-accent">
@@ -140,7 +146,7 @@ function NavBar({ current, onNavigate }: NavBarProps) {
                 </button>
               </div>
             ) : (
-              <button onClick={() => go('login')} className="btn btn-primary">
+              <button onClick={() => go('/login')} className="btn btn-primary">
                 <LogIn className="size-3.5" />
                 {t('nav.login')}
               </button>
@@ -168,10 +174,10 @@ function NavBar({ current, onNavigate }: NavBarProps) {
               <div className="px-4 py-4 space-y-1">
                 {links.map((l) => (
                   <button
-                    key={l.id}
-                    onClick={() => go(l.id)}
+                    key={l.path}
+                    onClick={() => go(l.path)}
                     className={`w-full text-left px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
-                      current === l.id ? 'bg-primary text-white' : 'text-ink/70 hover:bg-surface-2 hover:text-ink'
+                      isActive(l.path) ? 'bg-primary text-white' : 'text-ink/70 hover:bg-surface-2 hover:text-ink'
                     }`}
                   >
                     {t(l.labelKey)}
@@ -182,7 +188,7 @@ function NavBar({ current, onNavigate }: NavBarProps) {
                   {isAuthenticated ? (
                     <div className="flex gap-2">
                       <button
-                        onClick={() => go('profile')}
+                        onClick={() => go('/profile')}
                         className="flex-1 btn btn-navy text-xs"
                       >
                         <User className="size-3.5" /> {t('nav.profile')}
@@ -195,7 +201,7 @@ function NavBar({ current, onNavigate }: NavBarProps) {
                       </button>
                     </div>
                   ) : (
-                    <button onClick={() => go('login')} className="w-full btn btn-primary">
+                    <button onClick={() => go('/login')} className="w-full btn btn-primary">
                       <LogIn className="size-4" /> {t('nav.login')}
                     </button>
                   )}
@@ -210,35 +216,50 @@ function NavBar({ current, onNavigate }: NavBarProps) {
 }
 
 /* ─────────────────────────────────────────────
+   Protected Route Wrapper
+───────────────────────────────────────────── */
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated } = useAuth();
+  const location = useLocation();
+  if (!isAuthenticated) {
+    return <Navigate to="/login" state={{ from: location.pathname }} replace />;
+  }
+  return <>{children}</>;
+}
+
+/* ─────────────────────────────────────────────
    Mobile Bottom Nav
 ───────────────────────────────────────────── */
-function MobileBottomNav({
-  current,
-  onNavigate,
-}: {
-  current: View;
-  onNavigate: (v: View) => void;
-}) {
+function MobileBottomNav() {
+  const routerNavigate = useNavigate();
+  const location = useLocation();
+
   const items = [
-    { id: 'home' as View, label: 'Home', icon: Home },
-    { id: 'schemes' as View, label: 'Schemes', icon: LayoutGrid },
-    { id: 'assistant' as View, label: 'Chat', icon: MessageSquare },
-    { id: 'contact' as View, label: 'Support', icon: PhoneCall },
-    { id: 'profile' as View, label: 'Profile', icon: User },
+    { path: '/',          label: 'Home',    icon: Home },
+    { path: '/schemes',   label: 'Schemes', icon: LayoutGrid },
+    { path: '/assistant', label: 'Chat',    icon: MessageSquare },
+    { path: '/contact',   label: 'Support', icon: PhoneCall },
+    { path: '/profile',   label: 'Profile', icon: User },
   ];
+
+  const isActive = (path: string) => {
+    if (path === '/') return location.pathname === '/';
+    return location.pathname.startsWith(path);
+  };
+
   return (
     <nav className="md:hidden fixed bottom-0 inset-x-0 z-50 bg-parchment border-t border-border safe-area-pb shadow-[0_-1px_8px_rgba(26,18,8,0.06)]">
       <div className="flex">
-        {items.map(({ id, label, icon: Icon }) => (
+        {items.map(({ path, label, icon: Icon }) => (
           <button
-            key={id}
-            onClick={() => onNavigate(id)}
+            key={path}
+            onClick={() => { routerNavigate(path); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
             className={`flex-1 flex flex-col items-center py-2.5 gap-0.5 transition-colors ${
-              current === id ? 'text-accent' : 'text-muted hover:text-ink'
+              isActive(path) ? 'text-accent' : 'text-muted hover:text-ink'
             }`}
           >
-            <Icon className={`size-5 ${current === id ? 'stroke-[2.5]' : 'stroke-[1.75]'}`} />
-            <span className="text-[9px] font-bold tracking-wide" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>{label}</span>
+            <Icon className={`size-5 ${isActive(path) ? 'stroke-[2.5]' : 'stroke-[1.75]'}`} />
+            <span className="text-[9px] font-bold tracking-wide" style={{ fontFamily: 'Inter, sans-serif' }}>{label}</span>
           </button>
         ))}
       </div>
@@ -247,88 +268,66 @@ function MobileBottomNav({
 }
 
 /* ─────────────────────────────────────────────
+   Scheme Detail Wrapper (reads router state)
+───────────────────────────────────────────── */
+function SchemeDetailPage() {
+  const location = useLocation();
+  const routerNavigate = useNavigate();
+  const scheme: Scheme | undefined = location.state?.scheme;
+
+  if (!scheme) {
+    return <Navigate to="/schemes" replace />;
+  }
+
+  return (
+    <SchemeDetail
+      scheme={scheme}
+      onBack={() => { routerNavigate('/schemes'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+    />
+  );
+}
+
+/* ─────────────────────────────────────────────
    Main App
 ───────────────────────────────────────────── */
 function AppContent() {
-  const [currentView, setCurrentView] = useState<View>('home');
-  const [intendedView, setIntendedView] = useState<View | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [selectedScheme, setSelectedScheme] = useState<Scheme | null>(null);
   const { isAuthenticated, user } = useAuth();
+  const routerNavigate = useNavigate();
+  const location = useLocation();
 
-  const PROTECTED: View[] = ['schemes', 'assistant', 'profile', 'partner'];
+  // Universal navigate helper — child components still call onNavigate(view)
+  const viewToPath: Record<View, string> = {
+    home:        '/',
+    schemes:     '/schemes',
+    schemeDetail: '/schemes',
+    assistant:   '/assistant',
+    profile:     '/profile',
+    about:       '/about',
+    partner:     '/partner',
+    contact:     '/contact',
+    login:       '/login',
+  };
 
   const navigate = (view: View) => {
-    if (PROTECTED.includes(view) && !isAuthenticated) {
-      setIntendedView(view);
-      setCurrentView('login');
-      return;
-    }
-    setIntendedView(null);
-    setCurrentView(view);
+    routerNavigate(viewToPath[view]);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleSchemeSelect = (scheme: Scheme) => {
-    setSelectedScheme(scheme);
-    setCurrentView('schemeDetail');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const handleBackToSchemes = () => {
-    setSelectedScheme(null);
-    setCurrentView('schemes');
+    routerNavigate(`/schemes/${scheme.id}`, { state: { scheme } });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handlePostLogin = () => {
-    const dest = intendedView || 'home';
-    setIntendedView(null);
-    setCurrentView(dest);
+    const from = (location.state as { from?: string })?.from || '/';
+    routerNavigate(from, { replace: true });
     if (!user?.onboardingComplete) setShowOnboarding(true);
-  };
-
-  const renderView = () => {
-    switch (currentView) {
-      case 'home':
-        return isAuthenticated && user ? (
-          <Dashboard user={user} onNavigate={navigate} />
-        ) : (
-          <LandingPage onNavigate={navigate} />
-        );
-      case 'schemes':
-        return <SchemeExplorer onSchemeSelect={handleSchemeSelect} />;
-      case 'schemeDetail':
-        return selectedScheme ? (
-          <SchemeDetail scheme={selectedScheme} onBack={handleBackToSchemes} />
-        ) : (
-          <SchemeExplorer onSchemeSelect={handleSchemeSelect} />
-        );
-      case 'assistant':
-        return <ChatAssistant />;
-      case 'profile':
-        return <UserProfile onNavigate={navigate} />;
-      case 'about':
-        return <AboutPage onNavigate={navigate} />;
-      case 'partner':
-        return <PartnerPortal />;
-      case 'contact':
-        return <ContactPage onNavigate={navigate} />;
-      case 'login':
-        return <LoginPage onNavigate={navigate} onLoginSuccess={handlePostLogin} />;
-      default:
-        return isAuthenticated && user ? (
-          <Dashboard user={user} onNavigate={navigate} />
-        ) : (
-          <LandingPage onNavigate={navigate} />
-        );
-    }
   };
 
   return (
     <div className="min-h-screen bg-surface flex flex-col">
-      {/* Global Nav */}
-      <NavBar current={currentView} onNavigate={navigate} />
+      <NavBar />
 
       {/* Onboarding Wizard Overlay */}
       <AnimatePresence>
@@ -340,24 +339,48 @@ function AppContent() {
         )}
       </AnimatePresence>
 
-      {/* Page content */}
+      {/* Route-based page content */}
       <main className="flex-1 pb-16 md:pb-0">
         <AnimatePresence mode="wait">
           <motion.div
-            key={currentView}
+            key={location.pathname}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.18, ease: 'easeOut' }}
             className="min-h-full"
           >
-            {renderView()}
+            <Routes>
+              {/* Public routes */}
+              <Route
+                path="/"
+                element={
+                  isAuthenticated && user ? (
+                    <Dashboard user={user} onNavigate={navigate} />
+                  ) : (
+                    <LandingPage onNavigate={navigate} />
+                  )
+                }
+              />
+              <Route path="/about" element={<AboutPage onNavigate={navigate} />} />
+              <Route path="/contact" element={<ContactPage onNavigate={navigate} />} />
+              <Route path="/login" element={<LoginPage onNavigate={navigate} onLoginSuccess={handlePostLogin} />} />
+
+              {/* Protected routes */}
+              <Route path="/schemes" element={<ProtectedRoute><SchemeExplorer onSchemeSelect={handleSchemeSelect} /></ProtectedRoute>} />
+              <Route path="/schemes/:id" element={<ProtectedRoute><SchemeDetailPage /></ProtectedRoute>} />
+              <Route path="/assistant" element={<ProtectedRoute><ChatAssistant /></ProtectedRoute>} />
+              <Route path="/profile" element={<ProtectedRoute><UserProfile onNavigate={navigate} /></ProtectedRoute>} />
+              <Route path="/partner" element={<ProtectedRoute><PartnerPortal /></ProtectedRoute>} />
+
+              {/* Fallback */}
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
           </motion.div>
         </AnimatePresence>
       </main>
 
-      {/* Mobile Bottom Nav */}
-      <MobileBottomNav current={currentView} onNavigate={navigate} />
+      <MobileBottomNav />
     </div>
   );
 }
@@ -369,3 +392,4 @@ export default function App() {
     </AuthProvider>
   );
 }
+

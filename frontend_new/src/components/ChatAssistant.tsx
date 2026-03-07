@@ -118,7 +118,7 @@ export default function ChatAssistant() {
           <div>
             <p
               className="font-bold text-sm leading-none"
-              style={{ color: 'var(--color-ink)', fontFamily: 'Plus Jakarta Sans, sans-serif' }}
+              style={{ color: 'var(--color-ink)', fontFamily: 'Inter, sans-serif' }}
             >
               Prahar AI
             </p>
@@ -126,7 +126,7 @@ export default function ChatAssistant() {
               className="text-[10px] font-semibold mt-1"
               style={{
                 color: '#16a34a',
-                fontFamily: 'Syne, sans-serif',
+                fontFamily: 'Space Grotesk, sans-serif',
                 letterSpacing: '0.1em',
                 textTransform: 'uppercase',
               }}
@@ -205,14 +205,14 @@ export default function ChatAssistant() {
                           border: '1px solid var(--color-border)',
                           color: 'var(--color-ink)',
                           boxShadow: '0 2px 8px rgba(26,18,8,0.07), 0 1px 2px rgba(26,18,8,0.04)',
-                          fontFamily: 'Plus Jakarta Sans, sans-serif',
+                          fontFamily: 'Inter, sans-serif',
                         }
                       : {
                           borderRadius: '18px 2px 18px 18px',
                           background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-800) 100%)',
                           color: 'rgba(255,255,255,0.93)',
                           boxShadow: '0 2px 8px rgba(11,30,52,0.25)',
-                          fontFamily: 'Plus Jakarta Sans, sans-serif',
+                          fontFamily: 'Inter, sans-serif',
                         }
                   }
                 >
@@ -244,7 +244,7 @@ export default function ChatAssistant() {
 
                 <span
                   className="text-[10px] px-1"
-                  style={{ color: 'var(--color-muted-2)', fontFamily: 'Plus Jakarta Sans, sans-serif' }}
+                  style={{ color: 'var(--color-muted-2)', fontFamily: 'Inter, sans-serif' }}
                 >
                   {msg.timestamp}
                 </span>
@@ -261,7 +261,7 @@ export default function ChatAssistant() {
                           background: 'var(--color-parchment)',
                           border: '1.5px solid var(--color-border)',
                           color: 'var(--color-primary)',
-                          fontFamily: 'Plus Jakarta Sans, sans-serif',
+                          fontFamily: 'Inter, sans-serif',
                           boxShadow: '0 1px 3px rgba(26,18,8,0.06)',
                         }}
                         onMouseEnter={(e) => {
@@ -369,7 +369,7 @@ export default function ChatAssistant() {
           className="text-center text-[10px] mt-2"
           style={{
             color: 'var(--color-muted-2)',
-            fontFamily: 'Plus Jakarta Sans, sans-serif',
+            fontFamily: 'Inter, sans-serif',
             letterSpacing: '0.05em',
           }}
         >
