@@ -9,6 +9,7 @@
  */
 
 import { indiaGovService } from '../schemes/india-gov.service';
+import { mySchemePageService } from '../schemes/myscheme-page.service';
 import { neo4jService } from '../db/neo4j.service';
 
 interface SyncStatus {
@@ -116,12 +117,15 @@ class SchemeSyncAgent {
 
       console.log(`✅ Fetched ${allSchemes.length} schemes from API`);
 
+      // Enrich each scheme using its MyScheme page API payload.
+      const enrichedSchemes = await mySchemePageService.enrichSchemes(allSchemes);
+
       // Persist to Neo4j graph (batch insert + category relationship creation)
-      await neo4jService.storeSchemes(allSchemes);
+      await neo4jService.storeSchemes(enrichedSchemes);
 
       const duration = ((Date.now() - startTime) / 1000).toFixed(2);
       console.log(
-        `✅ Sync complete! ${allSchemes.length} schemes persisted to Neo4j in ${duration}s`
+        `✅ Sync complete! ${enrichedSchemes.length} schemes persisted to Neo4j in ${duration}s`
       );
     } catch (error: any) {
       console.error('❌ Sync failed:', error.message || error);

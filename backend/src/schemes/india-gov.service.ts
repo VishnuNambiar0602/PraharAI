@@ -39,7 +39,14 @@ export interface Scheme {
   ministry: string | null;
   tags: string[];
   state: string | null;
-  schemeUrl: string | null;  // Link to myscheme.gov.in application page
+  schemeUrl: string | null; // Link to myscheme.gov.in application page
+  page_scheme_id?: string | null;
+  page_title?: string | null;
+  page_ministry?: string | null;
+  page_description?: string | null;
+  page_eligibility_json?: string;
+  page_benefits_json?: string;
+  page_enriched_at?: string | null;
 }
 
 class IndiaGovService {
@@ -85,7 +92,7 @@ class IndiaGovService {
           throw new Error(`API returned ${response.status}: ${response.statusText}`);
         }
 
-        const data = await response.json() as IndiaGovResponse;
+        const data = (await response.json()) as IndiaGovResponse;
 
         return {
           total: data.schemesResponse.total,
@@ -97,14 +104,18 @@ class IndiaGovService {
         lastError = error;
         if (attempt < this.MAX_RETRIES) {
           const backoff = attempt * 2000; // 2s, 4s
-          console.warn(`⚠️  Fetch attempt ${attempt}/${this.MAX_RETRIES} failed (page ${pageNumber}): ${error.message}. Retrying in ${backoff / 1000}s...`);
+          console.warn(
+            `⚠️  Fetch attempt ${attempt}/${this.MAX_RETRIES} failed (page ${pageNumber}): ${error.message}. Retrying in ${backoff / 1000}s...`
+          );
           await this.delay(backoff);
         }
       }
     }
 
     console.error('Error fetching schemes from India.gov.in:', lastError);
-    throw new Error(`Failed to fetch schemes after ${this.MAX_RETRIES} attempts: ${lastError.message}`);
+    throw new Error(
+      `Failed to fetch schemes after ${this.MAX_RETRIES} attempts: ${lastError.message}`
+    );
   }
 
   /**

@@ -83,6 +83,13 @@ export interface SchemeRow {
   state: string | null;
   categories_json: string; // JSON array of {type,value}
   scheme_url: string | null;
+  page_scheme_id?: string | null;
+  page_title?: string | null;
+  page_ministry?: string | null;
+  page_description?: string | null;
+  page_eligibility_json?: string;
+  page_benefits_json?: string;
+  page_enriched_at?: string | null;
   last_updated: string;
 }
 
@@ -154,27 +161,108 @@ const CATEGORY_RULES: Record<string, Record<string, string[]>> = {
   },
 };
 
+function escapeRegExp(input: string): string {
+  return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function containsKeyword(text: string, keyword: string): boolean {
+  const normalizedKeyword = keyword.trim().toLowerCase();
+  if (!normalizedKeyword) return false;
+
+  // Use boundary-safe matching to avoid false positives like "sc" in "scheme".
+  const phrase = escapeRegExp(normalizedKeyword)
+    .replace(/\\\s+/g, '\\s+')
+    .replace(/\\-/g, '[-\\s]?');
+  const regex = new RegExp(`(^|[^a-z0-9])${phrase}([^a-z0-9]|$)`, 'i');
+  return regex.test(text);
+}
+
+function extractNumericCategories(text: string): CategoryMapping[] {
+  const categories: CategoryMapping[] = [];
+
+  // Age-based signals
+  const ageRange = text.match(
+    /(?:age|between)?\s*(\d{1,2})\s*(?:-|to|–)\s*(\d{1,2})\s*(?:years?)?/i
+  );
+  if (ageRange) {
+    const min = Number(ageRange[1]);
+    const max = Number(ageRange[2]);
+    if (Number.isFinite(min) && Number.isFinite(max)) {
+      if (max <= 25) categories.push({ type: 'Age', value: 'Youth' });
+      if (min >= 60) categories.push({ type: 'Age', value: 'Senior' });
+      if (min >= 18 && max <= 59) categories.push({ type: 'Age', value: 'Adult' });
+    }
+  }
+
+  const ageAbove = text.match(/(?:above|over|minimum)\s*(\d{1,2})\s*(?:years?)?/i);
+  if (ageAbove) {
+    const min = Number(ageAbove[1]);
+    if (Number.isFinite(min)) {
+      if (min >= 60) categories.push({ type: 'Age', value: 'Senior' });
+      else if (min >= 18) categories.push({ type: 'Age', value: 'Adult' });
+    }
+  }
+
+  // Income-based signals (convert lakh to rupees)
+  const incomeLakh = text.match(
+    /(?:annual\s+income|family\s+income|income)[^\d]*(?:not\s+exceed|below|under|upto|up\s*to|maximum)?[^\d]*(?:rs\.?|₹)?\s*(\d+(?:\.\d+)?)\s*(?:lakh|lac)/i
+  );
+  if (incomeLakh) {
+    const rupees = Number(incomeLakh[1]) * 100000;
+    if (Number.isFinite(rupees)) {
+      if (rupees <= 100000) categories.push({ type: 'Income', value: 'Below 1 Lakh' });
+      else if (rupees <= 300000) categories.push({ type: 'Income', value: '1-3 Lakh' });
+      else if (rupees >= 1000000) categories.push({ type: 'Income', value: 'Above 10 Lakh' });
+    }
+  }
+
+  const incomeRupees = text.match(
+    /(?:annual\s+income|family\s+income|income)[^\d]*(?:not\s+exceed|below|under|upto|up\s*to|maximum)?[^\d]*(?:rs\.?|₹)\s*([\d,]+)/i
+  );
+  if (incomeRupees) {
+    const rupees = Number(incomeRupees[1].replace(/,/g, ''));
+    if (Number.isFinite(rupees)) {
+      if (rupees <= 100000) categories.push({ type: 'Income', value: 'Below 1 Lakh' });
+      else if (rupees <= 300000) categories.push({ type: 'Income', value: '1-3 Lakh' });
+      else if (rupees >= 1000000) categories.push({ type: 'Income', value: 'Above 10 Lakh' });
+    }
+  }
+
+  return categories;
+}
+
 function extractCategories(name: string, description: string, tags: string[]): CategoryMapping[] {
   const text = `${name} ${description} ${tags.join(' ')}`.toLowerCase();
   const categories: CategoryMapping[] = [];
+  const dedupe = new Set<string>();
+
+  const addCategory = (type: string, value: string) => {
+    const key = `${type}|${value}`;
+    if (!dedupe.has(key)) {
+      categories.push({ type, value });
+      dedupe.add(key);
+    }
+  };
 
   for (const [type, rules] of Object.entries(CATEGORY_RULES)) {
     for (const [value, keywords] of Object.entries(rules)) {
-      if (keywords.length > 0 && keywords.some((kw) => text.includes(kw))) {
-        categories.push({ type, value });
+      if (keywords.length > 0 && keywords.some((kw) => containsKeyword(text, kw))) {
+        addCategory(type, value);
       }
     }
   }
 
+  for (const cat of extractNumericCategories(text)) {
+    addCategory(cat.type, cat.value);
+  }
+
   if (categories.length === 0) {
-    categories.push(
-      { type: 'Employment', value: 'Any' },
-      { type: 'Income', value: 'Any' },
-      { type: 'Locality', value: 'Any' },
-      { type: 'SocialCategory', value: 'Any' },
-      { type: 'Education', value: 'Any' },
-      { type: 'PovertyLine', value: 'Any' }
-    );
+    addCategory('Employment', 'Any');
+    addCategory('Income', 'Any');
+    addCategory('Locality', 'Any');
+    addCategory('SocialCategory', 'Any');
+    addCategory('Education', 'Any');
+    addCategory('PovertyLine', 'Any');
   }
 
   return categories;
@@ -420,6 +508,13 @@ class Neo4jDbService {
       tags: string[];
       state: string | null;
       schemeUrl?: string | null;
+      page_scheme_id?: string | null;
+      page_title?: string | null;
+      page_ministry?: string | null;
+      page_description?: string | null;
+      page_eligibility_json?: string;
+      page_benefits_json?: string;
+      page_enriched_at?: string | null;
     }[]
   ): Promise<void> {
     // Deduplicate by scheme_id — the API sometimes returns duplicates
@@ -465,6 +560,13 @@ class Neo4jDbService {
           state: s.state ?? '',
           categories_json: JSON.stringify(cats),
           scheme_url: s.schemeUrl ?? `https://www.myscheme.gov.in/schemes/${s.schemeId}`,
+          page_scheme_id: s.page_scheme_id ?? '',
+          page_title: s.page_title ?? '',
+          page_ministry: s.page_ministry ?? '',
+          page_description: s.page_description ?? '',
+          page_eligibility_json: s.page_eligibility_json ?? '[]',
+          page_benefits_json: s.page_benefits_json ?? '[]',
+          page_enriched_at: s.page_enriched_at ?? '',
           is_active: true,
           last_updated: new Date().toISOString(),
         };
@@ -482,6 +584,13 @@ class Neo4jDbService {
            state: row.state,
            categories_json: row.categories_json,
            scheme_url: row.scheme_url,
+           page_scheme_id: row.page_scheme_id,
+           page_title: row.page_title,
+           page_ministry: row.page_ministry,
+           page_description: row.page_description,
+           page_eligibility_json: row.page_eligibility_json,
+           page_benefits_json: row.page_benefits_json,
+           page_enriched_at: row.page_enriched_at,
            is_active: row.is_active,
            last_updated: row.last_updated
          })`,
@@ -840,6 +949,13 @@ class Neo4jDbService {
       state: p.state || null,
       categories_json: p.categories_json ?? '[]',
       scheme_url: p.scheme_url ?? null,
+      page_scheme_id: p.page_scheme_id || null,
+      page_title: p.page_title || null,
+      page_ministry: p.page_ministry || null,
+      page_description: p.page_description || null,
+      page_eligibility_json: p.page_eligibility_json ?? '[]',
+      page_benefits_json: p.page_benefits_json ?? '[]',
+      page_enriched_at: p.page_enriched_at || null,
       last_updated: p.last_updated?.toString?.() || new Date().toISOString(),
     };
   }
@@ -855,6 +971,15 @@ class Neo4jDbService {
       state: row.state,
       categories: JSON.parse(row.categories_json) as CategoryMapping[],
       schemeUrl: row.scheme_url ?? null,
+      pageDetails: {
+        schemeId: row.page_scheme_id ?? null,
+        title: row.page_title ?? null,
+        ministry: row.page_ministry ?? null,
+        description: row.page_description ?? null,
+        eligibility: JSON.parse(row.page_eligibility_json ?? '[]') as string[],
+        benefits: JSON.parse(row.page_benefits_json ?? '[]') as string[],
+        enrichedAt: row.page_enriched_at ?? null,
+      },
     };
   }
 
@@ -908,10 +1033,9 @@ class Neo4jDbService {
     );
     // Fall back to plain email lookup (backward compat for pre-encryption users)
     if (rows.length === 0) {
-      rows = await this.connection.executeRead<any>(
-        'MATCH (u:User { email: $email }) RETURN u',
-        { email }
-      );
+      rows = await this.connection.executeRead<any>('MATCH (u:User { email: $email }) RETURN u', {
+        email,
+      });
     }
     if (rows.length === 0) return undefined;
     return await this.nodeToUser(rows[0].u);
@@ -1005,9 +1129,17 @@ class Neo4jDbService {
     if (emp.includes('student')) groupNames.push('Student');
     if (emp.includes('retired')) groupNames.push('Senior Citizen');
     if (emp.includes('farmer') || emp.includes('agriculture')) groupNames.push('Farmer');
-    const inc = (profile.income || '').toLowerCase();
-    if (inc.includes('below') || inc.includes('bpl') || inc.includes('low'))
-      groupNames.push('Low Income Worker');
+
+    // Handle income: could be number or descriptive string
+    const income = profile.income;
+    if (typeof income === 'number') {
+      // Numeric income thresholds (annual income in INR)
+      if (income < 100000) groupNames.push('Low Income Worker');
+    } else if (typeof income === 'string') {
+      const inc = income.toLowerCase();
+      if (inc.includes('below') || inc.includes('bpl') || inc.includes('low'))
+        groupNames.push('Low Income Worker');
+    }
 
     const unique = [...new Set(groupNames)];
     if (unique.length > 0) {
