@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { Skeleton } from './ui/skeleton';
 import { Scheme } from '../types';
-import { fetchSchemes } from '../api';
+import { fetchRecommendations } from '../api';
 
 interface DashboardProps {
   user: any;
@@ -31,12 +31,8 @@ export default function Dashboard({ user, onNavigate }: DashboardProps) {
 
   const loadRecommendations = async () => {
     try {
-      // Fetch top schemes - in production this would be personalized
-      const data = await fetchSchemes(undefined, 5);
-      const list: Scheme[] = Array.isArray(data)
-        ? data
-        : (data.schemes ?? data.data ?? data.value ?? []);
-      setRecommendations(list.slice(0, 5));
+      const data = await fetchRecommendations(user.userId);
+      setRecommendations(data.slice(0, 5) as any);
     } catch (error) {
       console.error('Failed to load recommendations:', error);
     } finally {
