@@ -31,10 +31,17 @@ export default function LanguageSelector() {
   const popularLanguages = languages.filter((l) => l.popular);
   const otherLanguages = languages.filter((l) => !l.popular);
 
-  const currentLanguage = languages.find((l) => l.code === i18n.language) || languages[0];
+  const activeLanguageCode = (i18n.resolvedLanguage || i18n.language || 'en')
+    .toLowerCase()
+    .split('-')[0];
 
-  const handleLanguageChange = (code: string) => {
-    i18n.changeLanguage(code);
+  const currentLanguage =
+    languages.find((l) => l.code === activeLanguageCode) || languages[0];
+
+  const handleLanguageChange = async (code: string) => {
+    await i18n.changeLanguage(code);
+    localStorage.setItem('selectedLanguage', code);
+    localStorage.setItem('i18nextLng', code);
     setOpen(false);
   };
 
@@ -73,7 +80,7 @@ export default function LanguageSelector() {
                       key={lang.code}
                       onClick={() => handleLanguageChange(lang.code)}
                       className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
-                        i18n.language === lang.code
+                        activeLanguageCode === lang.code
                           ? 'bg-primary text-white font-semibold'
                           : 'text-ink hover:bg-primary-50'
                       }`}
@@ -99,7 +106,7 @@ export default function LanguageSelector() {
                       key={lang.code}
                       onClick={() => handleLanguageChange(lang.code)}
                       className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
-                        i18n.language === lang.code
+                        activeLanguageCode === lang.code
                           ? 'bg-primary text-white font-semibold'
                           : 'text-ink hover:bg-primary-50'
                       }`}

@@ -35,18 +35,27 @@ const resources = {
   ne: { translation: ne },
 };
 
+const supportedLanguages = Object.keys(resources);
+
 i18n
   .use(LanguageDetector)
   .use(initReactI18next)
   .init({
     resources,
+    supportedLngs: supportedLanguages,
+    nonExplicitSupportedLngs: true,
+    load: 'languageOnly',
+    cleanCode: true,
+    lowerCaseLng: true,
     fallbackLng: 'en',
     debug: false,
     interpolation: {
       escapeValue: false,
     },
     detection: {
-      order: ['localStorage', 'navigator'],
+      order: ['querystring', 'localStorage', 'navigator'],
+      lookupQuerystring: 'lang',
+      lookupLocalStorage: 'selectedLanguage',
       caches: ['localStorage'],
     },
   });
