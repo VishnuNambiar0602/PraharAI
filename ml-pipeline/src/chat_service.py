@@ -36,6 +36,13 @@ SYSTEM_PROMPT = (
     "unless user writes in another language."
 )
 
+WRAPPER_PROMPT = (
+    "You are a conversational assistant that writes only style text around factual content. "
+    "Return STRICT JSON with keys: intro, outro. "
+    "Do not include scheme names, numbers, percentages, rupee amounts, URLs, deadlines, "
+    "or eligibility criteria in intro/outro. Keep each field under 35 words."
+)
+
 
 # ── Entity extraction ────────────────────────────────────────────────────────
 
@@ -145,7 +152,7 @@ async def _backend_search_schemes(query: str, limit: int = 6) -> List[Dict]:
         async with httpx.AsyncClient(timeout=10) as client:
             res = await client.get(
                 f"{BACKEND_URL}/api/schemes",
-                params={"search": query, "limit": limit},
+                params={"q": query, "limit": limit},
             )
             if res.status_code == 200:
                 data = res.json()
@@ -199,14 +206,15 @@ async def tool_get_scheme_details(params: Dict, _user_profile: Dict) -> Dict:
     return {
         "success": True,
         "data": {
-            "id": scheme.get("schemeId"),
+            "id": scheme.get("id") or scheme.get("schemeId"),
             "name": scheme.get("name") or scheme.get("title"),
             "description": scheme.get("description", ""),
             "ministry": scheme.get("ministry", ""),
             "tags": scheme.get("tags", []),
-            "applicationUrl": scheme.get("schemeUrl")
-            or f"https://www.myscheme.gov.in/schemes/{scheme.get('schemeId', '')}",
-            "otherMatches": [s.get("name", "") for s in schemes[1:]],
+            "applicationUrl": scheme.get("applicationUrl")
+            or scheme.get("schemeUrl")
+            or f"https://www.myscheme.gov.in/schemes/{scheme.get('id') or scheme.get('schemeId', '')}",
+            "otherMatches": [s.get("name") or s.get("title", "") for s in schemes[1:]],
         },
     }
 
@@ -229,12 +237,13 @@ async def tool_check_eligibility(params: Dict, user_profile: Dict) -> Dict:
             if pct >= 50:
                 results.append(
                     {
-                        "schemeId": s.get("schemeId"),
+                        "schemeId": s.get("id") or s.get("schemeId"),
                         "name": s.get("name") or s.get("title"),
                         "eligibilityScore": pct,
                         "description": s.get("description", "")[:150],
-                        "applicationUrl": s.get("schemeUrl")
-                        or f"https://www.myscheme.gov.in/schemes/{s.get('schemeId', '')}",
+                        "applicationUrl": s.get("applicationUrl")
+                        or s.get("schemeUrl")
+                        or f"https://www.myscheme.gov.in/schemes/{s.get('id') or s.get('schemeId', '')}",
                     }
                 )
         results.sort(key=lambda x: x["eligibilityScore"], reverse=True)
@@ -247,10 +256,12 @@ async def tool_check_eligibility(params: Dict, user_profile: Dict) -> Dict:
             "data": {
                 "eligibleSchemes": [
                     {
-                        "schemeId": s.get("schemeId"),
-                        "name": s.get("name"),
+                        "schemeId": s.get("id") or s.get("schemeId"),
+                        "name": s.get("name") or s.get("title"),
                         "eligibilityScore": 60,
                         "description": s.get("description", "")[:150],
+                        "applicationUrl": s.get("applicationUrl")
+                        or f"https://www.myscheme.gov.in/schemes/{s.get('id') or s.get('schemeId', '')}",
                     }
                     for s in schemes[:5]
                 ],
@@ -264,6 +275,75 @@ TOOLS = {
     "get_scheme_details": tool_get_scheme_details,
     "check_eligibility": tool_check_eligibility,
 }
+
+# ── OpenAI-compatible tool schemas for structured function calling ───────────
+
+AGENT_TOOLS_SCHEMA = [
+    {
+        "type": "function",
+        "function": {
+            "name": "search_schemes",
+            "description": (
+                "Search for Indian government welfare schemes matching a query and user profile. "
+                "Use when the user wants to find or explore schemes."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Search keywords, e.g. 'farmer loan Punjab' or 'education scholarship'",
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Max results to return (default 6)",
+                    },
+                },
+                "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_scheme_details",
+            "description": (
+                "Get detailed information about a specific scheme by name or keyword. "
+                "Use when the user mentions a scheme by name or asks how to apply."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Scheme name or descriptive keywords",
+                    },
+                },
+                "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "check_eligibility",
+            "description": (
+                "Check which schemes the user is eligible for based on their profile. "
+                "Use when the user asks 'am I eligible', 'do I qualify', or wants personalised scheme matching."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Optional scheme category or keyword to narrow the search",
+                    },
+                },
+                "required": [],
+            },
+        },
+    },
+]
 
 
 # ── Quick response handlers ─────────────────────────────────────────────────
@@ -380,6 +460,35 @@ async def _get_agent_step(query: str, user_profile: Dict, conversation_snippet: 
             "parameters": {"query": query},
         }
 
+    # --- Path 1: native function/tool calling (structured, reliable) ---
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "You are a ReAct agent for Indian government welfare schemes. "
+                "Use the provided tools to answer the user's query. "
+                "Pick the most appropriate tool based on the user's intent."
+            ),
+        },
+    ]
+    if conversation_snippet:
+        messages.append({"role": "assistant", "content": conversation_snippet})
+    messages.append(
+        {
+            "role": "user",
+            "content": (f"{query}\n\nMy profile: {json.dumps(user_profile, default=str)}"),
+        }
+    )
+
+    tc_result = await llm_service.chat_with_tools(messages, AGENT_TOOLS_SCHEMA)
+    if tc_result.get("type") == "tool_call" and tc_result.get("name") in TOOLS:
+        return {
+            "thought": f"Using tool {tc_result['name']}",
+            "tool": tc_result["name"],
+            "parameters": tc_result.get("parameters", {}),
+        }
+
+    # --- Path 2: text-based JSON extraction (legacy fallback) ---
     prompt = f"""You are a ReAct Agent for Indian Government Schemes.
 {FEW_SHOT}
 CURRENT QUERY: "{query}"
@@ -436,7 +545,7 @@ def _build_template_response(tool_name: str, tool_data: Any, user_profile: Dict)
 
         resp = f"📚 **Matching Schemes**{' for ' + user_name if user_name else ''} ({len(schemes)} found)\n\n"
         for s in (schemes if isinstance(schemes, list) else [])[:5]:
-            name = s.get("name") or s.get("title", "Unknown")
+            name = s.get("name") or s.get("title") or "Unknown"
             desc = (s.get("description") or "")[:110].strip()
             score = f" — {s['eligibilityScore']}% match" if s.get("eligibilityScore") else ""
             resp += f"• **{name}**{score}\n  {desc}{'...' if len(desc) >= 110 else ''}\n\n"
@@ -450,7 +559,7 @@ def _build_template_response(tool_name: str, tool_data: Any, user_profile: Dict)
             return "Based on your current profile I couldn't find highly matching schemes. Complete your profile for better results."
         resp = f"✅ **Eligible Schemes** for you{name_suffix}:\n\n"
         for s in eligible[:5]:
-            name = s.get("name", "Unknown")
+            name = s.get("name") or "Unknown"
             score = s.get("eligibilityScore", 0)
             url = s.get("applicationUrl", "")
             resp += f"• **{name}** — {score}% eligible\n"
@@ -479,6 +588,122 @@ def _build_template_response(tool_name: str, tool_data: Any, user_profile: Dict)
         return resp
 
     return "I found some information. Use the **Schemes** page to browse by category."
+
+
+def _contains_factual_claims(text: str) -> bool:
+    """Detect generated content that appears to include factual scheme claims."""
+    if not text:
+        return False
+    patterns = [
+        r"https?://",  # URL
+        r"₹\s*\d",  # rupee amount
+        r"\d+\s*%",  # percentage
+        r"\b(deadline|last date|apply by|eligible|eligibility)\b",  # factual terms
+    ]
+    return any(re.search(p, text, re.I) for p in patterns)
+
+
+def _extract_known_scheme_names(tool_name: str, tool_data: Any) -> set:
+    """
+    Extract the set of scheme names that the tool actually returned.
+    Used as an allowlist when validating wrapper text.
+    """
+    names: set = set()
+    if not tool_data:
+        return names
+
+    if tool_name == "search_schemes":
+        schemes = tool_data if isinstance(tool_data, list) else tool_data.get("data", [])
+        for s in schemes if isinstance(schemes, list) else []:
+            n = s.get("name") or s.get("title", "")
+            if n:
+                names.add(n.lower())
+
+    elif tool_name == "check_eligibility":
+        for s in tool_data.get("eligibleSchemes", []):
+            n = s.get("name", "")
+            if n:
+                names.add(n.lower())
+
+    elif tool_name == "get_scheme_details":
+        n = tool_data.get("name") or tool_data.get("title", "")
+        if n:
+            names.add(n.lower())
+        for n2 in tool_data.get("otherMatches", []):
+            if n2:
+                names.add(n2.lower())
+
+    return names
+
+
+def _wrapper_mentions_unknown_scheme(text: str, known_names: set) -> bool:
+    """
+    Return True if the text references a capitalised multi-word phrase that
+    looks like a scheme name but is NOT in the known allowlist.
+    """
+    if not text or not known_names:
+        return False
+    # Match patterns like "PM-KISAN" or "Pradhan Mantri Awas Yojana"
+    candidates = re.findall(r"\b([A-Z][A-Za-z-]{1,}(?:\s+[A-Z][A-Za-z-]{1,}){1,})\b", text)
+    for phrase in candidates:
+        phrase_lower = phrase.lower()
+        # If none of the known names contains this phrase, it may be hallucinated
+        if not any(phrase_lower in known or known in phrase_lower for known in known_names):
+            return True
+    return False
+
+
+async def _get_conversational_wrapper(
+    user_message: str,
+    user_profile: Dict[str, Any],
+    tool_name: str,
+    known_scheme_names: set = frozenset(),
+) -> Dict[str, str]:
+    """Generate a human-like intro/outro while preserving factual integrity."""
+    fallback = {
+        "intro": "I understand what you're looking for. I checked the latest scheme records for you.",
+        "outro": "If you want, I can also help with eligibility checks or the application process next.",
+    }
+
+    if not llm_service.is_configured:
+        return fallback
+
+    profile_hint = (
+        f"state={user_profile.get('state', 'N/A')}, "
+        f"employment={user_profile.get('employment', 'N/A')}"
+    )
+    prompt = (
+        f"User message: {user_message}\n"
+        f"Tool used: {tool_name or 'none'}\n"
+        f"Profile hint: {profile_hint}\n\n"
+        "Generate only supportive conversational framing text. "
+        "Output valid JSON exactly as: "
+        '{"intro":"...","outro":"..."}'
+    )
+
+    raw = await llm_service.complete(WRAPPER_PROMPT, prompt)
+    if not raw:
+        return fallback
+
+    try:
+        start = raw.index("{")
+        end = raw.rindex("}") + 1
+        parsed = json.loads(raw[start:end])
+        intro = (parsed.get("intro") or "").strip()
+        outro = (parsed.get("outro") or "").strip()
+        if not intro or not outro:
+            return fallback
+        if _contains_factual_claims(intro) or _contains_factual_claims(outro):
+            logger.debug("[wrapper] factual claims detected — using fallback")
+            return fallback
+        if _wrapper_mentions_unknown_scheme(
+            intro, known_scheme_names
+        ) or _wrapper_mentions_unknown_scheme(outro, known_scheme_names):
+            logger.debug("[wrapper] unknown scheme name in wrapper — using fallback")
+            return fallback
+        return {"intro": intro, "outro": outro}
+    except (ValueError, json.JSONDecodeError):
+        return fallback
 
 
 async def process_chat(
@@ -535,28 +760,18 @@ async def process_chat(
             # Tool failed, try another step
             continue
 
-    # 4. Generate response
-    if llm_service.is_configured and tool_data:
-        tool_summary = json.dumps(tool_data, default=str)[:800]
-        user_prompt = (
-            f'User asked: "{message}"\n\n'
-            f"Tool used: {tool_name or 'none'}\n"
-            f"Tool result (truncated): {tool_summary}\n\n"
-            f"User profile: age={user_profile.get('age', 'N/A')}, "
-            f"state={user_profile.get('state', 'N/A')}, "
-            f"employment={user_profile.get('employment', 'N/A')}, "
-            f"income={user_profile.get('income', 'N/A')}\n\n"
-            "Generate a helpful, actionable response based on this data."
-        )
-        llm_response = await llm_service.complete(SYSTEM_PROMPT, user_prompt)
-        if llm_response:
-            return {
-                "response": llm_response,
-                "suggestions": _build_suggestions(tool_name),
-            }
+    # 4. Build factual response block from tool output only.
+    factual_block = _build_template_response(tool_name, tool_data, user_profile)
 
-    # 5. Template fallback
-    response_text = _build_template_response(tool_name, tool_data, user_profile)
+    # 5. Add guarded conversational framing (no facts allowed in generated text).
+    if tool_data:
+        known_names = _extract_known_scheme_names(tool_name, tool_data)
+        wrapper = await _get_conversational_wrapper(message, user_profile, tool_name, known_names)
+        response_text = f"{wrapper['intro']}\n\n{factual_block}\n\n{wrapper['outro']}"
+    else:
+        response_text = factual_block
+
+    # 6. Return response
     return {
         "response": response_text,
         "suggestions": _build_suggestions(tool_name),

@@ -130,20 +130,6 @@ class MySchemeStructuredService {
   }
 
   /**
-   * Extract monetary amounts from text
-   */
-  private extractMonetaryAmount(text: string): string | null {
-    // Match Indian currency formats: ₹1,00,000 or Rs. 100000
-    const match = text.match(
-      /(?:₹|Rs\.?\s*|INR\s*)?\s*([0-9,]+(?:\.[0-9]{2})?)\s*(?:lakh|lac|crore|thousand)?/i
-    );
-    if (match) {
-      return match[0].trim();
-    }
-    return null;
-  }
-
-  /**
    * Clean and filter eligibility criteria
    */
   private cleanEligibility(items: string[]): string[] {

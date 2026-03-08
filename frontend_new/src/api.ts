@@ -4,6 +4,23 @@
 
 const API_BASE = '/api';
 
+export interface RecommendationApiItem {
+  id: string;
+  title: string;
+  description?: string;
+  category: string;
+  benefits?: string;
+  eligibility?: string;
+  applicationUrl?: string;
+  eligibilityScore?: number;
+}
+
+export interface ChatApiResponse {
+  response: string;
+  suggestions?: string[];
+  degraded?: boolean;
+}
+
 function authHeaders(): Record<string, string> {
   const token = localStorage.getItem('accessToken');
   return token ? { Authorization: `Bearer ${token}` } : {};
@@ -128,7 +145,7 @@ export async function fetchRecommendations(userId: string) {
     headers: { ...authHeaders() },
   });
   if (!res.ok) throw new Error('Failed to fetch recommendations');
-  return res.json();
+  return res.json() as Promise<RecommendationApiItem[]>;
 }
 
 // ─── Chat ────────────────────────────────────────────────────────────────────
@@ -143,7 +160,7 @@ export async function sendChatMessage(
     body: JSON.stringify({ message, conversationHistory }),
   });
   if (!res.ok) throw new Error('Chat request failed');
-  return res.json(); // { response, suggestions? }
+  return res.json() as Promise<ChatApiResponse>; // { response, suggestions?, degraded? }
 }
 
 // ─── Nudges ──────────────────────────────────────────────────────────────────

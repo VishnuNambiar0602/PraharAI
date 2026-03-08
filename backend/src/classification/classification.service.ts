@@ -1,6 +1,6 @@
 /**
  * Classification Service
- * 
+ *
  * Provides user classification functionality by interfacing with the
  * trained K-Means model. Handles single user classification and batch
  * reclassification operations.
@@ -17,7 +17,7 @@ import {
   ClassifyUserResponse,
   BatchReclassificationResult,
   ClassificationMetrics,
-  ClassificationProfile
+  ClassificationProfile,
 } from './types';
 
 export class ClassificationService {
@@ -29,9 +29,10 @@ export class ClassificationService {
 
   constructor(driver: Driver) {
     this.driver = driver;
-    
+
     // Configure paths
-    this.modelPath = process.env.CLASSIFIER_MODEL_PATH || 
+    this.modelPath =
+      process.env.CLASSIFIER_MODEL_PATH ||
       path.join(__dirname, '../../../ml-pipeline/models/user_classifier.pkl');
     this.pythonPath = process.env.PYTHON_PATH || 'python';
     this.classifierScriptPath = path.join(__dirname, '../../../ml-pipeline/src/classify_user.py');
@@ -76,9 +77,10 @@ export class ClassificationService {
         groups: assignment.groups,
         confidence: assignment.confidence,
         timestamp: assignment.timestamp,
-        message: assignment.confidence >= confidenceThreshold
-          ? 'User successfully classified'
-          : 'User assigned to default group due to low confidence'
+        message:
+          assignment.confidence >= confidenceThreshold
+            ? 'User successfully classified'
+            : 'User assigned to default group due to low confidence',
       };
 
       // Cache the result (24 hour TTL)
@@ -91,7 +93,7 @@ export class ClassificationService {
         classificationTime,
         confidence: assignment.confidence,
         groupCount: assignment.groups.length,
-        timestamp: new Date()
+        timestamp: new Date(),
       });
 
       // Requirement 2.3: Ensure classification completes within 5 seconds
@@ -129,10 +131,10 @@ export class ClassificationService {
       const batchSize = 50;
       for (let i = 0; i < userIds.length; i += batchSize) {
         const batch = userIds.slice(i, i + batchSize);
-        
+
         // Process batch in parallel
         const results = await Promise.allSettled(
-          batch.map(userId => this.classifyUser({ userId }))
+          batch.map((userId) => this.classifyUser({ userId }))
         );
 
         // Count successes and failures
@@ -143,12 +145,14 @@ export class ClassificationService {
             failureCount++;
             errors.push({
               userId: batch[index],
-              error: result.reason?.message || 'Unknown error'
+              error: result.reason?.message || 'Unknown error',
             });
           }
         });
 
-        console.log(`Processed batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(userIds.length / batchSize)}`);
+        console.log(
+          `Processed batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(userIds.length / batchSize)}`
+        );
       }
 
       const duration = Date.now() - startTime;
@@ -162,7 +166,7 @@ export class ClassificationService {
         successCount,
         failureCount,
         duration,
-        errors
+        errors,
       };
     } catch (error) {
       console.error('Batch reclassification failed:', error);
@@ -183,7 +187,7 @@ export class ClassificationService {
         groups: cached.groups,
         confidence: cached.confidence,
         features: [], // Features not stored in cache
-        timestamp: cached.timestamp
+        timestamp: cached.timestamp,
       };
     }
 
@@ -217,7 +221,7 @@ export class ClassificationService {
         groups: record.get('groups'),
         confidence: record.get('confidence'),
         features: [],
-        timestamp: new Date(record.get('timestamp'))
+        timestamp: new Date(record.get('timestamp')),
       };
     } finally {
       await session.close();
@@ -234,6 +238,8 @@ export class ClassificationService {
     multiGroupThreshold: number
   ): Promise<UserGroupAssignment> {
     return new Promise((resolve, reject) => {
+      let settled = false;
+
       // Check if model file exists
       if (!fs.existsSync(this.modelPath)) {
         reject(new Error(`Classifier model not found at ${this.modelPath}`));
@@ -245,14 +251,21 @@ export class ClassificationService {
         profile,
         confidence_threshold: confidenceThreshold,
         multi_group_threshold: multiGroupThreshold,
-        model_path: this.modelPath
+        model_path: this.modelPath,
       });
 
       // Spawn Python process
       const python = spawn(this.pythonPath, [this.classifierScriptPath]);
-      
+
       let stdout = '';
       let stderr = '';
+
+      const timeoutHandle = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        python.kill();
+        reject(new Error('Classification timeout (5 seconds exceeded)'));
+      }, 5000);
 
       python.stdout.on('data', (data) => {
         stdout += data.toString();
@@ -263,6 +276,10 @@ export class ClassificationService {
       });
 
       python.on('close', (code) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeoutHandle);
+
         if (code !== 0) {
           reject(new Error(`Python classifier failed: ${stderr}`));
           return;
@@ -270,7 +287,7 @@ export class ClassificationService {
 
         try {
           const result = JSON.parse(stdout);
-          
+
           // Transform Python result to TypeScript format
           const assignment: UserGroupAssignment = {
             userId: result.user_id,
@@ -279,11 +296,11 @@ export class ClassificationService {
               groupName: g.group_name || `Group ${g.group_id}`,
               description: g.description || '',
               memberCount: g.member_count || 0,
-              typicalProfile: g.typical_profile
+              typicalProfile: g.typical_profile,
             })),
             confidence: result.confidence,
             features: result.features,
-            timestamp: new Date(result.timestamp)
+            timestamp: new Date(result.timestamp),
           };
 
           resolve(assignment);
@@ -296,11 +313,12 @@ export class ClassificationService {
       python.stdin.write(input);
       python.stdin.end();
 
-      // Set timeout (5 seconds per requirement 2.3)
-      setTimeout(() => {
-        python.kill();
-        reject(new Error('Classification timeout (5 seconds exceeded)'));
-      }, 5000);
+      python.on('error', (error) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeoutHandle);
+        reject(new Error(`Failed to start Python classifier: ${error.message}`));
+      });
     });
   }
 
@@ -310,7 +328,7 @@ export class ClassificationService {
    */
   private async storeGroupAssignments(assignment: UserGroupAssignment): Promise<void> {
     const session = this.driver.session();
-    
+
     try {
       await session.executeWrite(async (tx) => {
         // Delete existing group assignments
@@ -341,7 +359,7 @@ export class ClassificationService {
               groupId: group.groupId,
               groupName: group.groupName,
               description: group.description,
-              memberCount: group.memberCount
+              memberCount: group.memberCount,
             }
           );
 
@@ -361,7 +379,7 @@ export class ClassificationService {
               groupId: group.groupId,
               confidence: assignment.confidence,
               features: assignment.features,
-              timestamp: assignment.timestamp.toISOString()
+              timestamp: assignment.timestamp.toISOString(),
             }
           );
         }
@@ -375,7 +393,7 @@ export class ClassificationService {
           `,
           {
             userId: assignment.userId,
-            userGroups: assignment.groups.map(g => g.groupId.toString())
+            userGroups: assignment.groups.map((g) => g.groupId.toString()),
           }
         );
       });
@@ -389,19 +407,16 @@ export class ClassificationService {
    */
   private async getUserProfile(userId: string): Promise<ClassificationProfile | null> {
     const session = this.driver.session();
-    
+
     try {
-      const result = await session.run(
-        'MATCH (u:User {userId: $userId}) RETURN u',
-        { userId }
-      );
+      const result = await session.run('MATCH (u:User {userId: $userId}) RETURN u', { userId });
 
       if (result.records.length === 0) {
         return null;
       }
 
       const user = result.records[0].get('u').properties;
-      
+
       // Map to classification profile format
       return {
         user_id: user.userId,
@@ -415,7 +430,7 @@ export class ClassificationService {
         rural_urban: user.ruralUrban,
         education_level: user.educationLevel,
         caste: user.caste,
-        disability: user.disability
+        disability: user.disability,
       };
     } finally {
       await session.close();
@@ -427,13 +442,11 @@ export class ClassificationService {
    */
   private async getAllUserIds(): Promise<string[]> {
     const session = this.driver.session();
-    
-    try {
-      const result = await session.run(
-        'MATCH (u:User) RETURN u.userId as userId'
-      );
 
-      return result.records.map(record => record.get('userId'));
+    try {
+      const result = await session.run('MATCH (u:User) RETURN u.userId as userId');
+
+      return result.records.map((record) => record.get('userId'));
     } finally {
       await session.close();
     }
@@ -447,16 +460,16 @@ export class ClassificationService {
     // Log to console
     console.log(
       `Classification metrics for ${metrics.userId}: ` +
-      `time=${metrics.classificationTime}ms, ` +
-      `confidence=${metrics.confidence.toFixed(3)}, ` +
-      `groups=${metrics.groupCount}`
+        `time=${metrics.classificationTime}ms, ` +
+        `confidence=${metrics.confidence.toFixed(3)}, ` +
+        `groups=${metrics.groupCount}`
     );
 
     // Warn if classification exceeds 5-second target
     if (metrics.classificationTime > 5000) {
       console.warn(
         `⚠️  PERFORMANCE WARNING: Classification for ${metrics.userId} ` +
-        `took ${metrics.classificationTime}ms (exceeds 5s requirement)`
+          `took ${metrics.classificationTime}ms (exceeds 5s requirement)`
       );
     }
 
@@ -475,7 +488,7 @@ export class ClassificationService {
   private async updateAggregateMetrics(metrics: ClassificationMetrics): Promise<void> {
     try {
       const aggregateKey = 'metrics:classification:aggregate';
-      
+
       // Get current aggregate
       const current = await this.cacheService.get<{
         totalClassifications: number;
@@ -496,7 +509,7 @@ export class ClassificationService {
         minTime: Infinity,
         avgConfidence: 0,
         slowClassifications: 0,
-        lastUpdated: new Date().toISOString()
+        lastUpdated: new Date().toISOString(),
       };
 
       // Update aggregate statistics
@@ -505,12 +518,11 @@ export class ClassificationService {
       updated.avgTime = updated.totalTime / updated.totalClassifications;
       updated.maxTime = Math.max(updated.maxTime, metrics.classificationTime);
       updated.minTime = Math.min(updated.minTime, metrics.classificationTime);
-      
+
       // Update rolling average confidence
-      updated.avgConfidence = (
+      updated.avgConfidence =
         (updated.avgConfidence * (updated.totalClassifications - 1) + metrics.confidence) /
-        updated.totalClassifications
-      );
+        updated.totalClassifications;
 
       // Count slow classifications
       if (metrics.classificationTime > 5000) {
@@ -530,7 +542,9 @@ export class ClassificationService {
         console.log(`   Min time: ${updated.minTime.toFixed(0)}ms`);
         console.log(`   Max time: ${updated.maxTime.toFixed(0)}ms`);
         console.log(`   Average confidence: ${updated.avgConfidence.toFixed(3)}`);
-        console.log(`   Slow classifications (>5s): ${updated.slowClassifications} (${(updated.slowClassifications / updated.totalClassifications * 100).toFixed(1)}%)`);
+        console.log(
+          `   Slow classifications (>5s): ${updated.slowClassifications} (${((updated.slowClassifications / updated.totalClassifications) * 100).toFixed(1)}%)`
+        );
         console.log('');
       }
     } catch (error) {
@@ -555,7 +569,7 @@ export class ClassificationService {
   } | null> {
     const aggregateKey = 'metrics:classification:aggregate';
     const metrics = await this.cacheService.get<any>(aggregateKey);
-    
+
     if (!metrics) {
       return null;
     }
@@ -563,12 +577,12 @@ export class ClassificationService {
     // Calculate performance score (100 = all classifications under 5s)
     const performanceScore = Math.max(
       0,
-      100 - (metrics.slowClassifications / metrics.totalClassifications * 100)
+      100 - (metrics.slowClassifications / metrics.totalClassifications) * 100
     );
 
     return {
       ...metrics,
-      performanceScore: Math.round(performanceScore)
+      performanceScore: Math.round(performanceScore),
     };
   }
 }

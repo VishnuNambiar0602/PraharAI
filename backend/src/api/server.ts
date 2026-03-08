@@ -12,8 +12,8 @@ import { neo4jService } from '../db/neo4j.service';
 import { redisService } from '../db/redis.service';
 import { getTranslationService } from '../services/translation.service';
 import { schemeSyncAgent } from '../agents/scheme-sync-agent';
+import { mlService } from '../services/ml.service';
 
-const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:8000';
 const ADMIN_KEY = process.env.ADMIN_KEY || 'prahar-admin-secret';
 
 const app = express();
@@ -288,7 +288,7 @@ app.post('/api/chat', async (req, res) => {
       }
     }
 
-    // Build enriched user profile
+    // Build enriched user profile from latest DB values.
     const freshUser = (await neo4jService.getUserById(userId)) || user;
     const userProfile = {
       userId: freshUser.user_id,
@@ -303,25 +303,13 @@ app.post('/api/chat', async (req, res) => {
       ...dbUpdates,
     };
 
-    // Proxy to FastAPI chat endpoint
-    const mlResponse = await fetch(`${ML_SERVICE_URL}/chat`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        message,
-        user_profile: userProfile,
-        conversation_history: conversationHistory,
-      }),
-    });
-
-    if (!mlResponse.ok) {
-      throw new Error(`ML service returned ${mlResponse.status}`);
-    }
-
-    const chatResult = (await mlResponse.json()) as any;
+    // Use centralized ML wrapper for timeout + schema normalization.
+    const chatResult = await mlService.chat(message, userProfile, conversationHistory);
 
     // Prepend profile update messages if any
-    let responseText = chatResult.response || '';
+    let responseText =
+      chatResult?.response ||
+      "I'm temporarily unable to access advanced recommendations, but I can still help with your profile and scheme search.";
     if (profileUpdated && appliedUpdates.length > 0) {
       const updatePrefix = appliedUpdates.filter(Boolean).join(' ');
       responseText = updatePrefix + '\n\n' + responseText;
@@ -329,7 +317,8 @@ app.post('/api/chat', async (req, res) => {
 
     return res.json({
       response: responseText,
-      suggestions: chatResult.suggestions || [],
+      suggestions: chatResult?.suggestions || ['Show my profile', 'Find schemes for me'],
+      degraded: !chatResult,
     });
   } catch (error: any) {
     console.error('Chat error:', error);
@@ -338,12 +327,17 @@ app.post('/api/chat', async (req, res) => {
 });
 
 // Health check with cache stats
-app.get('/health', (_req, res) => {
+app.get('/health', async (_req, res) => {
   const cacheStats = redisService.getStats();
+  const mlAvailable = await mlService.isAvailable();
   res.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
     cache: cacheStats,
+    mlService: {
+      ...mlService.getStatus(),
+      available: mlAvailable,
+    },
   });
 });
 
