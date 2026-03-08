@@ -9,7 +9,10 @@ feature vectors.
 import numpy as np
 from typing import Dict, List, Any, Tuple, Optional
 from datetime import datetime, timedelta
-from src.feature_extractor import FeatureExtractor
+try:
+    from src.feature_extractor import FeatureExtractor
+except ImportError:
+    from feature_extractor import FeatureExtractor
 
 # Optional: Vector DB clients
 try:

@@ -152,7 +152,7 @@ async def _backend_search_schemes(query: str, limit: int = 6) -> List[Dict]:
         async with httpx.AsyncClient(timeout=10) as client:
             res = await client.get(
                 f"{BACKEND_URL}/api/schemes",
-                params={"search": query, "limit": limit},
+                params={"q": query, "limit": limit},
             )
             if res.status_code == 200:
                 data = res.json()

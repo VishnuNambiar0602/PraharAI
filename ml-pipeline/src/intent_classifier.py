@@ -25,7 +25,12 @@ from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
 from enum import Enum
 import torch
-import onnxruntime as ort
+try:
+    import onnxruntime as ort
+    ONNX_AVAILABLE = True
+except ImportError:
+    ort = None
+    ONNX_AVAILABLE = False
 from transformers import (
     AutoTokenizer,
     AutoModelForSequenceClassification,
@@ -86,7 +91,7 @@ class IntentClassifier:
         """
         self.model_name = model_name
         self.model_path = model_path
-        self.use_onnx = use_onnx
+        self.use_onnx = use_onnx and ONNX_AVAILABLE
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
         # Intent labels
