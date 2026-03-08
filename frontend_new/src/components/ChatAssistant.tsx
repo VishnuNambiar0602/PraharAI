@@ -1,5 +1,7 @@
 import { Send, Bot, User, ChevronRight, AlertCircle } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { Message } from '../types';
 import { sendChatMessage } from '../api';
 import { useAuth } from '../AuthContext';
@@ -201,7 +203,7 @@ export default function ChatAssistant() {
                 className={`flex flex-col gap-1.5 max-w-[78%] ${msg.role === 'user' ? 'items-end' : 'items-start'}`}
               >
                 <div
-                  className="px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap"
+                  className={`px-4 py-3 text-sm leading-relaxed ${msg.role === 'assistant' ? 'markdown-content chat-markdown' : 'whitespace-pre-wrap'}`}
                   style={
                     msg.role === 'assistant'
                       ? {
@@ -222,7 +224,11 @@ export default function ChatAssistant() {
                         }
                   }
                 >
-                  {msg.content}
+                  {msg.role === 'assistant' ? (
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+                  ) : (
+                    msg.content
+                  )}
                   {msg.schemes && (
                     <div
                       className="mt-3 space-y-2 pt-3"
