@@ -14,10 +14,29 @@ The service provides:
 
 import os
 import sys
+from pathlib import Path
 from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
+
+def load_shared_env() -> None:
+    """Load a single shared .env from repository root when present."""
+    current = Path(__file__).resolve()
+    candidates = [
+        Path.cwd() / ".env",
+        current.parents[2] / ".env",
+        current.parents[1] / ".env",
+    ]
+
+    for candidate in candidates:
+        if candidate.exists():
+            load_dotenv(candidate, override=False)
+            print(f"Loaded environment from {candidate}")
+            return
+
+    load_dotenv()
+
+
+load_shared_env()
 
 # Add parent directory to Python path so we can import api module
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

@@ -3,11 +3,31 @@ from pydantic import BaseModel
 from typing import List, Optional
 from transformers import pipeline
 import uvicorn
+import os
+from pathlib import Path
+from dotenv import load_dotenv
+
+
+def load_shared_env() -> None:
+    current = Path(__file__).resolve()
+    candidates = [
+        Path.cwd() / ".env",
+        current.parent / ".env",
+        current.parent.parent / ".env",
+    ]
+
+    for candidate in candidates:
+        if candidate.exists():
+            load_dotenv(candidate, override=False)
+            return
+
+
+load_shared_env()
 
 app = FastAPI()
 
 # Extremely small model for reliable localhost startup
-MODEL_ID = "sshleifer/tiny-gpt2"
+MODEL_ID = os.getenv("TINYLM_MODEL_ID", "sshleifer/tiny-gpt2")
 print(f"Loading TinyLM: {MODEL_ID}...")
 
 pipe = pipeline("text-generation", model=MODEL_ID)
@@ -60,4 +80,6 @@ async def chat_completions(request: ChatRequest):
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8001)
+    host = os.getenv("TINYLM_HOST", "0.0.0.0")
+    port = int(os.getenv("TINYLM_PORT", "8001"))
+    uvicorn.run(app, host=host, port=port)

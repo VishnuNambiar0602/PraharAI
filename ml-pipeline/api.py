@@ -18,9 +18,30 @@ from typing import Any, Dict, List, Optional
 import logging
 import os
 import sys
+from pathlib import Path
+from dotenv import load_dotenv
 
 # Add src to path for local imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
+
+
+def _load_shared_env() -> None:
+    """Load a single shared .env from repository root when present."""
+    current = Path(__file__).resolve()
+    candidates = [
+        Path.cwd() / ".env",
+        current.parent / ".env",
+        current.parent.parent / ".env",
+    ]
+
+    for candidate in candidates:
+        if candidate.exists():
+            load_dotenv(candidate, override=False)
+            logging.getLogger(__name__).info("Loaded environment from %s", candidate)
+            return
+
+
+_load_shared_env()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -89,9 +110,15 @@ app = FastAPI(
     version="1.0.0",
 )
 
+cors_origins_raw = os.getenv("CORS_ORIGINS", "*")
+allow_origins = ["*"]
+if cors_origins_raw.strip() != "*":
+    parsed = [origin.strip() for origin in cors_origins_raw.split(",") if origin.strip()]
+    allow_origins = parsed if parsed else ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allow_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )

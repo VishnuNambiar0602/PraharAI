@@ -14,9 +14,14 @@ import { getTranslationService } from '../services/translation.service';
 import { schemeSyncAgent } from '../agents/scheme-sync-agent';
 import { mlService } from '../services/ml.service';
 
-const ADMIN_KEY = process.env.ADMIN_KEY || 'prahar-admin-secret';
-
 const app = express();
+
+const defaultOrigins = ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000'];
+const configuredOrigins = String(process.env.CORS_ORIGINS || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+const allowedOrigins = configuredOrigins.length > 0 ? configuredOrigins : defaultOrigins;
 
 // Initialize translation service with Redis caching
 const ts = getTranslationService(redisService);
@@ -24,7 +29,7 @@ const ts = getTranslationService(redisService);
 // Middleware
 app.use(
   cors({
-    origin: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000'],
+    origin: allowedOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
@@ -478,8 +483,14 @@ app.post('/api/react-chat', async (req, res) => {
 // ─── Admin Sync Endpoints (protected with X-Admin-Key) ────────────────────────
 
 function requireAdminKey(req: express.Request, res: express.Response): boolean {
+  const adminKey = process.env.ADMIN_KEY;
+  if (!adminKey) {
+    res.status(503).json({ error: 'Admin API not configured: missing ADMIN_KEY' });
+    return false;
+  }
+
   const key = req.headers['x-admin-key'];
-  if (!key || key !== ADMIN_KEY) {
+  if (!key || key !== adminKey) {
     res.status(403).json({ error: 'Forbidden: invalid or missing X-Admin-Key' });
     return false;
   }

@@ -53,12 +53,10 @@ cd ..
 ### 3. Configure environment variables
 
 ```bash
-# Copy example environment files
-cp backend/.env.example backend/.env
-cp ml-pipeline/.env.example ml-pipeline/.env
-cp frontend_new/.env.example frontend_new/.env
+# Use a single shared environment file at the repository root
+cp .env.example .env  # If .env.example is unavailable, create .env manually
 
-# Edit the .env files with your configuration
+# Edit .env with your configuration. Backend and ML pipeline both load this file.
 ```
 
 ### 4. Set up databases
