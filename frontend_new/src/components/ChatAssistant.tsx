@@ -54,13 +54,17 @@ export default function ChatAssistant() {
       }));
 
       const data = await sendChatMessage(content, history);
+      const baseResponse = data.response || 'I could not process that. Please try again.';
+      const degradedNotice = data.degraded
+        ? '\n\n(Advanced ML service is temporarily unavailable. Showing fallback guidance.)'
+        : '';
 
       const botMsg: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: data.response || 'I could not process that. Please try again.',
+        content: `${baseResponse}${degradedNotice}`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        suggestions: data.suggestions,
+        suggestions: Array.isArray(data.suggestions) ? data.suggestions : [],
       };
       setMessages((prev) => [...prev, botMsg]);
     } catch {
@@ -81,13 +85,13 @@ export default function ChatAssistant() {
 
   return (
     <div className="flex flex-col" style={{ height: 'calc(100vh - 3.75rem)' }}>
-
       {/* ── Gradient accent stripe ── */}
       <div
         style={{
           height: '2px',
           flexShrink: 0,
-          background: 'linear-gradient(90deg, var(--color-primary) 0%, var(--color-accent) 50%, var(--color-primary) 100%)',
+          background:
+            'linear-gradient(90deg, var(--color-primary) 0%, var(--color-accent) 50%, var(--color-primary) 100%)',
         }}
       />
 
@@ -104,7 +108,8 @@ export default function ChatAssistant() {
             <div
               className="size-10 rounded-xl flex items-center justify-center"
               style={{
-                background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-600) 100%)',
+                background:
+                  'linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-600) 100%)',
                 boxShadow: '0 3px 10px rgba(11,30,52,0.28)',
               }}
             >
@@ -209,7 +214,8 @@ export default function ChatAssistant() {
                         }
                       : {
                           borderRadius: '18px 2px 18px 18px',
-                          background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-800) 100%)',
+                          background:
+                            'linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-800) 100%)',
                           color: 'rgba(255,255,255,0.93)',
                           boxShadow: '0 2px 8px rgba(11,30,52,0.25)',
                           fontFamily: 'Inter, sans-serif',
@@ -292,7 +298,8 @@ export default function ChatAssistant() {
               <div
                 className="size-8 rounded-xl flex items-center justify-center shrink-0"
                 style={{
-                  background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-600) 100%)',
+                  background:
+                    'linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-600) 100%)',
                   boxShadow: '0 2px 6px rgba(11,30,52,0.25)',
                 }}
               >
@@ -356,7 +363,9 @@ export default function ChatAssistant() {
               className="absolute right-2 top-1/2 -translate-y-1/2 size-8 rounded-xl flex items-center justify-center disabled:opacity-35 disabled:pointer-events-none"
               style={{
                 background: input.trim() ? 'var(--color-accent)' : 'var(--color-primary)',
-                boxShadow: input.trim() ? '0 2px 8px rgba(200,112,13,0.4)' : '0 2px 8px rgba(11,30,52,0.2)',
+                boxShadow: input.trim()
+                  ? '0 2px 8px rgba(200,112,13,0.4)'
+                  : '0 2px 8px rgba(11,30,52,0.2)',
                 transform: `scale(${input.trim() ? 1 : 0.88})`,
                 transition: 'background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease',
               }}

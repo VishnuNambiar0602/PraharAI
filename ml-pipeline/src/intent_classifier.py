@@ -25,7 +25,12 @@ from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
 from enum import Enum
 import torch
-import onnxruntime as ort
+try:
+    import onnxruntime as ort
+    ONNX_AVAILABLE = True
+except ImportError:
+    ort = None
+    ONNX_AVAILABLE = False
 from transformers import (
     AutoTokenizer,
     AutoModelForSequenceClassification,
@@ -86,7 +91,7 @@ class IntentClassifier:
         """
         self.model_name = model_name
         self.model_path = model_path
-        self.use_onnx = use_onnx
+        self.use_onnx = use_onnx and ONNX_AVAILABLE
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
         # Intent labels
@@ -104,6 +109,85 @@ class IntentClassifier:
         
         # Entity extraction patterns
         self._init_entity_patterns()
+        self._init_intent_patterns()
+
+    # ── Rule-based intent patterns ────────────────────────────────────────────
+
+    def _init_intent_patterns(self):
+        """Initialise high-precision regex patterns for intent classification."""
+        self.intent_patterns: Dict[str, List[re.Pattern]] = {
+            Intent.ELIGIBILITY_CHECK.value: [
+                re.compile(r"\bam\s+i\s+eligible\b", re.I),
+                re.compile(r"\bdo\s+i\s+qualify\b", re.I),
+                re.compile(r"\bcan\s+i\s+(get|apply|avail)\b", re.I),
+                re.compile(r"\b(eligib|qualify|qualification)\w*\b", re.I),
+                re.compile(r"\bi\s+(am|'m)\s+(a\s+)?(farmer|student|widow|disabled|sc|st|obc)\b", re.I),
+            ],
+            Intent.APPLICATION_INFO.value: [
+                re.compile(r"\bhow\s+to\s+apply\b", re.I),
+                re.compile(r"\bapplicat\w+\s+(process|link|url|form|steps?)\b", re.I),
+                re.compile(r"\bwhere\s+(do\s+i|can\s+i)\s+apply\b", re.I),
+                re.compile(r"\bapply\s+for\s+\w+\s+(scheme|yojana|programme)\b", re.I),
+                re.compile(r"\b(documents?|required|needed|submit)\b.*\b(scheme|apply)\b", re.I),
+            ],
+            Intent.DEADLINE_QUERY.value: [
+                re.compile(r"\b(deadline|last\s+date|closing\s+date|expir\w+)\b", re.I),
+                re.compile(r"\bwhen\s+(is|does|will)\b.*(clos\w+|end|expir\w+|deadline)\b", re.I),
+                re.compile(r"\bapply\s+by\b", re.I),
+                re.compile(r"\blast\s+day\s+to\s+apply\b", re.I),
+            ],
+            Intent.PROFILE_UPDATE.value: [
+                re.compile(r"\b(update|change|edit|modify)\s+(my\s+)?(profile|details|information)\b", re.I),
+                re.compile(r"\bmy\s+(age|income|state|education|occupation)\s+is\b", re.I),
+                re.compile(r"\bi\s+(am|'m)\s+\d+\s+(years?\s+old)?\b", re.I),
+                re.compile(r"\bi\s+(live|am\s+from|belong\s+to)\s+\w+\b", re.I),
+            ],
+            Intent.SCHEME_SEARCH.value: [
+                re.compile(r"\b(show|find|search|list|give me)\s+(me\s+)?(all\s+)?(schemes?|yojanas?|programmes?)\b", re.I),
+                re.compile(r"\bschemes?\s+for\b", re.I),
+                re.compile(r"\bwhat\s+schemes?\b", re.I),
+                re.compile(r"\bgovernment\s+(help|support|benefit|scheme)\b", re.I),
+                re.compile(r"\b(benefit|subsidy|grant|loan)\s+(for|scheme)\b", re.I),
+            ],
+            Intent.NUDGE_PREFERENCES.value: [
+                re.compile(r"\b(notif\w+|alert|remind\w+)\s*(setting|prefer|me|off|on)\b", re.I),
+                re.compile(r"\b(disable|enable|turn\s+(on|off))\s*(notif\w+|alert)\b", re.I),
+            ],
+            Intent.GENERAL_QUESTION.value: [
+                re.compile(r"\bwhat\s+is\b", re.I),
+                re.compile(r"\btell\s+me\s+about\b", re.I),
+                re.compile(r"\bexplain\b", re.I),
+                re.compile(r"\b(info|information)\s+about\b", re.I),
+            ],
+        }
+
+    def _classify_by_rules(self, query: str) -> Optional[Tuple[Intent, float]]:
+        """
+        Fast rule-based classification layer.
+
+        Returns (Intent, confidence) if a high-confidence pattern matches, else None.
+        Lower-priority intents (GENERAL_QUESTION) are only returned if no other
+        intent matched, and with lower confidence so the ML layer can override.
+        """
+        matches: Dict[str, int] = {}
+        general_matches = 0
+
+        for intent_val, patterns in self.intent_patterns.items():
+            count = sum(1 for p in patterns if p.search(query))
+            if intent_val == Intent.GENERAL_QUESTION.value:
+                general_matches = count
+            elif count > 0:
+                matches[intent_val] = count
+
+        if matches:
+            best = max(matches, key=lambda k: matches[k])
+            confidence = min(0.70 + matches[best] * 0.10, 0.95)
+            return Intent(best), confidence
+
+        if general_matches > 0:
+            return Intent.GENERAL_QUESTION, 0.55
+
+        return None
 
     def _init_torch(self, model_path, model_name):
         """Initialize standard PyTorch model."""
@@ -155,7 +239,15 @@ class IntentClassifier:
     ) -> IntentResult:
         """
         Classify user query into intent and extract entities.
+
+        Uses a hybrid approach:
+        1. High-precision rule-based patterns (fast, no model load needed).
+        2. ML model (ONNX or PyTorch) for queries that rules don't confidently cover.
         """
+        # --- Layer 1: rule-based ---
+        rule_result = self._classify_by_rules(query)
+        entities = self.extract_entities(query)
+
         # Tokenize input
         inputs = self.tokenizer(
             query,
@@ -164,7 +256,7 @@ class IntentClassifier:
             max_length=512,
             padding=True
         )
-        
+
         if self.use_onnx:
             # ONNX Inference
             onnx_inputs = {
@@ -180,21 +272,32 @@ class IntentClassifier:
                 outputs = self.model(**inputs)
                 logits = outputs.logits
                 probabilities = torch.softmax(logits, dim=-1)[0].cpu().numpy()
-        
-        # Get primary intent
+
+        # Get primary intent from ML model
         primary_idx = np.argmax(probabilities)
-        primary_intent = Intent(self.intent_labels[primary_idx])
-        confidence = float(probabilities[primary_idx])
-        
+        ml_intent = Intent(self.intent_labels[primary_idx])
+        ml_confidence = float(probabilities[primary_idx])
+
+        # --- Layer 2: merge rule + ML ---
+        if rule_result is not None:
+            rule_intent, rule_confidence = rule_result
+            # Use rule result when it's confident OR when it outscores the ML model
+            if rule_confidence >= 0.75 or rule_confidence > ml_confidence:
+                primary_intent = rule_intent
+                confidence = rule_confidence
+            else:
+                primary_intent = ml_intent
+                confidence = ml_confidence
+        else:
+            primary_intent = ml_intent
+            confidence = ml_confidence
+
         # Get secondary intents (confidence > 0.2)
         secondary_intents = []
         for idx, prob in enumerate(probabilities):
             if idx != primary_idx and prob > 0.2:
                 secondary_intents.append(Intent(self.intent_labels[idx]))
-        
-        # Extract entities
-        entities = self.extract_entities(query)
-        
+
         return IntentResult(
             primary_intent=primary_intent,
             secondary_intents=secondary_intents,
@@ -245,14 +348,15 @@ class IntentClassifier:
     ) -> IntentResult:
         """
         Classify user query into intent and extract entities.
-        
-        Args:
-            query: User query text
-            context: Optional conversation context
-            
-        Returns:
-            IntentResult with primary intent, secondary intents, confidence, and entities
+
+        Uses a hybrid approach:
+        1. High-precision rule-based patterns (fast).
+        2. PyTorch ML model for queries the rules don't confidently cover.
         """
+        # --- Layer 1: rule-based ---
+        rule_result = self._classify_by_rules(query)
+        entities = self.extract_entities(query)
+
         # Tokenize input
         inputs = self.tokenizer(
             query,
@@ -261,27 +365,37 @@ class IntentClassifier:
             max_length=512,
             padding=True
         ).to(self.device)
-        
+
         # Get predictions
         with torch.no_grad():
             outputs = self.model(**inputs)
             logits = outputs.logits
             probabilities = torch.softmax(logits, dim=-1)[0]
-        
-        # Get primary intent
+
+        # Get primary intent from ML model
         primary_idx = torch.argmax(probabilities).item()
-        primary_intent = Intent(self.intent_labels[primary_idx])
-        confidence = probabilities[primary_idx].item()
-        
+        ml_intent = Intent(self.intent_labels[primary_idx])
+        ml_confidence = probabilities[primary_idx].item()
+
+        # --- Layer 2: merge rule + ML ---
+        if rule_result is not None:
+            rule_intent, rule_confidence = rule_result
+            if rule_confidence >= 0.75 or rule_confidence > ml_confidence:
+                primary_intent = rule_intent
+                confidence = rule_confidence
+            else:
+                primary_intent = ml_intent
+                confidence = ml_confidence
+        else:
+            primary_intent = ml_intent
+            confidence = ml_confidence
+
         # Get secondary intents (confidence > 0.2)
         secondary_intents = []
         for idx, prob in enumerate(probabilities):
             if idx != primary_idx and prob.item() > 0.2:
                 secondary_intents.append(Intent(self.intent_labels[idx]))
-        
-        # Extract entities
-        entities = self.extract_entities(query)
-        
+
         return IntentResult(
             primary_intent=primary_intent,
             secondary_intents=secondary_intents,

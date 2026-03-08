@@ -96,7 +96,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ─── Lazy-load heavy models ───────────────────────────────────────────────────
+# ─── Eager-load models on startup ─────────────────────────────────────────────
+
+
+@app.on_event("startup")
+def load_models():
+    """Load all ML models at startup so /health reports true immediately."""
+    logger.info("Loading ML models...")
+    get_intent_classifier()
+    get_eligibility_engine()
+    get_recommendation_engine()
+    logger.info("ML models loaded")
 
 _intent_classifier = None
 _eligibility_engine = None
@@ -109,7 +119,7 @@ def get_intent_classifier():
         try:
             from intent_classifier import IntentClassifier
 
-            _intent_classifier = IntentClassifier()
+            _intent_classifier = IntentClassifier(use_onnx=False)
             logger.info("IntentClassifier loaded")
         except Exception as e:
             logger.warning(f"IntentClassifier not available: {e}")
@@ -292,6 +302,8 @@ def _rule_based_classify(message: str) -> ClassifyResponse:
     if age_match:
         entities["age"] = int(age_match.group(1))
 
+    if any(w in lower for w in ["deadline", "last date", "closing date"]):
+        return ClassifyResponse(primary_intent="deadline_query", confidence=0.9, entities=entities)
     if any(w in lower for w in ["eligible", "qualify", "can i apply", "do i qualify"]):
         return ClassifyResponse(
             primary_intent="eligibility_check", confidence=0.9, entities=entities
@@ -304,8 +316,6 @@ def _rule_based_classify(message: str) -> ClassifyResponse:
         return ClassifyResponse(primary_intent="scheme_search", confidence=0.8, entities=entities)
     if any(w in lower for w in ["update", "change", "set my", "my age is", "i live in"]):
         return ClassifyResponse(primary_intent="profile_update", confidence=0.85, entities=entities)
-    if any(w in lower for w in ["deadline", "last date", "closing date", "when"]):
-        return ClassifyResponse(primary_intent="deadline_query", confidence=0.75, entities=entities)
 
     return ClassifyResponse(primary_intent="general_question", confidence=0.6, entities=entities)
 

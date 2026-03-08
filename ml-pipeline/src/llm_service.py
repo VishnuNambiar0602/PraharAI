@@ -15,6 +15,7 @@ Config via environment:
 """
 
 import os
+import json
 import logging
 import httpx
 from typing import Optional, List, Dict, Any
@@ -67,6 +68,34 @@ class LLMService:
                 {"role": "user", "content": user_message},
             ]
         )
+
+    async def chat_with_tools(
+        self,
+        messages: List[Dict[str, str]],
+        tools: List[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        """
+        Chat completion with tool/function calling support.
+
+        Returns one of:
+          {"type": "tool_call", "name": str, "parameters": dict}
+          {"type": "text", "content": str}
+          {"type": "none"}
+        """
+        if not self.is_configured:
+            return {"type": "none"}
+
+        try:
+            if self.provider == "openai":
+                return await self._call_openai_with_tools(messages, tools)
+            elif self.provider == "ollama":
+                return await self._call_ollama_with_tools(messages, tools)
+            else:
+                # gemini and others: structured prompt fallback
+                return await self._call_structured_prompt_tools(messages, tools)
+        except Exception as e:
+            logger.warning(f"[LLM] {self.provider} tool call failed: {e}")
+        return {"type": "none"}
 
     # ── Provider implementations ─────────────────────────────────────────────
 
@@ -134,6 +163,138 @@ class LLMService:
                 .get("parts", [{}])[0]
                 .get("text", "")
             )
+
+    # ── Tool-calling implementations ─────────────────────────────────────────
+
+    async def _call_openai_with_tools(
+        self,
+        messages: List[Dict[str, str]],
+        tools: List[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        """OpenAI native function calling via tools= parameter."""
+        base = BASE_URL or "https://api.openai.com/v1"
+        async with httpx.AsyncClient(timeout=TIMEOUT_S) as client:
+            res = await client.post(
+                f"{base}/chat/completions",
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {API_KEY}",
+                },
+                json={
+                    "model": self.model or "gpt-4o-mini",
+                    "messages": messages,
+                    "tools": tools,
+                    "tool_choice": "auto",
+                },
+            )
+            res.raise_for_status()
+            data = res.json()
+            choice = data.get("choices", [{}])[0]
+            msg = choice.get("message", {})
+
+            tool_calls = msg.get("tool_calls")
+            if tool_calls:
+                tc = tool_calls[0]
+                fn = tc.get("function", {})
+                try:
+                    params = json.loads(fn.get("arguments", "{}"))
+                except json.JSONDecodeError:
+                    params = {}
+                return {"type": "tool_call", "name": fn.get("name", ""), "parameters": params}
+
+            return {"type": "text", "content": msg.get("content", "")}
+
+    async def _call_ollama_with_tools(
+        self,
+        messages: List[Dict[str, str]],
+        tools: List[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        """Ollama tool calling — tries native API first, falls back to structured prompt."""
+        base = BASE_URL or "http://localhost:11434"
+        async with httpx.AsyncClient(timeout=TIMEOUT_S) as client:
+            try:
+                res = await client.post(
+                    f"{base}/api/chat",
+                    json={
+                        "model": self.model,
+                        "messages": messages,
+                        "tools": tools,
+                        "stream": False,
+                    },
+                )
+                res.raise_for_status()
+                data = res.json()
+                msg = data.get("message", {})
+                tool_calls = msg.get("tool_calls")
+                if tool_calls:
+                    tc = tool_calls[0]
+                    fn = tc.get("function", {})
+                    params = fn.get("arguments", {})
+                    if isinstance(params, str):
+                        try:
+                            params = json.loads(params)
+                        except json.JSONDecodeError:
+                            params = {}
+                    return {"type": "tool_call", "name": fn.get("name", ""), "parameters": params}
+                content = msg.get("content", "")
+                if content:
+                    return {"type": "text", "content": content}
+            except Exception:
+                pass  # fall through to structured prompt
+
+        return await self._call_structured_prompt_tools(messages, tools)
+
+    async def _call_structured_prompt_tools(
+        self,
+        messages: List[Dict[str, str]],
+        tools: List[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        """Structured prompt fallback for providers without native function calling."""
+        tool_descs = []
+        for t in tools:
+            fn = t.get("function", t)
+            props = fn.get("parameters", {}).get("properties", {})
+            param_desc = ", ".join(
+                f"{k} ({v.get('type', 'any')}): {v.get('description', '')}"
+                for k, v in props.items()
+            )
+            tool_descs.append(f"- {fn['name']}: {fn.get('description', '')}. Params: {param_desc}")
+
+        tool_list = "\n".join(tool_descs)
+        tool_names = [t.get("function", t).get("name", "") for t in tools]
+
+        augmented = list(messages)
+        augmented.append(
+            {
+                "role": "user",
+                "content": (
+                    f"Available tools:\n{tool_list}\n\n"
+                    "If you need a tool, respond ONLY with this JSON (no extra text):\n"
+                    '{"tool_call":true,"name":"<tool_name>","parameters":{...}}\n'
+                    f"Valid tool names: {tool_names}\n"
+                    "Otherwise respond normally."
+                ),
+            }
+        )
+
+        raw = await self.chat(augmented)
+        if not raw:
+            return {"type": "none"}
+
+        try:
+            start = raw.index("{")
+            end = raw.rindex("}") + 1
+            parsed = json.loads(raw[start:end])
+            if parsed.get("tool_call") and parsed.get("name"):
+                return {
+                    "type": "tool_call",
+                    "name": parsed["name"],
+                    "parameters": parsed.get("parameters", {}),
+                }
+        except (ValueError, json.JSONDecodeError):
+            pass
+
+        return {"type": "text", "content": raw}
 
 
 # Singleton

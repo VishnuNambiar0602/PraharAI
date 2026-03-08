@@ -27,19 +27,98 @@ export interface RecommendResult {
   recommendations: Array<{
     id?: string;
     schemeId?: string;
+    scheme_id?: string;
     name: string;
-    relevanceScore: number;
+    scheme_name?: string;
+    relevanceScore?: number;
+    relevance_score?: number;
     [key: string]: any;
   }>;
   total: number;
   cached: boolean;
 }
 
+export interface ChatResult {
+  response: string;
+  suggestions: string[];
+  extracted_entities?: Record<string, any>;
+}
+
+export interface MLServiceStatus {
+  baseUrl: string;
+  timeoutMs: number;
+  available: boolean | null;
+  lastCheckAt: string | null;
+}
+
+function toNumber(value: unknown, fallback = 0): number {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return fallback;
+}
+
+/**
+ * Normalize backend profile to ML user_profile schema.
+ * Backend -> ML should prefer snake_case keys at boundary.
+ */
+function normalizeUserProfile(userProfile: Record<string, any>): Record<string, any> {
+  const userId = userProfile.user_id ?? userProfile.userId ?? userProfile.id ?? '';
+  const annualIncome = userProfile.annual_income ?? userProfile.income ?? 0;
+  const occupation = userProfile.occupation ?? userProfile.employment ?? '';
+  const educationLevel = userProfile.education_level ?? userProfile.education ?? '';
+  const isDisabled =
+    userProfile.is_disabled ?? userProfile.disability ?? userProfile.isDisabled ?? false;
+  const isMinority = userProfile.is_minority ?? userProfile.minority ?? userProfile.isMinority;
+
+  return {
+    user_id: String(userId || ''),
+    name: userProfile.name ?? null,
+    email: userProfile.email ?? null,
+    age: toNumber(userProfile.age, 0),
+    state: userProfile.state ?? '',
+    gender: userProfile.gender ?? null,
+    annual_income: toNumber(annualIncome, 0),
+    occupation: occupation ?? '',
+    education_level: educationLevel ?? '',
+    disability: Boolean(isDisabled),
+    is_disabled: Boolean(isDisabled),
+    ...(isMinority !== undefined ? { is_minority: Boolean(isMinority) } : {}),
+
+    // Compatibility aliases consumed by some current ML chat heuristics.
+    income: toNumber(annualIncome, 0),
+    employment: occupation ?? '',
+    education: educationLevel ?? '',
+  };
+}
+
+function normalizeRecommendationResult(result: RecommendResult | null): RecommendResult | null {
+  if (!result) return null;
+  return {
+    total: toNumber(result.total, 0),
+    cached: Boolean(result.cached),
+    recommendations: (result.recommendations || []).map((rec) => {
+      const resolvedId = rec.id ?? rec.schemeId ?? rec.scheme_id ?? '';
+      const resolvedScore = toNumber(rec.relevanceScore ?? rec.relevance_score, 0);
+      const resolvedName = rec.name ?? rec.scheme_name ?? '';
+      return {
+        ...rec,
+        name: resolvedName,
+        id: resolvedId,
+        schemeId: rec.schemeId ?? rec.scheme_id ?? resolvedId,
+        relevanceScore: resolvedScore,
+      };
+    }),
+  };
+}
+
 export interface EligibilityResult {
   scheme_id: string;
-  score: number;         // 0.0 – 1.0
-  percentage: number;    // 0 – 100
-  category: string;      // highly_eligible | potentially_eligible | low_eligibility
+  score: number; // 0.0 – 1.0
+  percentage: number; // 0 – 100
+  category: string; // highly_eligible | potentially_eligible | low_eligibility
   met_criteria: string[];
   unmet_criteria: string[];
   explanation: string;
@@ -50,6 +129,7 @@ export interface EligibilityResult {
 async function postWithTimeout<T>(path: string, body: unknown): Promise<T | null> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const startedAt = Date.now();
   try {
     const res = await fetch(`${ML_BASE}${path}`, {
       method: 'POST',
@@ -57,9 +137,16 @@ async function postWithTimeout<T>(path: string, body: unknown): Promise<T | null
       body: JSON.stringify(body),
       signal: controller.signal,
     });
-    if (!res.ok) return null;
+    const latencyMs = Date.now() - startedAt;
+    if (!res.ok) {
+      console.warn(`⚠️ ML call failed: POST ${path} status=${res.status} latencyMs=${latencyMs}`);
+      return null;
+    }
+    console.log(`✅ ML call succeeded: POST ${path} latencyMs=${latencyMs}`);
     return res.json() as Promise<T>;
   } catch {
+    const latencyMs = Date.now() - startedAt;
+    console.warn(`⚠️ ML call error: POST ${path} latencyMs=${latencyMs}`);
     return null; // timeout or connection refused
   } finally {
     clearTimeout(timer);
@@ -69,11 +156,19 @@ async function postWithTimeout<T>(path: string, body: unknown): Promise<T | null
 async function getWithTimeout<T>(path: string): Promise<T | null> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const startedAt = Date.now();
   try {
     const res = await fetch(`${ML_BASE}${path}`, { signal: controller.signal });
-    if (!res.ok) return null;
+    const latencyMs = Date.now() - startedAt;
+    if (!res.ok) {
+      console.warn(`⚠️ ML call failed: GET ${path} status=${res.status} latencyMs=${latencyMs}`);
+      return null;
+    }
+    console.log(`✅ ML call succeeded: GET ${path} latencyMs=${latencyMs}`);
     return res.json() as Promise<T>;
   } catch {
+    const latencyMs = Date.now() - startedAt;
+    console.warn(`⚠️ ML call error: GET ${path} latencyMs=${latencyMs}`);
     return null;
   } finally {
     clearTimeout(timer);
@@ -100,6 +195,15 @@ class MLService {
     return this._available;
   }
 
+  getStatus(): MLServiceStatus {
+    return {
+      baseUrl: ML_BASE,
+      timeoutMs: TIMEOUT_MS,
+      available: this._available,
+      lastCheckAt: this._lastCheck > 0 ? new Date(this._lastCheck).toISOString() : null,
+    };
+  }
+
   /**
    * Classify intent of a user message.
    * Returns null if ML service is unavailable.
@@ -117,12 +221,13 @@ class MLService {
     schemes: any[],
     maxResults = 10
   ): Promise<RecommendResult | null> {
-    return postWithTimeout<RecommendResult>('/recommend', {
-      user_profile: userProfile,
+    const result = await postWithTimeout<RecommendResult>('/recommend', {
+      user_profile: normalizeUserProfile(userProfile),
       schemes,
       max_results: maxResults,
       min_score: 0.2,
     });
+    return normalizeRecommendationResult(result);
   }
 
   /**
@@ -134,8 +239,24 @@ class MLService {
     scheme: Record<string, any>
   ): Promise<EligibilityResult | null> {
     return postWithTimeout<EligibilityResult>('/eligibility', {
-      user_profile: userProfile,
+      user_profile: normalizeUserProfile(userProfile),
       scheme,
+    });
+  }
+
+  /**
+   * Process conversational response from ML chat endpoint.
+   * Returns null when ML is unavailable or times out.
+   */
+  async chat(
+    message: string,
+    userProfile: Record<string, any>,
+    conversationHistory: Array<{ role: string; content: string }> = []
+  ): Promise<ChatResult | null> {
+    return postWithTimeout<ChatResult>('/chat', {
+      message,
+      user_profile: normalizeUserProfile(userProfile),
+      conversation_history: conversationHistory,
     });
   }
 }
