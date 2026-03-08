@@ -26,6 +26,7 @@ import { mlService } from '../services/ml.service';
 import { chatIntelligenceService, ChatTurn } from '../services/chat-intelligence.service';
 
 const app = express();
+const ADMIN_KEY = process.env.ADMIN_KEY || '';
 const CHAT_INPUT_TOKEN_LIMIT = Number(process.env.CHAT_INPUT_TOKEN_LIMIT || 500);
 const CHAT_RESPONSE_TIMEOUT_MS = Number(process.env.CHAT_RESPONSE_TIMEOUT_MS || 12000);
 
@@ -132,8 +133,19 @@ export async function seedAdminUser() {
 // ─── Helper: profile completeness ─────────────────────────────────────────────
 function calculateProfileCompleteness(user: any): number {
   const fields = [
-    'name', 'email', 'age', 'income', 'state', 'employment', 'education', 'gender',
-    'social_category', 'interests', 'marital_status', 'rural_urban', 'occupation',
+    'name',
+    'email',
+    'age',
+    'income',
+    'state',
+    'employment',
+    'education',
+    'gender',
+    'social_category',
+    'interests',
+    'marital_status',
+    'rural_urban',
+    'occupation',
   ];
   const filledFields = fields.filter((field) => user[field] != null && user[field] !== '');
   return Math.round((filledFields.length / fields.length) * 100);
@@ -216,7 +228,9 @@ app.post('/api/auth/login', async (req, res) => {
         email: user.email,
         name: user.name,
         isAdmin:
-          Boolean(user.is_admin) || user.user_id === 'admin123' || user.email === 'admin@example.com',
+          Boolean(user.is_admin) ||
+          user.user_id === 'admin123' ||
+          user.email === 'admin@example.com',
       },
       accessToken,
       refreshToken,
@@ -263,7 +277,8 @@ app.get('/api/users/:userId/profile', async (req, res) => {
     district: user.district ?? null,
     disabilityType: user.disability_type ?? null,
     minorityCommunity: user.minority_community ?? null,
-    isAdmin: Boolean(user.is_admin) || user.user_id === 'admin123' || user.email === 'admin@example.com',
+    isAdmin:
+      Boolean(user.is_admin) || user.user_id === 'admin123' || user.email === 'admin@example.com',
     onboardingComplete: !!user.onboarding_complete,
     completeness: calculateProfileCompleteness(user),
   });
@@ -402,7 +417,8 @@ app.post('/api/chat', async (req, res) => {
 
     const detectedLang = ((await ts.detectLanguage(sanitizedMessage)) || 'en').toLowerCase();
     const heuristicLang = detectLanguageHeuristic(sanitizedMessage);
-    const requestedLang = typeof preferredLanguage === 'string' ? preferredLanguage.toLowerCase() : '';
+    const requestedLang =
+      typeof preferredLanguage === 'string' ? preferredLanguage.toLowerCase() : '';
     const replyLanguage = requestedLang || (detectedLang === 'en' ? heuristicLang : detectedLang);
     const languageAwareMessage =
       replyLanguage === 'en'
@@ -509,7 +525,9 @@ app.post('/api/chat', async (req, res) => {
 
     // Classify intent with short-lived cache.
     const intentCacheKey = `chat:intent:${hashText(sanitizedMessage.toLowerCase())}`;
-    const cachedIntent = await redisService.get<{ intent: string; confidence: number }>(intentCacheKey);
+    const cachedIntent = await redisService.get<{ intent: string; confidence: number }>(
+      intentCacheKey
+    );
     const classified =
       cachedIntent ||
       (await mlService.classify(sanitizedMessage, effectiveUserId).then((result) => {
@@ -524,18 +542,25 @@ app.post('/api/chat', async (req, res) => {
     const intent = classified?.intent || 'scheme_search';
 
     // Semantic retrieval + profile-weighted ranking + de-dup.
-    const retrieval = await chatIntelligenceService.retrieveSchemes(sanitizedMessage, userProfile, 6);
+    const retrieval = await chatIntelligenceService.retrieveSchemes(
+      sanitizedMessage,
+      userProfile,
+      6
+    );
 
     // Enforce response time upper bound for security and predictable UX.
     const mlRace = await Promise.race<
-      { type: 'ok'; payload: Awaited<ReturnType<typeof mlService.chat>> } |
-      { type: 'timeout' } |
-      { type: 'error'; message: string }
+      | { type: 'ok'; payload: Awaited<ReturnType<typeof mlService.chat>> }
+      | { type: 'timeout' }
+      | { type: 'error'; message: string }
     >([
       mlService
         .chat(languageAwareMessage, userProfile, modelHistory)
         .then((payload) => ({ type: 'ok' as const, payload }))
-        .catch((error: any) => ({ type: 'error' as const, message: String(error?.message || 'ml_error') })),
+        .catch((error: any) => ({
+          type: 'error' as const,
+          message: String(error?.message || 'ml_error'),
+        })),
       new Promise((resolve) => {
         setTimeout(() => resolve({ type: 'timeout' as const }), CHAT_RESPONSE_TIMEOUT_MS);
       }),
@@ -566,7 +591,10 @@ app.post('/api/chat', async (req, res) => {
     // Prepend profile update messages if any
     let responseText = structured.summary;
     if (profileUpdated && appliedUpdates.length > 0) {
-      const updatePrefix = localizeUpdatePrefix(appliedUpdates.filter(Boolean).join(' '), replyLanguage);
+      const updatePrefix = localizeUpdatePrefix(
+        appliedUpdates.filter(Boolean).join(' '),
+        replyLanguage
+      );
       responseText = updatePrefix + '\n\n' + responseText;
     }
 
@@ -707,10 +735,7 @@ async function requireAdminAccess(req: express.Request, res: express.Response): 
   // Also allow authenticated in-app admin user.
   const authHeader = req.headers.authorization;
   const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : '';
-  const userId = token
-    .replace('mock_access_token_', '')
-    .replace('mock_refresh_token_', '')
-    .trim();
+  const userId = token.replace('mock_access_token_', '').replace('mock_refresh_token_', '').trim();
 
   if (userId) {
     const user = await neo4jService.getUserById(userId);
