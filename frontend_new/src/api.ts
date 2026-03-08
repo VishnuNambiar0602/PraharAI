@@ -73,6 +73,14 @@ export interface AdminMetricsResponse {
   generatedAt: string;
 }
 
+export interface AdminUser {
+  userId: string;
+  email: string;
+  name: string;
+  isAdmin: boolean;
+  createdAt?: string | null;
+}
+
 function cleanText(value: string): string {
   return value
     .replace(/<br\s*\/?>/gi, '\n')
@@ -612,4 +620,60 @@ export async function fetchAdminMetrics(adminKey?: string) {
   }
 
   return res.json() as Promise<AdminMetricsResponse>;
+}
+
+export async function fetchAdmins(adminKey?: string) {
+  const configuredKey =
+    adminKey || (import.meta as any)?.env?.VITE_ADMIN_KEY || 'prahar-admin-secret';
+  const res = await fetch(`${API_BASE}/admin/admins?t=${Date.now()}`, {
+    headers: {
+      ...authHeaders(),
+      'x-admin-key': configuredKey,
+    },
+    cache: 'no-store',
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Failed to fetch admins' }));
+    throw new Error(err.error || err.details || 'Failed to fetch admins');
+  }
+  return res.json() as Promise<AdminUser[]>;
+}
+
+export async function createAdmin(
+  payload: { email: string; password: string; name?: string },
+  adminKey?: string
+) {
+  const configuredKey =
+    adminKey || (import.meta as any)?.env?.VITE_ADMIN_KEY || 'prahar-admin-secret';
+  const res = await fetch(`${API_BASE}/admin/admins`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders(),
+      'x-admin-key': configuredKey,
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Failed to create admin' }));
+    throw new Error(err.error || err.details || 'Failed to create admin');
+  }
+  return res.json() as Promise<AdminUser>;
+}
+
+export async function deleteAdmin(userId: string, adminKey?: string) {
+  const configuredKey =
+    adminKey || (import.meta as any)?.env?.VITE_ADMIN_KEY || 'prahar-admin-secret';
+  const res = await fetch(`${API_BASE}/admin/admins/${userId}`, {
+    method: 'DELETE',
+    headers: {
+      ...authHeaders(),
+      'x-admin-key': configuredKey,
+    },
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Failed to delete admin' }));
+    throw new Error(err.error || err.details || 'Failed to delete admin');
+  }
+  return res.json() as Promise<{ success: boolean; message: string }>;
 }

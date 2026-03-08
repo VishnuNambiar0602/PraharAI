@@ -365,7 +365,7 @@ export class SchemesController {
 
       const matches = await similarityAgent.findMatchingSchemes(userProfile, 10);
 
-      res.json(
+      return res.json(
         matches.map((m) => ({
           id: m.schemeId,
           title: m.name,
@@ -378,7 +378,9 @@ export class SchemesController {
       );
     } catch (error: any) {
       console.error('Error in getRecommendations:', error);
-      res.status(500).json({ error: 'Failed to fetch recommendations', details: error.message });
+      return res
+        .status(500)
+        .json({ error: 'Failed to fetch recommendations', details: error.message });
     }
   }
 }

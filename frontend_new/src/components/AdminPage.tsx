@@ -10,8 +10,9 @@ import {
   Server,
   HardDrive,
   Cpu,
+  Trash2,
 } from 'lucide-react';
-import { AdminMetricsResponse, fetchAdminMetrics } from '../api';
+import { AdminMetricsResponse, AdminUser, createAdmin, deleteAdmin, fetchAdminMetrics, fetchAdmins } from '../api';
 
 function toShortDateLabel(value: string): string {
   const date = new Date(value);
@@ -58,6 +59,10 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const [admins, setAdmins] = useState<AdminUser[]>([]);
+  const [adminForm, setAdminForm] = useState({ name: '', email: '', password: '' });
+  const [adminBusy, setAdminBusy] = useState(false);
+  const [adminMessage, setAdminMessage] = useState('');
 
   const loadMetrics = async (isManual = false) => {
     try {
@@ -66,6 +71,8 @@ export default function AdminPage() {
       setError('');
       const data = await fetchAdminMetrics();
       setMetrics(data);
+      const adminList = await fetchAdmins();
+      setAdmins(adminList);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load admin metrics');
     } finally {
@@ -77,6 +84,55 @@ export default function AdminPage() {
   useEffect(() => {
     loadMetrics();
   }, []);
+
+  const handleCreateAdmin = async () => {
+    const email = adminForm.email.trim();
+    const password = adminForm.password;
+    const name = adminForm.name.trim();
+
+    if (!email || !password) {
+      setAdminMessage('Email and password are required to add admin.');
+      return;
+    }
+
+    setAdminBusy(true);
+    setAdminMessage('');
+    try {
+      await createAdmin({
+        email,
+        password,
+        name: name || undefined,
+      });
+      setAdminForm({ name: '', email: '', password: '' });
+      setAdminMessage('Admin account created successfully.');
+      const adminList = await fetchAdmins();
+      setAdmins(adminList);
+    } catch (err) {
+      setAdminMessage(err instanceof Error ? err.message : 'Failed to create admin account.');
+    } finally {
+      setAdminBusy(false);
+    }
+  };
+
+  const handleDeleteAdmin = async (admin: AdminUser) => {
+    if (admins.length < 2) {
+      setAdminMessage('Add at least one more admin before deleting an admin account.');
+      return;
+    }
+    if (!window.confirm(`Delete admin account ${admin.email}?`)) return;
+    setAdminBusy(true);
+    setAdminMessage('');
+    try {
+      await deleteAdmin(admin.userId);
+      setAdminMessage('Admin account deleted successfully.');
+      const adminList = await fetchAdmins();
+      setAdmins(adminList);
+    } catch (err) {
+      setAdminMessage(err instanceof Error ? err.message : 'Failed to delete admin account.');
+    } finally {
+      setAdminBusy(false);
+    }
+  };
 
   const topCards = useMemo(() => {
     if (!metrics) return [];
@@ -376,6 +432,84 @@ export default function AdminPage() {
                     </span>
                   </div>
                 </div>
+              </div>
+            </div>
+
+            <div className="card p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-sm font-semibold" style={{ color: 'var(--color-ink)' }}>
+                  Admin Account Management
+                </h2>
+                <span className="text-xs" style={{ color: 'var(--color-muted)' }}>
+                  {admins.length} admin account(s)
+                </span>
+              </div>
+
+              <div className="grid md:grid-cols-3 gap-3 mb-4">
+                <input
+                  value={adminForm.name}
+                  onChange={(e) => setAdminForm((prev) => ({ ...prev, name: e.target.value }))}
+                  placeholder="Admin name (optional)"
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                  style={{ borderColor: 'var(--color-border)' }}
+                />
+                <input
+                  value={adminForm.email}
+                  onChange={(e) => setAdminForm((prev) => ({ ...prev, email: e.target.value }))}
+                  placeholder="Admin email"
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                  style={{ borderColor: 'var(--color-border)' }}
+                />
+                <input
+                  value={adminForm.password}
+                  type="password"
+                  onChange={(e) => setAdminForm((prev) => ({ ...prev, password: e.target.value }))}
+                  placeholder="Temporary password"
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                  style={{ borderColor: 'var(--color-border)' }}
+                />
+              </div>
+
+              <div className="flex items-center gap-3 mb-4">
+                <button className="btn btn-primary" disabled={adminBusy} onClick={handleCreateAdmin}>
+                  Add Admin
+                </button>
+                {adminMessage && (
+                  <span className="text-xs" style={{ color: 'var(--color-muted)' }}>
+                    {adminMessage}
+                  </span>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                {admins.map((admin) => {
+                  const canDelete = admins.length >= 2;
+                  return (
+                    <div
+                      key={admin.userId}
+                      className="flex items-center justify-between rounded-lg border px-3 py-2"
+                      style={{ borderColor: 'var(--color-border)' }}
+                    >
+                      <div>
+                        <div className="text-sm font-semibold" style={{ color: 'var(--color-ink)' }}>
+                          {admin.name || 'Admin User'}
+                        </div>
+                        <div className="text-xs" style={{ color: 'var(--color-muted)' }}>
+                          {admin.email}
+                        </div>
+                      </div>
+                      <button
+                        className="text-xs px-2 py-1 rounded border flex items-center gap-1"
+                        style={{ borderColor: canDelete ? '#fecaca' : 'var(--color-border)', color: canDelete ? '#b91c1c' : 'var(--color-muted)' }}
+                        disabled={adminBusy || !canDelete}
+                        onClick={() => handleDeleteAdmin(admin)}
+                        title={canDelete ? 'Delete admin' : 'At least 2 admin accounts are required to enable deletion'}
+                      >
+                        <Trash2 className="size-3.5" /> Delete
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </>

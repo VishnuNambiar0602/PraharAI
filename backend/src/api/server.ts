@@ -5,6 +5,15 @@
  * Chat is proxied to FastAPI ML service (port 8000)
  */
 
+/* eslint-disable @typescript-eslint/explicit-function-return-type */
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-misused-promises */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-return */
+
 import express from 'express';
 import cors from 'cors';
 import { ProfileExtractor } from '../utils/profile-extractor';
@@ -42,6 +51,7 @@ export async function seedAdminUser() {
       email: 'admin@example.com',
       password: 'password',
       name: 'Admin User',
+      isAdmin: true,
     });
     console.log('✅ Admin user seeded');
   }
@@ -51,6 +61,7 @@ export async function seedAdminUser() {
   if (ensuredAdmin && !ensuredAdmin.onboarding_complete) {
     await neo4jService.updateUserProfile(ensuredAdmin.user_id, {
       onboarding_complete: true,
+      is_admin: true,
     });
   }
 }
@@ -108,7 +119,7 @@ app.post('/api/auth/register', async (req, res) => {
     const refreshToken = `mock_refresh_token_${userId}`;
 
     const response = {
-      user: { userId, email, name: name || 'User' },
+      user: { userId, email, name: name || 'User', isAdmin: false },
       accessToken,
       refreshToken,
     };
@@ -137,7 +148,13 @@ app.post('/api/auth/login', async (req, res) => {
     const refreshToken = `mock_refresh_token_${user.user_id}`;
 
     return res.json({
-      user: { userId: user.user_id, email: user.email, name: user.name },
+      user: {
+        userId: user.user_id,
+        email: user.email,
+        name: user.name,
+        isAdmin:
+          Boolean(user.is_admin) || user.user_id === 'admin123' || user.email === 'admin@example.com',
+      },
       accessToken,
       refreshToken,
     });
@@ -183,6 +200,7 @@ app.get('/api/users/:userId/profile', async (req, res) => {
     district: user.district ?? null,
     disabilityType: user.disability_type ?? null,
     minorityCommunity: user.minority_community ?? null,
+    isAdmin: Boolean(user.is_admin) || user.user_id === 'admin123' || user.email === 'admin@example.com',
     onboardingComplete: !!user.onboarding_complete,
     completeness: calculateProfileCompleteness(user),
   });
@@ -252,6 +270,10 @@ app.put('/api/users/:userId/profile', async (req, res) => {
     district: updated.district ?? null,
     disabilityType: updated.disability_type ?? null,
     minorityCommunity: updated.minority_community ?? null,
+    isAdmin:
+      Boolean(updated.is_admin) ||
+      updated.user_id === 'admin123' ||
+      updated.email === 'admin@example.com',
     onboardingComplete: !!updated.onboarding_complete,
     completeness: calculateProfileCompleteness(updated),
   });
@@ -504,7 +526,10 @@ async function requireAdminAccess(req: express.Request, res: express.Response): 
 
   if (userId) {
     const user = await neo4jService.getUserById(userId);
-    if (user && (user.user_id === 'admin123' || user.email === 'admin@example.com')) {
+    if (
+      user &&
+      (Boolean(user.is_admin) || user.user_id === 'admin123' || user.email === 'admin@example.com')
+    ) {
       return true;
     }
   }
@@ -573,6 +598,74 @@ app.post('/api/admin/sync', async (req, res) => {
   } catch (error: any) {
     console.error('Force sync error:', error);
     return res.status(500).json({ error: 'Failed to trigger sync', details: error.message });
+  }
+});
+
+app.get('/api/admin/admins', async (req, res) => {
+  if (!(await requireAdminAccess(req, res))) return;
+
+  try {
+    const admins = await neo4jService.listAdminUsers();
+    return res.json(
+      admins.map((admin: any) => ({
+        userId: admin.user_id,
+        email: admin.email,
+        name: admin.name,
+        isAdmin: true,
+        createdAt: admin.created_at ?? null,
+      }))
+    );
+  } catch (error: any) {
+    console.error('List admins error:', error);
+    return res.status(500).json({ error: 'Failed to list admins', details: error.message });
+  }
+});
+
+app.post('/api/admin/admins', async (req, res) => {
+  if (!(await requireAdminAccess(req, res))) return;
+
+  try {
+    const { email, password, name } = req.body || {};
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Missing required fields: email and password' });
+    }
+    if (typeof email !== 'string' || !email.includes('@')) {
+      return res.status(400).json({ error: 'Invalid email format' });
+    }
+
+    const admin = await neo4jService.createAdminUser({
+      email: String(email).trim(),
+      password: String(password),
+      name: typeof name === 'string' ? name.trim() : undefined,
+    });
+
+    return res.status(201).json({
+      userId: admin.user_id,
+      email: admin.email,
+      name: admin.name,
+      isAdmin: true,
+      createdAt: admin.created_at ?? null,
+    });
+  } catch (error: any) {
+    const status = String(error?.message || '').includes('already exists') ? 409 : 500;
+    console.error('Create admin error:', error);
+    return res.status(status).json({ error: error.message || 'Failed to create admin' });
+  }
+});
+
+app.delete('/api/admin/admins/:userId', async (req, res) => {
+  if (!(await requireAdminAccess(req, res))) return;
+
+  try {
+    const { userId } = req.params;
+    const deleted = await neo4jService.deleteAdminUser(userId);
+    if (!deleted) {
+      return res.status(404).json({ error: 'Admin user not found' });
+    }
+    return res.json({ success: true, message: 'Admin user deleted successfully' });
+  } catch (error: any) {
+    console.error('Delete admin error:', error);
+    return res.status(400).json({ error: error.message || 'Failed to delete admin user' });
   }
 });
 

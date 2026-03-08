@@ -28,12 +28,12 @@ import Dashboard from './components/Dashboard';
 import SchemeExplorer from './components/SchemeExplorer';
 import SchemeDetail from './components/SchemeDetail';
 import ChatAssistant from './components/ChatAssistant';
-import UserProfile from './components/UserProfile';
-import AboutPage from './components/AboutPage';
+import UserProfile from './components/UserProfile.tsx';
+import AboutPage from './components/AboutPage.tsx';
 import PartnerPortal from './components/PartnerPortal';
 import AdminPage from './components/AdminPage';
 import LoginPage from './components/LoginPage';
-import OnboardingWizard from './components/OnboardingWizard';
+import OnboardingWizard from './components/OnboardingWizard.tsx';
 import LanguageSelector from './components/LanguageSelector';
 import { fetchSchemeById } from './api';
 
@@ -69,7 +69,7 @@ function NavBar() {
     { path: '/about',     id: 'about',     labelKey: 'nav.about' },
   ];
 
-  const isAdminUser = (user?.email || '').toLowerCase() === 'admin@example.com';
+  const isAdminUser = Boolean((user as any)?.isAdmin) || (user?.email || '').toLowerCase() === 'admin@example.com';
 
   const isActive = (path: string) => {
     if (path === '/') return location.pathname === '/';
@@ -102,7 +102,7 @@ function NavBar() {
           {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-0.5">
             {(isAdminUser
-              ? [{ path: '/admin', id: 'admin' as View, labelKey: 'Admin Dashboard' }]
+              ? [{ path: '/adminstrator', id: 'admin' as View, labelKey: 'Admin Dashboard' }]
               : links
             ).map((l) => (
               <button
@@ -146,9 +146,9 @@ function NavBar() {
                 )}
                 {isAdminUser ? (
                   <button
-                    onClick={() => go('/admin')}
+                    onClick={() => go('/adminstrator')}
                     className={`px-3 py-1.5 rounded-lg text-[0.8rem] font-semibold transition-colors ${
-                      location.pathname === '/admin'
+                      location.pathname === '/adminstrator'
                         ? 'bg-primary text-white'
                         : 'bg-surface-2 text-ink hover:bg-border'
                     }`}
@@ -193,7 +193,7 @@ function NavBar() {
             >
               <div className="px-4 py-4 space-y-1">
                 {(isAdminUser
-                  ? [{ path: '/admin', id: 'admin' as View, labelKey: 'Admin Dashboard' }]
+                  ? [{ path: '/adminstrator', id: 'admin' as View, labelKey: 'Admin Dashboard' }]
                   : links
                 ).map((l) => (
                   <button
@@ -211,7 +211,7 @@ function NavBar() {
                   {isAuthenticated ? (
                     <div className="flex gap-2">
                       {isAdminUser && (
-                        <button onClick={() => go('/admin')} className="btn btn-navy text-xs">
+                        <button onClick={() => go('/adminstrator')} className="btn btn-navy text-xs">
                           Admin
                         </button>
                       )}
@@ -273,7 +273,7 @@ function MobileBottomNav() {
   const { user } = useAuth();
   const routerNavigate = useNavigate();
   const location = useLocation();
-  const isAdminUser = (user?.email || '').toLowerCase() === 'admin@example.com';
+  const isAdminUser = Boolean((user as any)?.isAdmin) || (user?.email || '').toLowerCase() === 'admin@example.com';
 
   if (isAdminUser) {
     return null;
@@ -384,7 +384,7 @@ function AppContent() {
   const routerNavigate = useNavigate();
   const location = useLocation();
   const onboardingSessionKey = user?.userId ? `onboardingHidden:${user.userId}` : null;
-  const isAdminUser = (user?.email || '').toLowerCase() === 'admin@example.com';
+  const isAdminUser = Boolean((user as any)?.isAdmin) || (user?.email || '').toLowerCase() === 'admin@example.com';
 
   // Universal navigate helper — child components still call onNavigate(view)
   const viewToPath: Record<View, string> = {
@@ -395,7 +395,7 @@ function AppContent() {
     profile:     '/profile',
     about:       '/about',
     partner:     '/partner',
-    admin:       '/admin',
+    admin:       '/adminstrator',
     login:       '/login',
   };
 
@@ -412,7 +412,7 @@ function AppContent() {
   const handlePostLogin = () => {
     const from = (location.state as { from?: string })?.from || '/';
     if ((user?.email || '').toLowerCase() === 'admin@example.com') {
-      routerNavigate('/admin', { replace: true });
+      routerNavigate('/adminstrator', { replace: true });
     } else {
       routerNavigate(from, { replace: true });
     }
@@ -485,7 +485,7 @@ function AppContent() {
                 path="/"
                 element={
                   isAuthenticated && user ? (
-                    isAdminUser ? <Navigate to="/admin" replace /> : <Dashboard user={user} onNavigate={navigate} />
+                    isAdminUser ? <Navigate to="/adminstrator" replace /> : <Dashboard user={user} onNavigate={navigate} />
                   ) : (
                     <LandingPage onNavigate={navigate} />
                   )
@@ -493,39 +493,40 @@ function AppContent() {
               />
               <Route
                 path="/about"
-                element={isAdminUser ? <Navigate to="/admin" replace /> : <AboutPage onNavigate={navigate} />}
+                element={isAdminUser ? <Navigate to="/adminstrator" replace /> : <AboutPage onNavigate={navigate} />}
               />
               <Route path="/login" element={<LoginPage onNavigate={navigate} onLoginSuccess={handlePostLogin} />} />
 
               {/* Protected routes */}
               <Route
                 path="/schemes"
-                element={<ProtectedRoute>{isAdminUser ? <Navigate to="/admin" replace /> : <SchemeExplorer onSchemeSelect={handleSchemeSelect} />}</ProtectedRoute>}
+                element={<ProtectedRoute>{isAdminUser ? <Navigate to="/adminstrator" replace /> : <SchemeExplorer onSchemeSelect={handleSchemeSelect} />}</ProtectedRoute>}
               />
               <Route
                 path="/schemes/:id"
-                element={<ProtectedRoute>{isAdminUser ? <Navigate to="/admin" replace /> : <SchemeDetailPage />}</ProtectedRoute>}
+                element={<ProtectedRoute>{isAdminUser ? <Navigate to="/adminstrator" replace /> : <SchemeDetailPage />}</ProtectedRoute>}
               />
               <Route
                 path="/assistant"
-                element={<ProtectedRoute>{isAdminUser ? <Navigate to="/admin" replace /> : <ChatAssistant />}</ProtectedRoute>}
+                element={<ProtectedRoute>{isAdminUser ? <Navigate to="/adminstrator" replace /> : <ChatAssistant />}</ProtectedRoute>}
               />
               <Route
                 path="/profile"
-                element={<ProtectedRoute>{isAdminUser ? <Navigate to="/admin" replace /> : <UserProfile onNavigate={navigate} />}</ProtectedRoute>}
+                element={<ProtectedRoute>{isAdminUser ? <Navigate to="/adminstrator" replace /> : <UserProfile onNavigate={navigate} />}</ProtectedRoute>}
               />
               <Route
                 path="/partner"
-                element={<ProtectedRoute>{isAdminUser ? <Navigate to="/admin" replace /> : <PartnerPortal />}</ProtectedRoute>}
+                element={<ProtectedRoute>{isAdminUser ? <Navigate to="/adminstrator" replace /> : <PartnerPortal />}</ProtectedRoute>}
               />
               <Route
-                path="/admin"
+                path="/adminstrator"
                 element={
                   <ProtectedRoute>
                     {isAdminUser ? <AdminPage /> : <Navigate to="/" replace />}
                   </ProtectedRoute>
                 }
               />
+              <Route path="/admin" element={<Navigate to="/adminstrator" replace />} />
 
               {/* Fallback */}
               <Route path="*" element={<Navigate to="/" replace />} />

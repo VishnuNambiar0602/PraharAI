@@ -1354,6 +1354,7 @@ class Neo4jDbService {
     income?: string;
     state?: string;
     gender?: string;
+    isAdmin?: boolean;
   }): Promise<void> {
     const pii = await encryptPII({
       email: user.email,
@@ -1365,6 +1366,7 @@ class Neo4jDbService {
          user_id: $userId, email: $email, email_hash: $emailHash, password: $password,
          name: $name, age: $age, income: $income, state: $state, gender: $gender,
          employment: '', education: '', interests: '',
+        is_admin: $isAdmin,
          onboarding_complete: false,
          created_at: toString(datetime())
        })`,
@@ -1378,6 +1380,7 @@ class Neo4jDbService {
         income: user.income ?? '',
         state: user.state ?? '',
         gender: user.gender ?? '',
+        isAdmin: Boolean(user.isAdmin),
       }
     );
     // Auto-assign UserGroups
@@ -1448,6 +1451,7 @@ class Neo4jDbService {
     'district',
     'disability_type',
     'minority_community',
+    'is_admin',
   ];
     const updates = Object.entries(fields).filter(([k]) => allowed.includes(k));
     if (updates.length === 0) return;
@@ -1599,11 +1603,62 @@ class Neo4jDbService {
       district: p.district || null,
       disability_type: p.disability_type || null,
       minority_community: p.minority_community || null,
+      is_admin: Boolean(p.is_admin),
       onboarding_complete: p.onboarding_complete ? 1 : 0,
       created_at: p.created_at?.toString?.() || null,
       updated_at: p.updated_at?.toString?.() || null,
     };
     return decryptPII(raw);
+  }
+
+  async listAdminUsers(): Promise<any[]> {
+    const rows = await this.connection.executeRead<any>(
+      `MATCH (u:User)
+       WHERE coalesce(u.is_admin, false) = true OR u.user_id = 'admin123' OR u.email = 'admin@example.com'
+       RETURN u
+       ORDER BY u.created_at DESC`
+    );
+    return Promise.all(rows.map((r: any) => this.nodeToUser(r.u)));
+  }
+
+  async createAdminUser(input: { email: string; password: string; name?: string }): Promise<any> {
+    const existing = await this.getUserByEmail(input.email);
+    if (existing) {
+      throw new Error('Admin user with this email already exists');
+    }
+
+    const userId = `admin_${Date.now()}`;
+    await this.createUser({
+      userId,
+      email: input.email,
+      password: input.password,
+      name: input.name || 'Admin User',
+      isAdmin: true,
+    });
+
+    await this.updateUserProfile(userId, {
+      onboarding_complete: true,
+      is_admin: true,
+    });
+
+    return this.getUserById(userId);
+  }
+
+  async deleteAdminUser(userId: string): Promise<boolean> {
+    const user = await this.getUserById(userId);
+    if (!user) return false;
+
+    const isAdmin =
+      Boolean(user.is_admin) || user.user_id === 'admin123' || user.email === 'admin@example.com';
+    if (!isAdmin) return false;
+
+    // Safety rule: do not allow admin deletion when total admins are below 2.
+    const admins = await this.listAdminUsers();
+    if (admins.length < 2) {
+      throw new Error('Cannot delete admin account while total admin accounts are below 2');
+    }
+
+    return this.deleteUserById(userId);
   }
 
   // ─── Graph-specific queries ────────────────────────────────────────────────
