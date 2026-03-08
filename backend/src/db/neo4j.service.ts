@@ -899,6 +899,151 @@ class Neo4jDbService {
     return cnt;
   }
 
+  async getEnrichedSchemeCount(): Promise<number> {
+    const cached = await redisService.get<number>('schemes:count:enriched');
+    if (cached != null) return cached;
+
+    const rows = await this.connection.executeRead<{ cnt: number }>(
+      `MATCH (s:Scheme)
+       WHERE coalesce(s.page_scheme_id, '') <> '' OR coalesce(s.page_enriched_at, '') <> ''
+       RETURN count(s) AS cnt`
+    );
+    const cnt = Number(rows[0]?.cnt) || 0;
+    await redisService.set('schemes:count:enriched', cnt, CacheTTL.CATEGORIES);
+    return cnt;
+  }
+
+  async getAdminMetrics(): Promise<{
+    users: {
+      total: number;
+      onboarded: number;
+      updatedProfiles: number;
+    };
+    schemes: {
+      total: number;
+      enriched: number;
+      withEligibility: number;
+      withBenefits: number;
+      enrichmentRate: number;
+    };
+    trends: {
+      users: Array<{ date: string; count: number }>;
+      sync: Array<{ date: string; synced: number; enriched: number }>;
+    };
+  }> {
+    const today = new Date();
+    const dateKeys: string[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      dateKeys.push(d.toISOString().slice(0, 10));
+    }
+    const fromDate = dateKeys[0];
+
+    const [userRows, schemeRows] = await Promise.all([
+      this.connection.executeRead<{
+        totalUsers: number;
+        onboardedUsers: number;
+        updatedProfiles: number;
+      }>(
+        `MATCH (u:User)
+         RETURN
+           count(u) AS totalUsers,
+           sum(CASE WHEN coalesce(u.onboarding_complete, false) = true THEN 1 ELSE 0 END) AS onboardedUsers,
+           sum(CASE WHEN coalesce(u.updated_at, '') <> '' THEN 1 ELSE 0 END) AS updatedProfiles`
+      ),
+      this.connection.executeRead<{
+        totalSchemes: number;
+        enrichedSchemes: number;
+        withEligibility: number;
+        withBenefits: number;
+      }>(
+        `MATCH (s:Scheme)
+         RETURN
+           count(s) AS totalSchemes,
+           sum(CASE WHEN coalesce(s.page_scheme_id, '') <> '' OR coalesce(s.page_enriched_at, '') <> '' THEN 1 ELSE 0 END) AS enrichedSchemes,
+           sum(CASE WHEN coalesce(s.page_eligibility_json, '[]') <> '[]' THEN 1 ELSE 0 END) AS withEligibility,
+           sum(CASE WHEN coalesce(s.page_benefits_json, '[]') <> '[]' THEN 1 ELSE 0 END) AS withBenefits`
+      ),
+    ]);
+
+    const [userTrendRows, syncTrendRows] = await Promise.all([
+      this.connection.executeRead<{ date: string; count: number }>(
+        `MATCH (u:User)
+         WHERE coalesce(u.created_at, '') <> ''
+           AND substring(u.created_at, 0, 10) >= $fromDate
+         RETURN substring(u.created_at, 0, 10) AS date, count(u) AS count
+         ORDER BY date ASC`,
+        { fromDate }
+      ),
+      this.connection.executeRead<{ date: string; synced: number; enriched: number }>(
+        `MATCH (s:Scheme)
+         WHERE coalesce(s.updated_at, s.last_updated, '') <> ''
+           AND substring(coalesce(s.updated_at, s.last_updated), 0, 10) >= $fromDate
+         RETURN
+           substring(coalesce(s.updated_at, s.last_updated), 0, 10) AS date,
+           count(s) AS synced,
+           sum(CASE WHEN coalesce(s.page_enriched_at, '') <> '' THEN 1 ELSE 0 END) AS enriched
+         ORDER BY date ASC`,
+        { fromDate }
+      ),
+    ]);
+
+    const userTrendMap = new Map<string, number>();
+    userTrendRows.forEach((row) => {
+      userTrendMap.set(String(row.date), Number(row.count) || 0);
+    });
+
+    const syncTrendMap = new Map<string, { synced: number; enriched: number }>();
+    syncTrendRows.forEach((row) => {
+      syncTrendMap.set(String(row.date), {
+        synced: Number(row.synced) || 0,
+        enriched: Number(row.enriched) || 0,
+      });
+    });
+
+    const users = userRows[0] || { totalUsers: 0, onboardedUsers: 0, updatedProfiles: 0 };
+    const schemes = schemeRows[0] || {
+      totalSchemes: 0,
+      enrichedSchemes: 0,
+      withEligibility: 0,
+      withBenefits: 0,
+    };
+
+    const totalSchemes = Number(schemes.totalSchemes) || 0;
+    const enrichedSchemes = Number(schemes.enrichedSchemes) || 0;
+
+    return {
+      users: {
+        total: Number(users.totalUsers) || 0,
+        onboarded: Number(users.onboardedUsers) || 0,
+        updatedProfiles: Number(users.updatedProfiles) || 0,
+      },
+      schemes: {
+        total: totalSchemes,
+        enriched: enrichedSchemes,
+        withEligibility: Number(schemes.withEligibility) || 0,
+        withBenefits: Number(schemes.withBenefits) || 0,
+        enrichmentRate:
+          totalSchemes > 0 ? Math.round((enrichedSchemes / totalSchemes) * 1000) / 10 : 0,
+      },
+      trends: {
+        users: dateKeys.map((date) => ({
+          date,
+          count: userTrendMap.get(date) || 0,
+        })),
+        sync: dateKeys.map((date) => {
+          const values = syncTrendMap.get(date) || { synced: 0, enriched: 0 };
+          return {
+            date,
+            synced: values.synced,
+            enriched: values.enriched,
+          };
+        }),
+      },
+    };
+  }
+
   async getAllSchemes(limit = 5000, offset = 0): Promise<SchemeRow[]> {
     const limitInt = Math.floor(Number(limit));
     const offsetInt = Math.max(0, Math.floor(Number(offset) || 0));

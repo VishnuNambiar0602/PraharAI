@@ -3,6 +3,7 @@ export type View =
   | 'schemes'
   | 'assistant'
   | 'profile'
+  | 'admin'
   | 'about'
   | 'partner'
   | 'login'

@@ -45,6 +45,14 @@ export async function seedAdminUser() {
     });
     console.log('✅ Admin user seeded');
   }
+
+  // Admin should never be blocked by onboarding.
+  const ensuredAdmin = await neo4jService.getUserByEmail('admin@example.com');
+  if (ensuredAdmin && !ensuredAdmin.onboarding_complete) {
+    await neo4jService.updateUserProfile(ensuredAdmin.user_id, {
+      onboarding_complete: true,
+    });
+  }
 }
 
 // ─── Helper: profile completeness ─────────────────────────────────────────────
@@ -475,19 +483,38 @@ app.post('/api/react-chat', async (req, res) => {
   }
 });
 
-// ─── Admin Sync Endpoints (protected with X-Admin-Key) ────────────────────────
+// ─── Admin Sync Endpoints (protected with X-Admin-Key or admin login) ────────
 
-function requireAdminKey(req: express.Request, res: express.Response): boolean {
-  const key = req.headers['x-admin-key'];
-  if (!key || key !== ADMIN_KEY) {
-    res.status(403).json({ error: 'Forbidden: invalid or missing X-Admin-Key' });
-    return false;
+async function requireAdminAccess(req: express.Request, res: express.Response): Promise<boolean> {
+  const keyHeader = req.headers['x-admin-key'];
+  const key = Array.isArray(keyHeader) ? keyHeader[0] : keyHeader;
+
+  // Preferred for server-to-server callers.
+  if (key && key === ADMIN_KEY) {
+    return true;
   }
-  return true;
+
+  // Also allow authenticated in-app admin user.
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : '';
+  const userId = token
+    .replace('mock_access_token_', '')
+    .replace('mock_refresh_token_', '')
+    .trim();
+
+  if (userId) {
+    const user = await neo4jService.getUserById(userId);
+    if (user && (user.user_id === 'admin123' || user.email === 'admin@example.com')) {
+      return true;
+    }
+  }
+
+  res.status(403).json({ error: 'Forbidden: admin login or valid X-Admin-Key required' });
+  return false;
 }
 
 app.get('/api/admin/sync/status', async (req, res) => {
-  if (!requireAdminKey(req, res)) return;
+  if (!(await requireAdminAccess(req, res))) return;
 
   try {
     const status = await schemeSyncAgent.getSyncStatus();
@@ -498,8 +525,43 @@ app.get('/api/admin/sync/status', async (req, res) => {
   }
 });
 
+app.get('/api/admin/metrics', async (req, res) => {
+  if (!(await requireAdminAccess(req, res))) return;
+
+  try {
+    const [syncStatus, adminMetrics, mlAvailable] = await Promise.all([
+      schemeSyncAgent.getSyncStatus(),
+      neo4jService.getAdminMetrics(),
+      mlService.isAvailable(),
+    ]);
+
+    return res.json({
+      users: adminMetrics.users,
+      schemes: {
+        pulled: syncStatus.totalSchemes,
+        inGraph: adminMetrics.schemes.total,
+        enriched: adminMetrics.schemes.enriched,
+        withEligibility: adminMetrics.schemes.withEligibility,
+        withBenefits: adminMetrics.schemes.withBenefits,
+        enrichmentRate: adminMetrics.schemes.enrichmentRate,
+      },
+      trends: adminMetrics.trends,
+      sync: syncStatus,
+      cache: redisService.getStats(),
+      mlService: {
+        ...mlService.getStatus(),
+        available: mlAvailable,
+      },
+      generatedAt: new Date().toISOString(),
+    });
+  } catch (error: any) {
+    console.error('Admin metrics error:', error);
+    return res.status(500).json({ error: 'Failed to fetch admin metrics', details: error.message });
+  }
+});
+
 app.post('/api/admin/sync', async (req, res) => {
-  if (!requireAdminKey(req, res)) return;
+  if (!(await requireAdminAccess(req, res))) return;
 
   try {
     // Fire off the sync in the background, respond immediately

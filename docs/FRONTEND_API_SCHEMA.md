@@ -464,5 +464,57 @@ All fields are optional and backward-compatible.
 - **Get Scheme Detail**: `GET /api/schemes/:schemeId`
 - **Get Categories**: `GET /api/schemes/categories`
 - **Get Stats**: `GET /api/schemes/stats`
+- **Admin Metrics**: `GET /api/admin/metrics` (requires `x-admin-key` header)
+
+### Admin Metrics Response Shape
+
+```json
+{
+  "users": {
+    "total": 0,
+    "onboarded": 0,
+    "updatedProfiles": 0
+  },
+  "schemes": {
+    "pulled": 0,
+    "inGraph": 0,
+    "enriched": 0,
+    "withEligibility": 0,
+    "withBenefits": 0,
+    "enrichmentRate": 0
+  },
+  "sync": {
+    "totalSchemes": 0,
+    "lastSync": null,
+    "nextSync": null,
+    "isSyncing": false
+  },
+  "trends": {
+    "users": [
+      { "date": "2026-03-02", "count": 0 }
+    ],
+    "sync": [
+      { "date": "2026-03-02", "synced": 0, "enriched": 0 }
+    ]
+  },
+  "cache": {
+    "hits": 0,
+    "misses": 0,
+    "sets": 0,
+    "deletes": 0,
+    "errors": 0,
+    "hitRate": 0,
+    "available": true,
+    "uptime": 0
+  },
+  "mlService": {
+    "baseUrl": "http://localhost:8000",
+    "timeoutMs": 15000,
+    "available": true,
+    "lastCheckAt": null
+  },
+  "generatedAt": "2026-03-08T00:00:00.000Z"
+}
+```
 
 All endpoints return enhanced `pageDetails` when available.

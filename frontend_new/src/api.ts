@@ -23,6 +23,56 @@ export interface ChatApiResponse {
   degraded?: boolean;
 }
 
+export interface AdminMetricsResponse {
+  users: {
+    total: number;
+    onboarded: number;
+    updatedProfiles: number;
+  };
+  schemes: {
+    pulled: number;
+    inGraph: number;
+    enriched: number;
+    withEligibility: number;
+    withBenefits: number;
+    enrichmentRate: number;
+  };
+  sync: {
+    totalSchemes: number;
+    lastSync: string | null;
+    nextSync: string | null;
+    isSyncing: boolean;
+  };
+  trends: {
+    users: Array<{
+      date: string;
+      count: number;
+    }>;
+    sync: Array<{
+      date: string;
+      synced: number;
+      enriched: number;
+    }>;
+  };
+  cache: {
+    hits: number;
+    misses: number;
+    sets: number;
+    deletes: number;
+    errors: number;
+    hitRate: number;
+    available: boolean;
+    uptime: number;
+  };
+  mlService: {
+    baseUrl: string;
+    timeoutMs: number;
+    available: boolean | null;
+    lastCheckAt: string | null;
+  };
+  generatedAt: string;
+}
+
 function cleanText(value: string): string {
   return value
     .replace(/<br\s*\/?>/gi, '\n')
@@ -542,4 +592,24 @@ export async function fetchNudges(userId: string) {
   });
   if (!res.ok) throw new Error('Failed to fetch nudges');
   return res.json();
+}
+
+export async function fetchAdminMetrics(adminKey?: string) {
+  const configuredKey =
+    adminKey || (import.meta as any)?.env?.VITE_ADMIN_KEY || 'prahar-admin-secret';
+
+  const res = await fetch(`${API_BASE}/admin/metrics?t=${Date.now()}`, {
+    headers: {
+      ...authHeaders(),
+      'x-admin-key': configuredKey,
+    },
+    cache: 'no-store',
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Failed to fetch admin metrics' }));
+    throw new Error(err.error || err.details || 'Failed to fetch admin metrics');
+  }
+
+  return res.json() as Promise<AdminMetricsResponse>;
 }
