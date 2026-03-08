@@ -342,8 +342,8 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
             </p>
           </div>
 
-          {/* Steps — clean numbered card layout */}
-          <div className="grid md:grid-cols-3 gap-8">
+          {/* Steps — unified card style */}
+          <div className="grid md:grid-cols-3 gap-6 lg:gap-8">
             {[
               {
                 n: '01',
@@ -367,16 +367,18 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.12, duration: 0.5 }}
-                className="relative flex flex-col"
+                className="h-full"
               >
-                {/* Connector line between steps */}
-                {i < 2 && (
-                  <div className="hidden md:block absolute top-7 left-[calc(100%_+_16px)] w-[calc(100%_-_48px)] h-[2px] bg-gradient-to-r from-border to-transparent" />
-                )}
-
-                {/* Number badge */}
-                <div className="flex items-center gap-4 mb-6">
-                  <div className="size-14 rounded-2xl bg-accent/10 border-2 border-accent/20 flex items-center justify-center shrink-0">
+                <article
+                  className="h-full rounded-2xl border p-7 sm:p-8 transition-all duration-300"
+                  style={{
+                    background: 'var(--color-surface)',
+                    borderColor: 'var(--color-border)',
+                    boxShadow: '0 2px 8px rgba(26,18,8,0.05)',
+                  }}
+                >
+                  <div className="mb-5">
+                    <div className="size-14 rounded-full bg-accent/10 border border-accent/25 flex items-center justify-center">
                     <span
                       className="text-xl font-bold text-accent"
                       style={{ fontFamily: 'Space Grotesk, sans-serif' }}
@@ -384,11 +386,8 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
                       {step.n}
                     </span>
                   </div>
-                  <div className="h-px flex-1 bg-border md:hidden" />
-                </div>
+                  </div>
 
-                {/* Content */}
-                <div className="bg-surface rounded-2xl border border-border p-7 flex-1 hover:border-accent/30 hover:shadow-md transition-all duration-300">
                   <h3
                     className="text-lg font-semibold text-ink mb-3"
                     style={{ fontFamily: 'Space Grotesk, sans-serif' }}
@@ -398,7 +397,7 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
                   <p className="text-muted text-sm leading-relaxed" style={{ fontFamily: 'Inter, sans-serif' }}>
                     {step.desc}
                   </p>
-                </div>
+                </article>
               </motion.div>
             ))}
           </div>

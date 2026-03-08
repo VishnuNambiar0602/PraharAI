@@ -5,6 +5,7 @@ interface User {
   userId: string;
   email: string;
   name: string;
+  dateOfBirth?: string;
   age?: number;
   income?: number;
   state?: string;

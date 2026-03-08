@@ -1,6 +1,15 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { User, Briefcase, GraduationCap, Heart, ChevronRight, ChevronLeft, Check, X } from 'lucide-react';
+import {
+  User,
+  Briefcase,
+  GraduationCap,
+  Heart,
+  ChevronRight,
+  ChevronLeft,
+  Check,
+  X,
+} from 'lucide-react';
 import { updateProfile } from '../api';
 import { useAuth } from '../AuthContext';
 
@@ -10,33 +19,81 @@ interface Props {
 }
 
 const STATES = [
-  'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh',
-  'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka',
-  'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram',
-  'Nagaland', 'Odisha', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu',
-  'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttarakhand', 'West Bengal',
-  'Delhi', 'Jammu & Kashmir', 'Ladakh', 'Puducherry', 'Chandigarh',
+  'Andhra Pradesh',
+  'Arunachal Pradesh',
+  'Assam',
+  'Bihar',
+  'Chhattisgarh',
+  'Goa',
+  'Gujarat',
+  'Haryana',
+  'Himachal Pradesh',
+  'Jharkhand',
+  'Karnataka',
+  'Kerala',
+  'Madhya Pradesh',
+  'Maharashtra',
+  'Manipur',
+  'Meghalaya',
+  'Mizoram',
+  'Nagaland',
+  'Odisha',
+  'Punjab',
+  'Rajasthan',
+  'Sikkim',
+  'Tamil Nadu',
+  'Telangana',
+  'Tripura',
+  'Uttar Pradesh',
+  'Uttarakhand',
+  'West Bengal',
+  'Delhi',
+  'Jammu & Kashmir',
+  'Ladakh',
+  'Puducherry',
+  'Chandigarh',
 ];
 
 const INTERESTS = [
-  'Agriculture', 'Health', 'Education', 'Housing', 'Employment',
-  'Women Welfare', 'Senior Citizens', 'Disability', 'Minority', 'Sports',
-  'Entrepreneurship', 'Skill Development', 'Social Welfare', 'Finance',
+  'Agriculture',
+  'Health',
+  'Education',
+  'Housing',
+  'Employment',
+  'Women Welfare',
+  'Senior Citizens',
+  'Disability',
+  'Minority',
+  'Sports',
+  'Entrepreneurship',
+  'Skill Development',
+  'Social Welfare',
+  'Finance',
 ];
 
 const steps = [
-  { id: 1, label: 'Personal', icon: User, title: 'Your Personal Details' },
+  { id: 1, label: 'Personal', icon: User, title: 'Personal Details' },
   { id: 2, label: 'Work', icon: Briefcase, title: 'Work, Income & Land' },
   { id: 3, label: 'Education', icon: GraduationCap, title: 'Education & Category' },
-  { id: 4, label: 'Interests', icon: Heart, title: 'Pick Your Interests' },
+  { id: 4, label: 'Interests', icon: Heart, title: 'Interests' },
 ];
+
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <label
+      className="block text-[0.72rem] font-bold uppercase tracking-[0.08em] mb-1.5"
+      style={{ color: 'var(--color-muted)' }}
+    >
+      {children}
+    </label>
+  );
+}
 
 export default function OnboardingWizard({ onComplete, onSkip }: Props) {
   const { user, refreshProfile } = useAuth();
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
 
-  // Step 1 — Personal
   const [name, setName] = useState(user?.name || '');
   const [age, setAge] = useState(user?.age?.toString() || '');
   const [state, setState] = useState(user?.state || '');
@@ -45,7 +102,6 @@ export default function OnboardingWizard({ onComplete, onSkip }: Props) {
   const [familySize, setFamilySize] = useState((user as any)?.familySize?.toString() || '');
   const [residenceType, setResidenceType] = useState((user as any)?.residenceType || '');
 
-  // Step 2 — Work & Income
   const [employment, setEmployment] = useState(user?.employment || '');
   const [occupation, setOccupation] = useState((user as any)?.occupation || '');
   const [income, setIncome] = useState(user?.income?.toString() || '');
@@ -53,7 +109,6 @@ export default function OnboardingWizard({ onComplete, onSkip }: Props) {
   const [rationCard, setRationCard] = useState((user as any)?.rationCard || '');
   const [landOwnership, setLandOwnership] = useState((user as any)?.landOwnership || '');
 
-  // Step 3 — Education & Category
   const [education, setEducation] = useState(user?.education || '');
   const [socialCategory, setSocialCategory] = useState((user as any)?.socialCategory || '');
   const [district, setDistrict] = useState((user as any)?.district || '');
@@ -62,12 +117,11 @@ export default function OnboardingWizard({ onComplete, onSkip }: Props) {
   const [isMinority, setIsMinority] = useState(!!(user as any)?.minority);
   const [minorityCommunity, setMinorityCommunity] = useState((user as any)?.minorityCommunity || '');
 
-  // Step 4 — Interests
   const [interests, setInterests] = useState<string[]>([]);
 
   const toggleInterest = (interest: string) => {
-    setInterests(prev =>
-      prev.includes(interest) ? prev.filter(i => i !== interest) : [...prev, interest]
+    setInterests((prev) =>
+      prev.includes(interest) ? prev.filter((i) => i !== interest) : [...prev, interest]
     );
   };
 
@@ -113,7 +167,7 @@ export default function OnboardingWizard({ onComplete, onSkip }: Props) {
     }
 
     if (step < 4) {
-      setStep(s => s + 1);
+      setStep((s) => s + 1);
     } else {
       await refreshProfile();
       onComplete();
@@ -124,11 +178,10 @@ export default function OnboardingWizard({ onComplete, onSkip }: Props) {
     if (step === 1) return name.trim().length > 0;
     if (step === 2) return employment.length > 0;
     if (step === 3) return education.length > 0;
-    if (step === 4) return true; // interests optional
+    if (step === 4) return true;
     return true;
   };
 
-  /* ── Chip selector helper ── */
   const ChipGroup = ({
     options,
     value,
@@ -140,17 +193,27 @@ export default function OnboardingWizard({ onComplete, onSkip }: Props) {
     onChange: (v: string) => void;
     columns?: number;
   }) => (
-    <div className={`grid gap-2`} style={{ gridTemplateColumns: `repeat(${columns}, 1fr)` }}>
-      {options.map(opt => (
+    <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>
+      {options.map((opt) => (
         <button
           key={opt}
           type="button"
           onClick={() => onChange(opt)}
-          className={`px-4 py-2.5 rounded-xl border text-sm font-medium transition-all ${
+          className="h-11 px-3 rounded-xl border text-sm font-semibold transition-all"
+          style={
             value === opt
-              ? 'bg-accent text-white border-accent'
-              : 'border-border text-muted hover:border-accent/50'
-          }`}
+              ? {
+                  background: 'var(--color-accent)',
+                  color: '#fff',
+                  borderColor: 'var(--color-accent)',
+                  boxShadow: '0 3px 10px rgba(200,112,13,0.32)',
+                }
+              : {
+                  background: 'var(--color-parchment)',
+                  color: 'var(--color-ink-2)',
+                  borderColor: 'var(--color-border)',
+                }
+          }
         >
           {opt}
         </button>
@@ -158,84 +221,139 @@ export default function OnboardingWizard({ onComplete, onSkip }: Props) {
     </div>
   );
 
+  const currentStep = steps[step - 1];
+
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-end justify-center sm:items-center">
+    <div className="fixed inset-0 z-50 bg-black/45 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5">
       <motion.div
-        initial={{ opacity: 0, y: 60 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 60 }}
-        className="bg-parchment w-full max-w-lg rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden border border-border"
-        style={{ maxHeight: '90vh' }}
+        initial={{ opacity: 0, y: 28, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 24, scale: 0.98 }}
+        className="w-full max-w-3xl rounded-2xl border overflow-hidden"
+        style={{
+          maxHeight: '92vh',
+          background: 'var(--color-parchment)',
+          borderColor: 'var(--color-border)',
+          boxShadow: '0 24px 60px rgba(7,15,26,0.35)',
+        }}
       >
-        {/* Header */}
-        <div className="bg-primary p-6 text-white relative">
+        <header
+          className="relative px-5 sm:px-7 py-5 sm:py-6"
+          style={{
+            background:
+              'linear-gradient(145deg, var(--color-primary-900) 0%, var(--color-primary) 55%, var(--color-primary-700) 100%)',
+          }}
+        >
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              background:
+                'radial-gradient(circle at 15% 18%, rgba(255,255,255,0.12), transparent 34%), radial-gradient(circle at 85% 50%, rgba(200,112,13,0.22), transparent 35%)',
+            }}
+          />
+
           <button
             onClick={onSkip}
-            className="absolute top-4 right-4 p-1.5 rounded-full hover:bg-white/20 transition-colors"
+            className="absolute top-4 right-4 size-8 rounded-full grid place-items-center transition-colors"
+            style={{ color: 'rgba(255,255,255,0.9)', background: 'rgba(255,255,255,0.08)' }}
+            aria-label="Close onboarding"
           >
             <X className="size-4" />
           </button>
-          <p className="text-xs font-bold uppercase tracking-widest text-white/70 mb-1">Step {step} of 4</p>
-          <h2 className="text-xl font-bold">{steps[step - 1].title}</h2>
-          <p className="text-sm text-white/70 mt-1">
-            Complete your profile to get personalized scheme recommendations
-          </p>
 
-          {/* Progress bar */}
-          <div className="mt-4 flex gap-1.5">
-            {steps.map(s => (
-              <div
-                key={s.id}
-                className={`h-1.5 flex-1 rounded-full transition-all duration-500 ${
-                  s.id <= step ? 'bg-white' : 'bg-white/30'
-                }`}
-              />
-            ))}
+          <div className="relative z-10">
+            <p
+              className="text-[11px] font-bold uppercase tracking-[0.16em]"
+              style={{ color: 'rgba(255,255,255,0.7)', fontFamily: 'Space Grotesk, sans-serif' }}
+            >
+              Step {step} of 4
+            </p>
+            <h2
+              className="mt-2 text-2xl sm:text-[1.85rem] font-bold"
+              style={{ color: 'white', fontFamily: 'Lora, serif' }}
+            >
+              {currentStep.title}
+            </h2>
+            <p className="mt-1.5 text-sm" style={{ color: 'rgba(255,255,255,0.78)' }}>
+              Complete your profile for better and more relevant scheme matching.
+            </p>
+
+            <div className="mt-5 grid grid-cols-4 gap-2">
+              {steps.map((item) => {
+                const Icon = item.icon;
+                const active = item.id === step;
+                const done = item.id < step;
+                return (
+                  <div
+                    key={item.id}
+                    className="rounded-xl px-2 py-2.5 text-center border"
+                    style={{
+                      borderColor: active ? 'rgba(255,255,255,0.45)' : 'rgba(255,255,255,0.16)',
+                      background: active ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.06)',
+                    }}
+                  >
+                    <div className="flex items-center justify-center mb-1">
+                      <span
+                        className="size-6 rounded-full grid place-items-center"
+                        style={{
+                          background: done || active ? 'var(--color-accent)' : 'rgba(255,255,255,0.16)',
+                          color: '#fff',
+                        }}
+                      >
+                        <Icon className="size-3.5" />
+                      </span>
+                    </div>
+                    <p
+                      className="text-[10px] font-bold uppercase tracking-[0.09em]"
+                      style={{ color: 'rgba(255,255,255,0.85)' }}
+                    >
+                      {item.label}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        </header>
 
-        {/* Body */}
-        <div className="p-6 overflow-y-auto" style={{ maxHeight: 'calc(90vh - 200px)' }}>
+        <div className="overflow-y-auto px-5 sm:px-7 py-5" style={{ maxHeight: 'calc(92vh - 255px)' }}>
           <AnimatePresence mode="wait">
             <motion.div
               key={step}
-              initial={{ opacity: 0, x: 20 }}
+              initial={{ opacity: 0, x: 18 }}
               animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
+              exit={{ opacity: 0, x: -18 }}
               transition={{ duration: 0.2 }}
-              className="space-y-4"
+              className="space-y-5"
             >
-              {/* ── Step 1: Personal ── */}
               {step === 1 && (
                 <>
                   <div>
-                    <label className="block text-sm font-semibold text-ink mb-1.5">Full Name *</label>
+                    <FieldLabel>Full Name *</FieldLabel>
                     <input
                       value={name}
-                      onChange={e => setName(e.target.value)}
+                      onChange={(e) => setName(e.target.value)}
                       placeholder="e.g. Priya Sharma"
-                      className="input-base"
+                      className="input-base h-11"
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-sm font-semibold text-ink mb-1.5">Age</label>
+                      <FieldLabel>Age</FieldLabel>
                       <input
                         type="number"
                         value={age}
-                        onChange={e => setAge(e.target.value)}
+                        onChange={(e) => setAge(e.target.value)}
                         placeholder="e.g. 28"
-                        min="5" max="120"
-                        className="input-base"
+                        min="5"
+                        max="120"
+                        className="input-base h-11"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold text-ink mb-1.5">Gender</label>
-                      <select
-                        value={gender}
-                        onChange={e => setGender(e.target.value)}
-                        className="input-base"
-                      >
+                      <FieldLabel>Gender</FieldLabel>
+                      <select value={gender} onChange={(e) => setGender(e.target.value)} className="input-base h-11">
                         <option value="">Select</option>
                         <option value="Male">Male</option>
                         <option value="Female">Female</option>
@@ -244,43 +362,47 @@ export default function OnboardingWizard({ onComplete, onSkip }: Props) {
                       </select>
                     </div>
                   </div>
+
                   <div>
-                    <label className="block text-sm font-semibold text-ink mb-1.5">State / UT</label>
-                    <select
-                      value={state}
-                      onChange={e => setState(e.target.value)}
-                      className="input-base"
-                    >
+                    <FieldLabel>State / UT</FieldLabel>
+                    <select value={state} onChange={(e) => setState(e.target.value)} className="input-base h-11">
                       <option value="">Select state</option>
-                      {STATES.map(s => <option key={s} value={s}>{s}</option>)}
+                      {STATES.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
                     </select>
                   </div>
+
                   <div>
-                    <label className="block text-sm font-semibold text-ink mb-2">Marital Status</label>
+                    <FieldLabel>Marital Status</FieldLabel>
                     <ChipGroup
                       options={['Single', 'Married', 'Divorced', 'Widowed']}
                       value={maritalStatus}
                       onChange={setMaritalStatus}
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-sm font-semibold text-ink mb-1.5">Family Size</label>
+                      <FieldLabel>Family Size</FieldLabel>
                       <input
                         type="number"
                         value={familySize}
-                        onChange={e => setFamilySize(e.target.value)}
+                        onChange={(e) => setFamilySize(e.target.value)}
                         placeholder="e.g. 4"
-                        min="1" max="20"
-                        className="input-base"
+                        min="1"
+                        max="20"
+                        className="input-base h-11"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold text-ink mb-1.5">Residence</label>
+                      <FieldLabel>Residence</FieldLabel>
                       <select
                         value={residenceType}
-                        onChange={e => setResidenceType(e.target.value)}
-                        className="input-base"
+                        onChange={(e) => setResidenceType(e.target.value)}
+                        className="input-base h-11"
                       >
                         <option value="">Select</option>
                         <option value="Rural">Rural</option>
@@ -292,11 +414,10 @@ export default function OnboardingWizard({ onComplete, onSkip }: Props) {
                 </>
               )}
 
-              {/* ── Step 2: Work, Income & Land ── */}
               {step === 2 && (
                 <>
                   <div>
-                    <label className="block text-sm font-semibold text-ink mb-2">Employment Status *</label>
+                    <FieldLabel>Employment Status *</FieldLabel>
                     <ChipGroup
                       options={['Salaried', 'Self-Employed', 'Unemployed', 'Student', 'Farmer', 'Retired']}
                       value={employment}
@@ -304,29 +425,34 @@ export default function OnboardingWizard({ onComplete, onSkip }: Props) {
                       columns={3}
                     />
                   </div>
+
                   <div>
-                    <label className="block text-sm font-semibold text-ink mb-1.5">Specific Occupation</label>
+                    <FieldLabel>Specific Occupation</FieldLabel>
                     <input
                       value={occupation}
-                      onChange={e => setOccupation(e.target.value)}
+                      onChange={(e) => setOccupation(e.target.value)}
                       placeholder="e.g. Construction Worker, Artisan, Teacher"
-                      className="input-base"
+                      className="input-base h-11"
                     />
-                    <p className="text-xs text-muted mt-1">Helps match occupation-specific schemes</p>
+                    <p className="text-xs mt-1" style={{ color: 'var(--color-muted)' }}>
+                      Helps match occupation-specific schemes.
+                    </p>
                   </div>
+
                   <div>
-                    <label className="block text-sm font-semibold text-ink mb-1.5">Annual Income (₹)</label>
+                    <FieldLabel>Annual Income (INR)</FieldLabel>
                     <input
                       type="number"
                       value={income}
-                      onChange={e => setIncome(e.target.value)}
+                      onChange={(e) => setIncome(e.target.value)}
                       placeholder="e.g. 350000"
-                      className="input-base"
+                      className="input-base h-11"
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-sm font-semibold text-ink mb-2">Poverty Status</label>
+                      <FieldLabel>Poverty Status</FieldLabel>
                       <ChipGroup
                         options={['BPL', 'APL', 'Not Sure']}
                         value={povertyStatus}
@@ -335,7 +461,7 @@ export default function OnboardingWizard({ onComplete, onSkip }: Props) {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold text-ink mb-2">Ration Card</label>
+                      <FieldLabel>Ration Card</FieldLabel>
                       <ChipGroup
                         options={['AAY', 'BPL', 'APL', 'None']}
                         value={rationCard}
@@ -344,23 +470,23 @@ export default function OnboardingWizard({ onComplete, onSkip }: Props) {
                       />
                     </div>
                   </div>
+
                   <div>
-                    <label className="block text-sm font-semibold text-ink mb-2">Land Ownership</label>
+                    <FieldLabel>Land Ownership</FieldLabel>
                     <ChipGroup
                       options={['Landless', 'Marginal (< 1 ha)', 'Small (1-2 ha)', 'Large (> 2 ha)', 'N/A']}
                       value={landOwnership}
                       onChange={setLandOwnership}
-                      columns={3}
+                      columns={2}
                     />
                   </div>
                 </>
               )}
 
-              {/* ── Step 3: Education & Category ── */}
               {step === 3 && (
                 <>
                   <div>
-                    <label className="block text-sm font-semibold text-ink mb-2">Education Level *</label>
+                    <FieldLabel>Education Level *</FieldLabel>
                     <ChipGroup
                       options={['Below 10th', '10th / SSC', '12th / HSC', 'Diploma', 'Graduate', 'Post-Graduate']}
                       value={education}
@@ -368,18 +494,22 @@ export default function OnboardingWizard({ onComplete, onSkip }: Props) {
                       columns={3}
                     />
                   </div>
+
                   <div>
-                    <label className="block text-sm font-semibold text-ink mb-1.5">District</label>
+                    <FieldLabel>District</FieldLabel>
                     <input
                       value={district}
-                      onChange={e => setDistrict(e.target.value)}
+                      onChange={(e) => setDistrict(e.target.value)}
                       placeholder="e.g. Lucknow, Pune, Jaipur"
-                      className="input-base"
+                      className="input-base h-11"
                     />
-                    <p className="text-xs text-muted mt-1">Some schemes are district-specific</p>
+                    <p className="text-xs mt-1" style={{ color: 'var(--color-muted)' }}>
+                      Some schemes are district-specific.
+                    </p>
                   </div>
+
                   <div>
-                    <label className="block text-sm font-semibold text-ink mb-2">Social Category</label>
+                    <FieldLabel>Social Category</FieldLabel>
                     <ChipGroup
                       options={['General', 'OBC', 'SC', 'ST', 'EWS', 'Minority']}
                       value={socialCategory}
@@ -387,22 +517,24 @@ export default function OnboardingWizard({ onComplete, onSkip }: Props) {
                       columns={3}
                     />
                   </div>
-                  {/* Disability */}
-                  <div className="space-y-2">
-                    <label className="flex items-center gap-2 cursor-pointer">
+
+                  <div className="rounded-xl p-3.5 border" style={{ borderColor: 'var(--color-border)' }}>
+                    <label className="flex items-center gap-2.5 cursor-pointer">
                       <input
                         type="checkbox"
                         checked={hasDisability}
-                        onChange={e => {
+                        onChange={(e) => {
                           setHasDisability(e.target.checked);
                           if (!e.target.checked) setDisabilityType('');
                         }}
                         className="size-4 rounded accent-accent"
                       />
-                      <span className="text-sm font-semibold text-ink">Person with Disability</span>
+                      <span className="text-sm font-semibold" style={{ color: 'var(--color-ink)' }}>
+                        Person with Disability
+                      </span>
                     </label>
                     {hasDisability && (
-                      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}>
+                      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="mt-3">
                         <ChipGroup
                           options={['Visual', 'Hearing', 'Locomotor', 'Intellectual', 'Multiple', 'Other']}
                           value={disabilityType}
@@ -412,22 +544,24 @@ export default function OnboardingWizard({ onComplete, onSkip }: Props) {
                       </motion.div>
                     )}
                   </div>
-                  {/* Minority */}
-                  <div className="space-y-2">
-                    <label className="flex items-center gap-2 cursor-pointer">
+
+                  <div className="rounded-xl p-3.5 border" style={{ borderColor: 'var(--color-border)' }}>
+                    <label className="flex items-center gap-2.5 cursor-pointer">
                       <input
                         type="checkbox"
                         checked={isMinority}
-                        onChange={e => {
+                        onChange={(e) => {
                           setIsMinority(e.target.checked);
                           if (!e.target.checked) setMinorityCommunity('');
                         }}
                         className="size-4 rounded accent-accent"
                       />
-                      <span className="text-sm font-semibold text-ink">Minority Community</span>
+                      <span className="text-sm font-semibold" style={{ color: 'var(--color-ink)' }}>
+                        Minority Community
+                      </span>
                     </label>
                     {isMinority && (
-                      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}>
+                      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="mt-3">
                         <ChipGroup
                           options={['Muslim', 'Christian', 'Sikh', 'Buddhist', 'Jain', 'Parsi']}
                           value={minorityCommunity}
@@ -440,22 +574,34 @@ export default function OnboardingWizard({ onComplete, onSkip }: Props) {
                 </>
               )}
 
-              {/* ── Step 4: Interests ── */}
               {step === 4 && (
                 <>
-                  <p className="text-sm text-muted">Select areas you are interested in (optional)</p>
+                  <div className="rounded-xl border p-3.5" style={{ borderColor: 'var(--color-border)' }}>
+                    <p className="text-sm" style={{ color: 'var(--color-muted)' }}>
+                      Select areas you care about. This helps prioritize recommendations.
+                    </p>
+                  </div>
                   <div className="flex flex-wrap gap-2">
-                    {INTERESTS.map(interest => (
+                    {INTERESTS.map((interest) => (
                       <button
                         key={interest}
                         onClick={() => toggleInterest(interest)}
-                        className={`px-3 py-1.5 rounded-full border text-sm font-medium transition-all ${
+                        className="px-3.5 h-10 rounded-full border text-sm font-semibold transition-all"
+                        style={
                           interests.includes(interest)
-                            ? 'bg-accent text-white border-accent'
-                            : 'border-border text-muted hover:border-accent/50'
-                        }`}
+                            ? {
+                                background: 'var(--color-accent)',
+                                borderColor: 'var(--color-accent)',
+                                color: '#fff',
+                              }
+                            : {
+                                background: 'var(--color-parchment)',
+                                borderColor: 'var(--color-border)',
+                                color: 'var(--color-ink-2)',
+                              }
+                        }
                       >
-                        {interests.includes(interest) && <Check className="size-3 inline mr-1" />}
+                        {interests.includes(interest) && <Check className="size-3.5 inline mr-1" />}
                         {interest}
                       </button>
                     ))}
@@ -466,24 +612,18 @@ export default function OnboardingWizard({ onComplete, onSkip }: Props) {
           </AnimatePresence>
         </div>
 
-        {/* Footer */}
-        <div className="px-6 pb-8 flex items-center justify-between gap-3">
+        <footer
+          className="px-5 sm:px-7 py-4 border-t flex items-center justify-between gap-3"
+          style={{ borderColor: 'var(--color-border)', background: 'var(--color-parchment)' }}
+        >
           <button
-            onClick={step === 1 ? onSkip : () => setStep(s => s - 1)}
-            className="btn-ghost text-sm"
+            onClick={step === 1 ? onSkip : () => setStep((s) => s - 1)}
+            className="btn btn-ghost"
           >
-            {step === 1 ? (
-              'Skip for now'
-            ) : (
-              <><ChevronLeft className="size-4" /> Back</>
-            )}
+            {step === 1 ? 'Skip For Now' : (<><ChevronLeft className="size-4" /> Back</>)}
           </button>
 
-          <button
-            onClick={saveAndNext}
-            disabled={!canProceed() || saving}
-            className="btn-primary text-sm disabled:opacity-40"
-          >
+          <button onClick={saveAndNext} disabled={!canProceed() || saving} className="btn btn-primary">
             {saving ? (
               <span className="animate-spin size-4 border-2 border-white/30 border-t-white rounded-full" />
             ) : step === 4 ? (
@@ -492,7 +632,7 @@ export default function OnboardingWizard({ onComplete, onSkip }: Props) {
               <>Next <ChevronRight className="size-4" /></>
             )}
           </button>
-        </div>
+        </footer>
       </motion.div>
     </div>
   );

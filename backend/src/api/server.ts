@@ -154,6 +154,7 @@ app.get('/api/users/:userId/profile', async (req, res) => {
     userId: user.user_id,
     name: user.name,
     email: user.email,
+    dateOfBirth: user.date_of_birth ?? null,
     age: user.age ?? null,
     income: user.income ?? null,
     state: user.state ?? null,
@@ -189,6 +190,7 @@ app.put('/api/users/:userId/profile', async (req, res) => {
   const mappedFields: Record<string, any> = {};
   const fieldMap: Record<string, string> = {
     name: 'name',
+    dateOfBirth: 'date_of_birth',
     age: 'age',
     income: 'income',
     state: 'state',
@@ -221,6 +223,7 @@ app.put('/api/users/:userId/profile', async (req, res) => {
     userId: updated.user_id,
     name: updated.name,
     email: updated.email,
+    dateOfBirth: updated.date_of_birth ?? null,
     age: updated.age ?? null,
     income: updated.income ?? null,
     state: updated.state ?? null,
@@ -243,6 +246,18 @@ app.put('/api/users/:userId/profile', async (req, res) => {
     minorityCommunity: updated.minority_community ?? null,
     onboardingComplete: !!updated.onboarding_complete,
     completeness: calculateProfileCompleteness(updated),
+  });
+});
+
+app.delete('/api/users/:userId/profile', async (req, res) => {
+  const deleted = await neo4jService.deleteUserById(req.params.userId);
+  if (!deleted) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+
+  return res.json({
+    success: true,
+    message: 'Profile deleted successfully',
   });
 });
 

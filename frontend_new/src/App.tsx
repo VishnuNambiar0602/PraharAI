@@ -346,6 +346,7 @@ function AppContent() {
   const { isAuthenticated, user } = useAuth();
   const routerNavigate = useNavigate();
   const location = useLocation();
+  const onboardingSessionKey = user?.userId ? `onboardingHidden:${user.userId}` : null;
 
   // Universal navigate helper — child components still call onNavigate(view)
   const viewToPath: Record<View, string> = {
@@ -372,8 +373,31 @@ function AppContent() {
   const handlePostLogin = () => {
     const from = (location.state as { from?: string })?.from || '/';
     routerNavigate(from, { replace: true });
-    if (!user?.onboardingComplete) setShowOnboarding(true);
+    setShowOnboarding(false);
   };
+
+  useEffect(() => {
+    if (!isAuthenticated || !user) {
+      setShowOnboarding(false);
+      return;
+    }
+
+    const sessionDismissed =
+      onboardingSessionKey !== null && sessionStorage.getItem(onboardingSessionKey) === '1';
+
+    if (!user.onboardingComplete && !sessionDismissed && location.pathname !== '/login') {
+      setShowOnboarding(true);
+      return;
+    }
+
+    setShowOnboarding(false);
+  }, [
+    isAuthenticated,
+    location.pathname,
+    onboardingSessionKey,
+    user,
+    user?.onboardingComplete,
+  ]);
 
   return (
     <div className="min-h-screen bg-surface flex flex-col">
@@ -383,8 +407,14 @@ function AppContent() {
       <AnimatePresence>
         {showOnboarding && isAuthenticated && (
           <OnboardingWizard
-            onComplete={() => setShowOnboarding(false)}
-            onSkip={() => setShowOnboarding(false)}
+            onComplete={() => {
+              if (onboardingSessionKey) sessionStorage.setItem(onboardingSessionKey, '1');
+              setShowOnboarding(false);
+            }}
+            onSkip={() => {
+              if (onboardingSessionKey) sessionStorage.setItem(onboardingSessionKey, '1');
+              setShowOnboarding(false);
+            }}
           />
         )}
       </AnimatePresence>

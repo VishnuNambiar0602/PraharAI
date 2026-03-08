@@ -1,136 +1,178 @@
-import { ShieldCheck, Eye, Languages, Users, Zap, Mic, Globe, Tractor, Building2, ArrowRight } from 'lucide-react';
+import {
+  ArrowRight,
+  ShieldCheck,
+  Languages,
+  MessageSquareText,
+  Search,
+  FileText,
+  Sparkles,
+} from 'lucide-react';
 import { View } from '../types';
 
 interface AboutPageProps {
   onNavigate: (view: View) => void;
 }
 
+const PRINCIPLES = [
+  {
+    icon: Languages,
+    title: 'Language Accessibility',
+    description:
+      'Information should be understandable. The assistant is designed to support plain-language guidance across multiple Indian languages.',
+  },
+  {
+    icon: ShieldCheck,
+    title: 'Privacy by Default',
+    description:
+      'Only profile details required for recommendations are used. Users can update or delete their profile from the profile page at any time.',
+  },
+  {
+    icon: Search,
+    title: 'Structured Discovery',
+    description:
+      'Schemes are organized with normalized details so citizens can quickly understand eligibility, benefits, and application steps.',
+  },
+];
+
+const HOW_IT_WORKS = [
+  {
+    icon: MessageSquareText,
+    title: '1. Tell Us About Yourself',
+    description: 'Share only the profile fields you are comfortable providing, such as age, income, and location.',
+  },
+  {
+    icon: Sparkles,
+    title: '2. Get Personalized Matches',
+    description: 'The system maps your profile to relevant scheme categories and returns a focused list of options.',
+  },
+  {
+    icon: FileText,
+    title: '3. Review and Apply',
+    description: 'Open scheme details to review requirements and process notes before applying on official portals.',
+  },
+];
+
 export default function AboutPage({ onNavigate }: AboutPageProps) {
   return (
-    <div className="about-page min-h-screen bg-surface">
+    <div className="min-h-screen" style={{ background: 'var(--color-surface)' }}>
+      <section
+        className="relative overflow-hidden"
+        style={{
+          background:
+            'linear-gradient(155deg, var(--color-primary-900) 0%, var(--color-primary) 45%, var(--color-primary-600) 100%)',
+        }}
+      >
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background:
+              'radial-gradient(circle at 10% 20%, rgba(255,255,255,0.08), transparent 34%), radial-gradient(circle at 90% 70%, rgba(200,112,13,0.18), transparent 28%)',
+          }}
+        />
 
-      {/* -- Hero -- */}
-      <div className="about-hero bg-primary relative overflow-hidden">
-        <div className="absolute inset-0 opacity-5 pointer-events-none"
-          style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '28px 28px' }} />
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-14 sm:py-20 relative z-10">
-          <span className="inline-block text-accent text-xs font-bold uppercase tracking-widest mb-4 bg-accent/10 border border-accent/30 px-3 py-1 rounded-full">Our Mission</span>
-          <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight max-w-2xl">
-            Every Citizen Deserves Their Entitlements
-          </h1>
-          <p className="about-hero-subtext text-white/60 mt-4 text-lg max-w-xl leading-relaxed">
-            Prahar AI bridges the gap between complex government protocols and the common man �
-            making governance accessible to everyone, everywhere.
-          </p>
-          <button
-            onClick={() => onNavigate('schemes')}
-            className="mt-8 btn-primary inline-flex items-center gap-2"
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-14 sm:py-20 relative z-10">
+          <p
+            className="inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold tracking-[0.12em] uppercase"
+            style={{
+              background: 'rgba(255,255,255,0.1)',
+              color: 'rgba(255,255,255,0.85)',
+              border: '1px solid rgba(255,255,255,0.2)',
+            }}
           >
-            Explore Schemes <ArrowRight className="size-4" />
-          </button>
-        </div>
-      </div>
-
-      {/* -- Stats Strip -- */}
-      <div className="bg-parchment border-b border-border">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 grid grid-cols-1 sm:grid-cols-3 gap-5 sm:gap-6 text-center">
-          {[
-            { icon: Globe, label: '22+ Languages', sub: 'All official Indian languages' },
-            { icon: Users, label: '1.4B Indians', sub: 'Built for every citizen' },
-            { icon: Zap, label: 'Real-time AI', sub: 'Instant scheme matching' },
-          ].map(({ icon: Icon, label, sub }) => (
-            <div key={label} className="flex flex-col items-center gap-2">
-              <div className="size-10 rounded-lg bg-primary-50 flex items-center justify-center">
-                <Icon className="size-5 text-primary" />
-              </div>
-              <p className="font-display font-bold text-ink text-lg">{label}</p>
-              <p className="text-xs text-muted">{sub}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-12 space-y-10">
-
-        {/* -- Vision -- */}
-        <div className="card p-8">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="size-10 rounded-lg bg-primary-50 flex items-center justify-center">
-              <Eye className="size-5 text-primary" />
-            </div>
-            <h2 className="font-display text-2xl font-bold text-ink">Our Vision</h2>
-          </div>
-          <p className="text-muted text-lg leading-relaxed">
-            To create a <span className="text-primary font-semibold">secure and resilient digital ecosystem</span> for
-            India � where every citizen can discover, apply for, and benefit from government schemes without
-            barriers of language, literacy, or geography.
+            About Prahar AI
           </p>
-        </div>
 
-        {/* -- Inclusive by Design -- */}
-        <div>
-          <h2 className="font-display text-2xl font-bold text-ink mb-6">Inclusive by Design</h2>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {[
-              { icon: Mic, title: 'Voice-First', desc: 'Speak naturally in your mother tongue � no typing required.' },
-              { icon: Languages, title: 'Multi-lingual', desc: 'Support for 22+ official Indian languages.' },
-              { icon: ShieldCheck, title: 'Privacy-First', desc: 'Enterprise-grade encryption protects your data.' },
-              { icon: Zap, title: 'AI-Powered', desc: 'Real-time matching across 500+ central and state schemes.' },
-            ].map(({ icon: Icon, title, desc }) => (
-              <div key={title} className="card p-6">
-                <div className="size-10 rounded-lg bg-primary-50 flex items-center justify-center mb-4">
-                  <Icon className="size-5 text-primary" />
-                </div>
-                <h4 className="font-semibold text-ink mb-2">{title}</h4>
-                <p className="text-sm text-muted leading-relaxed">{desc}</p>
+          <h1
+            className="mt-5 text-3xl sm:text-4xl lg:text-5xl font-bold leading-tight max-w-3xl"
+            style={{ color: 'white', fontFamily: 'Lora, serif' }}
+          >
+            Helping citizens understand and access government schemes without guesswork.
+          </h1>
+
+          <p className="mt-5 text-base sm:text-lg max-w-2xl" style={{ color: 'rgba(255,255,255,0.8)' }}>
+            Prahar AI is a citizen-support platform focused on practical scheme discovery. It combines profile-based recommendations,
+            conversational guidance, and structured scheme detail pages in one place.
+          </p>
+
+          <div className="mt-8 flex flex-wrap gap-3">
+            <button onClick={() => onNavigate('schemes')} className="btn btn-primary">
+              Explore Schemes <ArrowRight className="size-4" />
+            </button>
+            <button onClick={() => onNavigate('assistant')} className="btn btn-outline-white">
+              Open Assistant
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-12 space-y-10">
+        <section className="grid md:grid-cols-3 gap-4 sm:gap-5">
+          {PRINCIPLES.map(({ icon: Icon, title, description }) => (
+            <article key={title} className="card p-6">
+              <div
+                className="size-10 rounded-xl flex items-center justify-center mb-4"
+                style={{ background: 'var(--color-primary-50)' }}
+              >
+                <Icon className="size-5" style={{ color: 'var(--color-primary)' }} />
               </div>
+              <h2 className="text-lg font-bold mb-2" style={{ color: 'var(--color-ink)', fontFamily: 'Space Grotesk, sans-serif' }}>
+                {title}
+              </h2>
+              <p className="text-sm leading-relaxed" style={{ color: 'var(--color-muted)' }}>
+                {description}
+              </p>
+            </article>
+          ))}
+        </section>
+
+        <section className="card p-6 sm:p-8">
+          <h2 className="text-2xl font-bold mb-2" style={{ color: 'var(--color-ink)', fontFamily: 'Lora, serif' }}>
+            How It Works
+          </h2>
+          <p className="text-sm mb-6" style={{ color: 'var(--color-muted)' }}>
+            The workflow is simple and transparent.
+          </p>
+
+          <div className="grid md:grid-cols-3 gap-4">
+            {HOW_IT_WORKS.map(({ icon: Icon, title, description }) => (
+              <article key={title} className="rounded-xl p-5" style={{ background: 'var(--color-surface)' }}>
+                <Icon className="size-5 mb-3" style={{ color: 'var(--color-accent)' }} />
+                <h3 className="text-base font-bold mb-2" style={{ color: 'var(--color-ink)', fontFamily: 'Space Grotesk, sans-serif' }}>
+                  {title}
+                </h3>
+                <p className="text-sm leading-relaxed" style={{ color: 'var(--color-muted)' }}>
+                  {description}
+                </p>
+              </article>
             ))}
           </div>
-        </div>
+        </section>
 
-        {/* -- Empowerment -- */}
-        <div className="grid md:grid-cols-2 gap-6">
-          <div className="card overflow-hidden flex flex-col sm:flex-row items-stretch">
-            <div className="bg-primary-50 w-full sm:w-32 h-20 sm:h-auto shrink-0 flex items-center justify-center">
-              <Tractor className="size-12 text-primary/30" />
-            </div>
-            <div className="p-6">
-              <h4 className="font-display font-bold text-ink text-lg">Rural Empowerment</h4>
-              <p className="text-sm text-muted mt-2 leading-relaxed">Helping farmers access subsidies, crop insurance, and weather alerts via voice in regional languages.</p>
-            </div>
-          </div>
-          <div className="card overflow-hidden flex flex-col sm:flex-row items-stretch">
-            <div className="bg-accent-50 w-full sm:w-32 h-20 sm:h-auto shrink-0 flex items-center justify-center">
-              <Building2 className="size-12 text-accent/40" />
-            </div>
-            <div className="p-6">
-              <h4 className="font-display font-bold text-ink text-lg">Urban Governance</h4>
-              <p className="text-sm text-muted mt-2 leading-relaxed">Streamlining municipal services, business registrations, and urban welfare for modern city living.</p>
-            </div>
-          </div>
-        </div>
-
-        {/* -- Quote -- */}
-        <div className="about-quote bg-primary rounded-2xl p-10 text-center relative overflow-hidden">
-          <div className="absolute inset-0 opacity-5" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '24px 24px' }} />
-          <p className="font-display text-2xl text-white font-bold max-w-2xl mx-auto leading-relaxed relative z-10">
-            "Governance should reach the citizen � not the other way around."
+        <section
+          className="rounded-2xl p-6 sm:p-8"
+          style={{
+            background: 'linear-gradient(140deg, var(--color-accent-50) 0%, var(--color-parchment) 100%)',
+            border: '1px solid var(--color-border)',
+          }}
+        >
+          <h2 className="text-2xl font-bold mb-2" style={{ color: 'var(--color-ink)', fontFamily: 'Lora, serif' }}>
+            Built for practical outcomes
+          </h2>
+          <p className="text-sm sm:text-base max-w-3xl" style={{ color: 'var(--color-ink-2)' }}>
+            The goal is not to overwhelm citizens with jargon. The goal is to make each step clear: who is eligible, what documents are needed,
+            and where to apply.
           </p>
-          <p className="about-quote-credit text-white/50 text-sm mt-4 relative z-10">� Prahar AI Team</p>
-        </div>
 
-        {/* -- CTA -- */}
-        <div className="text-center pb-8">
-          <h3 className="font-display text-2xl font-bold text-ink mb-3">Join the Movement</h3>
-          <p className="text-muted mb-6">Millions of Indians are already discovering their rightful benefits.</p>
-          <button
-            onClick={() => onNavigate('login')}
-            className="btn-primary inline-flex items-center gap-2"
-          >
-            Get Started Free <ArrowRight className="size-4" />
-          </button>
-        </div>
-      </div>
+          <div className="mt-6 flex flex-wrap gap-3">
+            <button onClick={() => onNavigate('profile')} className="btn btn-navy">
+              Manage Profile
+            </button>
+            <button onClick={() => onNavigate('login')} className="btn btn-ghost">
+              Sign In
+            </button>
+          </div>
+        </section>
+      </main>
     </div>
   );
 }

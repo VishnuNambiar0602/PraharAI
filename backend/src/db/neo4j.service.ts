@@ -1281,6 +1281,7 @@ class Neo4jDbService {
   async updateUserProfile(userId: string, fields: Record<string, any>): Promise<void> {
     const allowed = [
     'name',
+    'date_of_birth',
     'age',
     'income',
     'state',
@@ -1339,6 +1340,28 @@ class Neo4jDbService {
     await redisService.delPattern(`schemes:user:${userId}:*`);
     await redisService.delPattern(`recommendations:${userId}:*`);
   }
+
+  async deleteUserById(userId: string): Promise<boolean> {
+    const rows = await this.connection.executeRead<any>(
+      'MATCH (u:User { user_id: $userId }) RETURN u LIMIT 1',
+      { userId }
+    );
+
+    if (rows.length === 0) {
+      return false;
+    }
+
+    await this.connection.executeWrite('MATCH (u:User { user_id: $userId }) DETACH DELETE u', {
+      userId,
+    });
+
+    await redisService.del(`user:${userId}`);
+    await redisService.delPattern(`schemes:user:${userId}:*`);
+    await redisService.delPattern(`recommendations:${userId}:*`);
+
+    return true;
+  }
+
   /** Auto-assign a user to UserGroups based on profile */
   private async autoAssignUserToGroups(userId: string, profile: any): Promise<void> {
     // Clear old relationships

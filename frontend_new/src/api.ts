@@ -412,6 +412,15 @@ export async function updateProfile(userId: string, data: Record<string, any>) {
   return res.json();
 }
 
+export async function deleteProfile(userId: string) {
+  const res = await fetch(`${API_BASE}/users/${userId}/profile`, {
+    method: 'DELETE',
+    headers: { ...authHeaders() },
+  });
+  if (!res.ok) throw new Error('Failed to delete profile');
+  return res.json();
+}
+
 // ─── Schemes ─────────────────────────────────────────────────────────────────
 
 export async function fetchSchemes(params?: Record<string, string> | string, limit = 20) {
