@@ -395,10 +395,16 @@ export async function registerUser(data: {
 // ─── Profile ─────────────────────────────────────────────────────────────────
 
 export async function getProfile(userId: string) {
-  const res = await fetch(`${API_BASE}/users/${userId}/profile`, {
+  const res = await fetch(`${API_BASE}/users/${userId}/profile?t=${Date.now()}`, {
     headers: { ...authHeaders() },
+    cache: 'no-store',
   });
-  if (!res.ok) throw new Error('Failed to fetch profile');
+  if (!res.ok) {
+    const err = await res
+      .json()
+      .catch(() => ({ message: 'Failed to fetch profile' }));
+    throw new Error(err.message || err.error || 'Failed to fetch profile');
+  }
   return res.json();
 }
 
@@ -407,8 +413,14 @@ export async function updateProfile(userId: string, data: Record<string, any>) {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify(data),
+    cache: 'no-store',
   });
-  if (!res.ok) throw new Error('Failed to update profile');
+  if (!res.ok) {
+    const err = await res
+      .json()
+      .catch(() => ({ message: 'Failed to update profile' }));
+    throw new Error(err.message || err.error || 'Failed to update profile');
+  }
   return res.json();
 }
 
@@ -499,8 +511,9 @@ export async function fetchSchemeById(id: string) {
 }
 
 export async function fetchRecommendations(userId: string) {
-  const res = await fetch(`${API_BASE}/users/${userId}/recommendations`, {
+  const res = await fetch(`${API_BASE}/users/${userId}/recommendations?t=${Date.now()}`, {
     headers: { ...authHeaders() },
+    cache: 'no-store',
   });
   if (!res.ok) throw new Error('Failed to fetch recommendations');
   return res.json() as Promise<RecommendationApiItem[]>;

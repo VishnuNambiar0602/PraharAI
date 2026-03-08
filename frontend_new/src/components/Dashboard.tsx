@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { Skeleton } from './ui/skeleton';
 import { Scheme } from '../types';
-import { fetchSchemes } from '../api';
+import { fetchRecommendations, fetchSchemes } from '../api';
 
 interface DashboardProps {
   user: any;
@@ -27,11 +27,35 @@ export default function Dashboard({ user, onNavigate }: DashboardProps) {
 
   useEffect(() => {
     loadRecommendations();
-  }, []);
+  }, [
+    user?.userId,
+    user?.employment,
+    user?.income,
+    user?.education,
+    user?.state,
+    user?.socialCategory,
+    user?.interests,
+  ]);
 
   const loadRecommendations = async () => {
     try {
-      // Fetch top schemes - in production this would be personalized
+      setLoading(true);
+      if (user?.userId) {
+        const personalized = await fetchRecommendations(user.userId);
+        const personalizedList: Scheme[] = personalized.map((item) => ({
+          id: item.id,
+          title: item.title,
+          description: item.description,
+          category: item.category,
+          benefits: item.benefits,
+          eligibility: item.eligibility,
+          applicationUrl: item.applicationUrl,
+        }));
+        setRecommendations(personalizedList.slice(0, 5));
+        return;
+      }
+
+      // Fallback to generic scheme list if no user is available
       const data = await fetchSchemes(undefined, 5);
       const list: Scheme[] = Array.isArray(data)
         ? data

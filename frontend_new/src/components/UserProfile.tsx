@@ -33,6 +33,37 @@ type EditableProfile = {
   employment: string;
   education: string;
   gender: string;
+  maritalStatus: string;
+  familySize: string;
+  residenceType: string;
+  occupation: string;
+  povertyStatus: string;
+  rationCard: string;
+  landOwnership: string;
+  socialCategory: string;
+  disability: boolean;
+  disabilityType: string;
+  minority: boolean;
+  minorityCommunity: string;
+  interests: string;
+};
+
+type ExtendedUser = {
+  dateOfBirth?: string;
+  district?: string;
+  maritalStatus?: string;
+  familySize?: number;
+  residenceType?: string;
+  occupation?: string;
+  povertyStatus?: string;
+  rationCard?: string;
+  landOwnership?: string;
+  socialCategory?: string;
+  disability?: boolean;
+  disabilityType?: string;
+  minority?: boolean;
+  minorityCommunity?: string;
+  interests?: string;
 };
 
 function toCurrency(value: unknown): string {
@@ -78,6 +109,20 @@ function toEditable(user: Record<string, unknown>): EditableProfile {
     employment: typeof user.employment === 'string' ? user.employment : '',
     education: typeof user.education === 'string' ? user.education : '',
     gender: typeof user.gender === 'string' ? user.gender : '',
+    maritalStatus: typeof user.maritalStatus === 'string' ? user.maritalStatus : '',
+    familySize: typeof user.familySize === 'number' ? String(user.familySize) : '',
+    residenceType: typeof user.residenceType === 'string' ? user.residenceType : '',
+    occupation: typeof user.occupation === 'string' ? user.occupation : '',
+    povertyStatus: typeof user.povertyStatus === 'string' ? user.povertyStatus : '',
+    rationCard: typeof user.rationCard === 'string' ? user.rationCard : '',
+    landOwnership: typeof user.landOwnership === 'string' ? user.landOwnership : '',
+    socialCategory: typeof user.socialCategory === 'string' ? user.socialCategory : '',
+    disability: Boolean(user.disability),
+    disabilityType: typeof user.disabilityType === 'string' ? user.disabilityType : '',
+    minority: Boolean(user.minority),
+    minorityCommunity:
+      typeof user.minorityCommunity === 'string' ? user.minorityCommunity : '',
+    interests: typeof user.interests === 'string' ? user.interests : '',
   };
 }
 
@@ -92,7 +137,7 @@ export default function UserProfile({ onNavigate }: UserProfileProps) {
   const [form, setForm] = useState<EditableProfile>(() => toEditable((user || {}) as Record<string, unknown>));
 
   const profileCompleteness = typeof user?.completeness === 'number' ? user.completeness : 0;
-  const district = (user as (typeof user & { district?: string }) | null)?.district;
+  const extra = (user as (typeof user & ExtendedUser) | null) || null;
 
   const profileCards = useMemo(
     () => [
@@ -108,7 +153,7 @@ export default function UserProfile({ onNavigate }: UserProfileProps) {
       },
       {
         label: 'Date of Birth',
-        value: formatDate((user as (typeof user & { dateOfBirth?: string }) | null)?.dateOfBirth),
+        value: formatDate(extra?.dateOfBirth),
         icon: Calendar,
       },
       {
@@ -128,7 +173,7 @@ export default function UserProfile({ onNavigate }: UserProfileProps) {
       },
       {
         label: 'District',
-        value: normalizeField(district),
+        value: normalizeField(extra?.district),
         icon: MapPin,
       },
       {
@@ -141,8 +186,76 @@ export default function UserProfile({ onNavigate }: UserProfileProps) {
         value: normalizeField(user?.education),
         icon: GraduationCap,
       },
+      {
+        label: 'Marital Status',
+        value: normalizeField(extra?.maritalStatus),
+        icon: User,
+      },
+      {
+        label: 'Family Size',
+        value:
+          typeof extra?.familySize === 'number' && extra.familySize > 0
+            ? String(extra.familySize)
+            : 'Not provided',
+        icon: User,
+      },
+      {
+        label: 'Residence Type',
+        value: normalizeField(extra?.residenceType),
+        icon: MapPin,
+      },
+      {
+        label: 'Occupation',
+        value: normalizeField(extra?.occupation),
+        icon: Briefcase,
+      },
+      {
+        label: 'Social Category',
+        value: normalizeField(extra?.socialCategory),
+        icon: User,
+      },
+      {
+        label: 'Poverty Status',
+        value: normalizeField(extra?.povertyStatus),
+        icon: IndianRupee,
+      },
+      {
+        label: 'Ration Card',
+        value: normalizeField(extra?.rationCard),
+        icon: IndianRupee,
+      },
+      {
+        label: 'Land Ownership',
+        value: normalizeField(extra?.landOwnership),
+        icon: MapPin,
+      },
+      {
+        label: 'Disability',
+        value: extra?.disability ? 'Yes' : 'No',
+        icon: User,
+      },
+      {
+        label: 'Disability Type',
+        value: normalizeField(extra?.disabilityType),
+        icon: User,
+      },
+      {
+        label: 'Minority',
+        value: extra?.minority ? 'Yes' : 'No',
+        icon: User,
+      },
+      {
+        label: 'Minority Community',
+        value: normalizeField(extra?.minorityCommunity),
+        icon: User,
+      },
+      {
+        label: 'Interests',
+        value: normalizeField(extra?.interests),
+        icon: GraduationCap,
+      },
     ],
-    [district, user]
+    [extra, user]
   );
 
   const beginEdit = () => {
@@ -160,7 +273,10 @@ export default function UserProfile({ onNavigate }: UserProfileProps) {
     setError('');
   };
 
-  const onFieldChange = (key: keyof EditableProfile, value: string) => {
+  const onFieldChange = (
+    key: keyof EditableProfile,
+    value: EditableProfile[keyof EditableProfile]
+  ) => {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
@@ -170,6 +286,7 @@ export default function UserProfile({ onNavigate }: UserProfileProps) {
     const trimmedName = form.name.trim();
     const parsedAge = form.age.trim() ? Number(form.age) : null;
     const parsedIncome = form.income.trim() ? Number(form.income) : null;
+    const parsedFamilySize = form.familySize.trim() ? Number(form.familySize) : null;
 
     if (!trimmedName) {
       setError('Name is required.');
@@ -183,6 +300,14 @@ export default function UserProfile({ onNavigate }: UserProfileProps) {
 
     if (parsedIncome !== null && (!Number.isFinite(parsedIncome) || parsedIncome < 0)) {
       setError('Income must be 0 or greater.');
+      return;
+    }
+
+    if (
+      parsedFamilySize !== null &&
+      (!Number.isFinite(parsedFamilySize) || parsedFamilySize < 1 || parsedFamilySize > 30)
+    ) {
+      setError('Family size must be a valid number between 1 and 30.');
       return;
     }
 
@@ -201,13 +326,30 @@ export default function UserProfile({ onNavigate }: UserProfileProps) {
         employment: form.employment.trim() || null,
         education: form.education.trim() || null,
         gender: form.gender.trim() || null,
+        maritalStatus: form.maritalStatus.trim() || null,
+        familySize: parsedFamilySize,
+        residenceType: form.residenceType.trim() || null,
+        occupation: form.occupation.trim() || null,
+        povertyStatus: form.povertyStatus.trim() || null,
+        rationCard: form.rationCard.trim() || null,
+        landOwnership: form.landOwnership.trim() || null,
+        socialCategory: form.socialCategory.trim() || null,
+        disability: form.disability,
+        disabilityType: form.disability ? form.disabilityType.trim() || null : null,
+        minority: form.minority,
+        minorityCommunity: form.minority ? form.minorityCommunity.trim() || null : null,
+        interests: form.interests.trim() || null,
       });
 
       await refreshProfile();
       setIsEditing(false);
       setMessage('Profile updated successfully.');
-    } catch {
-      setError('Failed to update profile. Please try again.');
+    } catch (err) {
+      const message =
+        err instanceof Error && err.message
+          ? err.message
+          : 'Failed to update profile. Please try again.';
+      setError(message);
     } finally {
       setIsSaving(false);
     }
@@ -414,6 +556,71 @@ export default function UserProfile({ onNavigate }: UserProfileProps) {
                 <span className="block mb-1.5" style={{ color: 'var(--color-muted)' }}>Education</span>
                 <input className="input-base" value={form.education} onChange={(e) => onFieldChange('education', e.target.value)} />
               </label>
+
+              <label className="text-sm">
+                <span className="block mb-1.5" style={{ color: 'var(--color-muted)' }}>Marital Status</span>
+                <input className="input-base" value={form.maritalStatus} onChange={(e) => onFieldChange('maritalStatus', e.target.value)} />
+              </label>
+
+              <label className="text-sm">
+                <span className="block mb-1.5" style={{ color: 'var(--color-muted)' }}>Family Size</span>
+                <input className="input-base" type="number" min={1} max={30} value={form.familySize} onChange={(e) => onFieldChange('familySize', e.target.value)} />
+              </label>
+
+              <label className="text-sm">
+                <span className="block mb-1.5" style={{ color: 'var(--color-muted)' }}>Residence Type</span>
+                <input className="input-base" value={form.residenceType} onChange={(e) => onFieldChange('residenceType', e.target.value)} />
+              </label>
+
+              <label className="text-sm">
+                <span className="block mb-1.5" style={{ color: 'var(--color-muted)' }}>Occupation</span>
+                <input className="input-base" value={form.occupation} onChange={(e) => onFieldChange('occupation', e.target.value)} />
+              </label>
+
+              <label className="text-sm">
+                <span className="block mb-1.5" style={{ color: 'var(--color-muted)' }}>Social Category</span>
+                <input className="input-base" value={form.socialCategory} onChange={(e) => onFieldChange('socialCategory', e.target.value)} />
+              </label>
+
+              <label className="text-sm">
+                <span className="block mb-1.5" style={{ color: 'var(--color-muted)' }}>Poverty Status</span>
+                <input className="input-base" value={form.povertyStatus} onChange={(e) => onFieldChange('povertyStatus', e.target.value)} />
+              </label>
+
+              <label className="text-sm">
+                <span className="block mb-1.5" style={{ color: 'var(--color-muted)' }}>Ration Card</span>
+                <input className="input-base" value={form.rationCard} onChange={(e) => onFieldChange('rationCard', e.target.value)} />
+              </label>
+
+              <label className="text-sm">
+                <span className="block mb-1.5" style={{ color: 'var(--color-muted)' }}>Land Ownership</span>
+                <input className="input-base" value={form.landOwnership} onChange={(e) => onFieldChange('landOwnership', e.target.value)} />
+              </label>
+
+              <label className="text-sm sm:col-span-2">
+                <span className="block mb-1.5" style={{ color: 'var(--color-muted)' }}>Interests (comma separated)</span>
+                <input className="input-base" value={form.interests} onChange={(e) => onFieldChange('interests', e.target.value)} />
+              </label>
+
+              <label className="text-sm flex items-center gap-2 pt-6">
+                <input type="checkbox" checked={form.disability} onChange={(e) => onFieldChange('disability', e.target.checked)} className="size-4" />
+                <span style={{ color: 'var(--color-muted)' }}>Person with Disability</span>
+              </label>
+
+              <label className="text-sm">
+                <span className="block mb-1.5" style={{ color: 'var(--color-muted)' }}>Disability Type</span>
+                <input className="input-base" value={form.disabilityType} onChange={(e) => onFieldChange('disabilityType', e.target.value)} disabled={!form.disability} />
+              </label>
+
+              <label className="text-sm flex items-center gap-2 pt-6">
+                <input type="checkbox" checked={form.minority} onChange={(e) => onFieldChange('minority', e.target.checked)} className="size-4" />
+                <span style={{ color: 'var(--color-muted)' }}>Minority Community</span>
+              </label>
+
+              <label className="text-sm">
+                <span className="block mb-1.5" style={{ color: 'var(--color-muted)' }}>Minority Community Type</span>
+                <input className="input-base" value={form.minorityCommunity} onChange={(e) => onFieldChange('minorityCommunity', e.target.value)} disabled={!form.minority} />
+              </label>
             </div>
 
             <div className="flex flex-wrap gap-2 mt-6">
@@ -427,7 +634,7 @@ export default function UserProfile({ onNavigate }: UserProfileProps) {
           </section>
         )}
 
-        <section className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {!isEditing && <section className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {profileCards.map(({ label, value, icon: Icon }) => (
             <div key={label} className="card p-4">
               <div className="flex items-center justify-between gap-3 mb-2">
@@ -441,7 +648,7 @@ export default function UserProfile({ onNavigate }: UserProfileProps) {
               </p>
             </div>
           ))}
-        </section>
+        </section>}
       </main>
     </div>
   );

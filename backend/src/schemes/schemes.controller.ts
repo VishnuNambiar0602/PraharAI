@@ -10,6 +10,62 @@ import { sampleSchemes } from './sample-schemes';
 import { neo4jService } from '../db/neo4j.service';
 
 export class SchemesController {
+  private mapIncomeToCategory(value: unknown): string | undefined {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      if (value <= 100000) return 'Below 1 Lakh';
+      if (value <= 300000) return '1-3 Lakh';
+      if (value >= 1000000) return 'Above 10 Lakh';
+      return undefined;
+    }
+
+    if (typeof value !== 'string') return undefined;
+    const normalized = value.trim().toLowerCase();
+    if (!normalized) return undefined;
+
+    if (
+      normalized.includes('below') ||
+      normalized.includes('bpl') ||
+      normalized.includes('under 1') ||
+      normalized.includes('low')
+    ) {
+      return 'Below 1 Lakh';
+    }
+    if (normalized.includes('1-3') || normalized.includes('1 to 3') || normalized.includes('middle')) {
+      return '1-3 Lakh';
+    }
+    if (normalized.includes('10') || normalized.includes('high')) {
+      return 'Above 10 Lakh';
+    }
+
+    return undefined;
+  }
+
+  private mapPovertyLine(value: unknown): string | undefined {
+    if (typeof value !== 'string') return undefined;
+    const normalized = value.trim().toLowerCase();
+    if (!normalized) return undefined;
+    if (normalized === 'bpl' || normalized.includes('below poverty')) return 'BPL';
+    if (normalized === 'apl' || normalized.includes('above poverty')) return 'APL';
+    return undefined;
+  }
+
+  private normalizeInterests(value: unknown): string[] {
+    if (Array.isArray(value)) {
+      return value
+        .map((item) => String(item || '').trim())
+        .filter((item) => item.length > 0);
+    }
+
+    if (typeof value === 'string') {
+      return value
+        .split(',')
+        .map((item) => item.trim())
+        .filter((item) => item.length > 0);
+    }
+
+    return [];
+  }
+
   private toCleanList(value: unknown): string[] {
     if (!Array.isArray(value)) return [];
     return value.map((item) => String(item || '').trim()).filter((item) => item.length > 0);
@@ -268,16 +324,43 @@ export class SchemesController {
     try {
       const { userId } = req.params;
 
+      const user = await neo4jService.getUserById(userId);
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      const incomeCategory = this.mapIncomeToCategory(user.income);
+      const povertyLine = this.mapPovertyLine(user.poverty_status);
+      const locality =
+        typeof user.rural_urban === 'string' && user.rural_urban.trim()
+          ? user.rural_urban.trim()
+          : undefined;
+      const socialCategory =
+        typeof user.social_category === 'string' && user.social_category.trim()
+          ? user.social_category.trim()
+          : undefined;
+      const employment =
+        typeof user.employment === 'string' && user.employment.trim()
+          ? user.employment.trim()
+          : undefined;
+      const education =
+        typeof user.education === 'string' && user.education.trim()
+          ? user.education.trim()
+          : undefined;
+      const state =
+        typeof user.state === 'string' && user.state.trim() ? user.state.trim() : undefined;
+
       const userProfile = {
         userId,
-        employment: 'Unemployed',
-        income: 'Below1Lakh',
-        locality: 'Rural',
-        socialCategory: 'General',
-        education: 'Secondary',
-        povertyLine: 'BPL',
-        state: 'Maharashtra',
-        interests: ['agriculture', 'education', 'health'],
+        employment,
+        income: incomeCategory,
+        locality,
+        socialCategory,
+        education,
+        povertyLine,
+        state,
+        age: typeof user.age === 'number' ? user.age : undefined,
+        interests: this.normalizeInterests(user.interests),
       };
 
       const matches = await similarityAgent.findMatchingSchemes(userProfile, 10);
