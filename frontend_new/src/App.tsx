@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -7,6 +7,7 @@ import {
   useNavigate,
   useLocation,
   Navigate,
+  useParams,
 } from 'react-router-dom';
 import {
   Home,
@@ -33,6 +34,7 @@ import PartnerPortal from './components/PartnerPortal';
 import LoginPage from './components/LoginPage';
 import OnboardingWizard from './components/OnboardingWizard';
 import LanguageSelector from './components/LanguageSelector';
+import { fetchSchemeById } from './api';
 
 /* ─────────────────────────────────────────────
    Prahar Logo Mark
@@ -278,7 +280,51 @@ function MobileBottomNav() {
 function SchemeDetailPage() {
   const location = useLocation();
   const routerNavigate = useNavigate();
-  const scheme: Scheme | undefined = location.state?.scheme;
+  const { id } = useParams();
+  const [scheme, setScheme] = useState<Scheme | null>((location.state?.scheme as Scheme) || null);
+  const [loading, setLoading] = useState(!location.state?.scheme);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!id) {
+      setError('Scheme not found');
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setLoading(true);
+    setError('');
+
+    fetchSchemeById(id)
+      .then((data) => {
+        if (!cancelled) setScheme(data);
+      })
+      .catch(() => {
+        if (!cancelled && !location.state?.scheme) {
+          setError('Failed to load scheme details');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id, location.state]);
+
+  if (loading) {
+    return (
+      <div className="min-h-[40vh] flex items-center justify-center">
+        <div className="shimmer h-8 w-44 rounded-md" />
+      </div>
+    );
+  }
+
+  if (error && !scheme) {
+    return <Navigate to="/schemes" replace />;
+  }
 
   if (!scheme) {
     return <Navigate to="/schemes" replace />;

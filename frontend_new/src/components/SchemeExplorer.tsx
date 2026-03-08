@@ -96,6 +96,14 @@ export default function SchemeExplorer({ onSchemeSelect }: SchemeExplorerProps =
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const getBenefitsPreview = (scheme: Scheme): string | undefined => {
+    return scheme.pageDetails?.benefits?.[0] || scheme.benefits || scheme.benefit;
+  };
+
+  const getEligibilityPreview = (scheme: Scheme): string | undefined => {
+    return scheme.pageDetails?.eligibility?.[0] || scheme.eligibility;
+  };
+
   return (
     <div className="schemes-page min-h-screen" style={{ background: 'var(--color-surface)' }}>
       {/* ── Page Header ── */}
@@ -297,7 +305,7 @@ export default function SchemeExplorer({ onSchemeSelect }: SchemeExplorerProps =
                     )}
 
                     {/* Benefits highlight */}
-                    {(scheme.benefits || scheme.benefit) && (
+                    {getBenefitsPreview(scheme) && (
                       <div
                         className="flex items-start gap-2 p-3 rounded-xl"
                         style={{
@@ -310,10 +318,10 @@ export default function SchemeExplorer({ onSchemeSelect }: SchemeExplorerProps =
                           style={{ color: 'var(--color-accent)' }}
                         />
                         <p
-                          className="text-xs font-semibold line-clamp-2"
+                          className="text-xs font-semibold line-clamp-2 break-words"
                           style={{ color: 'var(--color-ink)' }}
                         >
-                          {scheme.benefits || scheme.benefit}
+                          {getBenefitsPreview(scheme)}
                         </p>
                       </div>
                     )}
@@ -331,8 +339,8 @@ export default function SchemeExplorer({ onSchemeSelect }: SchemeExplorerProps =
                         >
                           {t('schemes.eligibility')}
                         </p>
-                        <p className="text-xs line-clamp-2" style={{ color: 'var(--color-ink)' }}>
-                          {scheme.eligibility || t('schemes.view_details')}
+                        <p className="text-xs line-clamp-2 break-words" style={{ color: 'var(--color-ink)' }}>
+                          {getEligibilityPreview(scheme) || t('schemes.view_details')}
                         </p>
                       </div>
                     </div>

@@ -176,6 +176,24 @@
   box-shadow: 0 4px 16px rgba(26,18,8,0.08), 0 1px 4px rgba(26,18,8,0.05);
 }
 
+.card * {
+  min-width: 0;
+}
+
+.card p,
+.card span,
+.card li,
+.card a,
+.card h1,
+.card h2,
+.card h3,
+.card h4,
+.card h5,
+.card h6 {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 /* ── Section heading ── */
 .section-title {
   font-family: var(--font-display);
@@ -301,6 +319,43 @@
   background: var(--color-success-50);
   color: var(--color-success);
   border: 1px solid var(--color-success-100);
+}
+
+/* ── Markdown content rendering ── */
+.markdown-content {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.markdown-content p,
+.markdown-content li,
+.markdown-content blockquote,
+.markdown-content a,
+.markdown-content strong,
+.markdown-content em,
+.markdown-content code {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.markdown-content ul,
+.markdown-content ol {
+  padding-left: 1.2rem;
+  margin: 0.3rem 0;
+}
+
+.markdown-content blockquote {
+  margin: 0.5rem 0;
+  padding: 0.25rem 0.75rem;
+  border-left: 3px solid var(--color-accent);
+  background: var(--color-accent-50);
+  border-radius: 0.25rem;
+}
+
+.markdown-content a {
+  color: var(--color-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 /* Dark mode removed: light theme only */
