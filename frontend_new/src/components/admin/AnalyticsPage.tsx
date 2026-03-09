@@ -1,18 +1,43 @@
 import { useState, useEffect } from 'react';
-import { TrendingUp, Users, FileText, Activity } from 'lucide-react';
-import { getAnalytics } from "./adminApi";
+import { TrendingUp, Users, FileText, CheckCircle, RefreshCw } from 'lucide-react';
+import { getAnalytics } from './adminApi';
+
+interface AnalyticsSummary {
+  totalUsers: number;
+  totalSchemes: number;
+  onboardedUsers: number;
+  enrichedSchemes: number;
+  enrichmentRate: number;
+}
+
+interface DistributionItem {
+  state?: string;
+  employment?: string;
+  count: number;
+}
+
+interface AnalyticsResult {
+  summary: AnalyticsSummary;
+  distribution: {
+    byState: DistributionItem[];
+    byEmployment: DistributionItem[];
+  };
+}
 
 export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState<'7' | '30' | '90'>('30');
+  const [data, setData] = useState<AnalyticsResult | null>(null);
 
   useEffect(() => {
     loadAnalytics();
   }, [timeRange]);
 
   const loadAnalytics = async () => {
+    setLoading(true);
     try {
-      await getAnalytics(Number(timeRange));
+      const result = await getAnalytics(Number(timeRange));
+      setData(result);
     } catch (error) {
       console.error('Failed to load analytics:', error);
     } finally {
@@ -20,10 +45,13 @@ export default function AnalyticsPage() {
     }
   };
 
+  const fmt = (n?: number) => (n != null ? n.toLocaleString('en-IN') : '—');
+  const pct = (n?: number) => (n != null ? `${n.toFixed(1)}%` : '—');
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--color-accent)]"></div>
       </div>
     );
   }
@@ -33,8 +61,8 @@ export default function AnalyticsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Analytics</h1>
-          <p className="text-gray-600 mt-1">System usage and performance metrics</p>
+          <h1 className="text-2xl font-bold text-[var(--color-ink)]">Analytics</h1>
+          <p className="text-[var(--color-muted)] mt-1">System usage and performance metrics</p>
         </div>
         <div className="flex items-center gap-2">
           {(['7', '30', '90'] as const).map((days) => (
@@ -43,13 +71,16 @@ export default function AnalyticsPage() {
               onClick={() => setTimeRange(days)}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 timeRange === days
-                  ? 'bg-blue-700 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  ? 'bg-[var(--color-primary)] text-white'
+                  : 'bg-[var(--color-surface-2)] text-[var(--color-ink)] hover:bg-[var(--color-border)]'
               }`}
             >
               {days} Days
             </button>
           ))}
+          <button onClick={loadAnalytics} className="btn btn-secondary ml-2">
+            <RefreshCw className="size-4" />
+          </button>
         </div>
       </div>
 
@@ -57,148 +88,115 @@ export default function AnalyticsPage() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="card p-6">
           <div className="flex items-center justify-between mb-4">
-            <div className="size-12 rounded-lg bg-blue-50 flex items-center justify-center">
-              <Users className="size-6 text-blue-600" />
+            <div className="size-12 rounded-lg bg-[var(--color-primary)]/10 flex items-center justify-center">
+              <Users className="size-6 text-[var(--color-primary)]" />
             </div>
-            <span className="text-sm font-medium text-green-600">+12.5%</span>
           </div>
-          <p className="text-2xl font-bold text-gray-900">2,543</p>
-          <p className="text-sm text-gray-600 mt-1">Total Users</p>
+          <p className="text-2xl font-bold text-[var(--color-ink)]">
+            {fmt(data?.summary.totalUsers)}
+          </p>
+          <p className="text-sm text-[var(--color-muted)] mt-1">Total Users</p>
         </div>
 
         <div className="card p-6">
           <div className="flex items-center justify-between mb-4">
-            <div className="size-12 rounded-lg bg-green-50 flex items-center justify-center">
-              <FileText className="size-6 text-green-600" />
+            <div className="size-12 rounded-lg bg-emerald-50 flex items-center justify-center">
+              <FileText className="size-6 text-emerald-600" />
             </div>
-            <span className="text-sm font-medium text-green-600">+8.2%</span>
           </div>
-          <p className="text-2xl font-bold text-gray-900">4,609</p>
-          <p className="text-sm text-gray-600 mt-1">Active Schemes</p>
+          <p className="text-2xl font-bold text-[var(--color-ink)]">
+            {fmt(data?.summary.totalSchemes)}
+          </p>
+          <p className="text-sm text-[var(--color-muted)] mt-1">Total Schemes</p>
+        </div>
+
+        <div className="card p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="size-12 rounded-lg bg-[var(--color-accent)]/10 flex items-center justify-center">
+              <CheckCircle className="size-6 text-[var(--color-accent)]" />
+            </div>
+          </div>
+          <p className="text-2xl font-bold text-[var(--color-ink)]">
+            {fmt(data?.summary.onboardedUsers)}
+          </p>
+          <p className="text-sm text-[var(--color-muted)] mt-1">Onboarded Users</p>
         </div>
 
         <div className="card p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="size-12 rounded-lg bg-purple-50 flex items-center justify-center">
-              <Activity className="size-6 text-purple-600" />
+              <TrendingUp className="size-6 text-purple-600" />
             </div>
-            <span className="text-sm font-medium text-green-600">+23.1%</span>
           </div>
-          <p className="text-2xl font-bold text-gray-900">12,847</p>
-          <p className="text-sm text-gray-600 mt-1">Applications</p>
-        </div>
-
-        <div className="card p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="size-12 rounded-lg bg-orange-50 flex items-center justify-center">
-              <TrendingUp className="size-6 text-orange-600" />
-            </div>
-            <span className="text-sm font-medium text-green-600">+15.3%</span>
-          </div>
-          <p className="text-2xl font-bold text-gray-900">89.2%</p>
-          <p className="text-sm text-gray-600 mt-1">Success Rate</p>
+          <p className="text-2xl font-bold text-[var(--color-ink)]">
+            {pct(data?.summary.enrichmentRate)}
+          </p>
+          <p className="text-sm text-[var(--color-muted)] mt-1">Enrichment Rate</p>
         </div>
       </div>
 
-      {/* Charts Placeholder */}
+      {/* Distribution Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="card p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">User Growth</h2>
-          <div className="h-64 flex items-center justify-center bg-gray-50 rounded-lg">
-            <p className="text-gray-500">Chart visualization coming soon</p>
+          <h2 className="text-lg font-semibold text-[var(--color-ink)] mb-4">Users by State</h2>
+          <div className="space-y-2">
+            {(data?.distribution.byState ?? []).slice(0, 6).map((item) => {
+              const total = data?.summary.totalUsers || 1;
+              const pctVal = Math.round((item.count / total) * 100);
+              return (
+                <div key={item.state} className="flex items-center gap-3">
+                  <span className="text-sm text-[var(--color-ink)] w-36 truncate">
+                    {item.state}
+                  </span>
+                  <div className="flex-1 h-2 rounded-full bg-[var(--color-surface-2)]">
+                    <div
+                      className="h-2 rounded-full bg-[var(--color-primary)]"
+                      style={{ width: `${pctVal}%` }}
+                    />
+                  </div>
+                  <span className="text-xs text-[var(--color-muted)] w-10 text-right">
+                    {item.count}
+                  </span>
+                </div>
+              );
+            })}
+            {!data?.distribution.byState?.length && (
+              <p className="text-sm text-[var(--color-muted)]">No distribution data yet</p>
+            )}
           </div>
         </div>
 
         <div className="card p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Application Trends</h2>
-          <div className="h-64 flex items-center justify-center bg-gray-50 rounded-lg">
-            <p className="text-gray-500">Chart visualization coming soon</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Popular Schemes */}
-      <div className="card p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Most Popular Schemes</h2>
-        <div className="space-y-3">
-          {[
-            { name: 'PM-KISAN', applications: 1234, growth: 15 },
-            { name: 'Ayushman Bharat', applications: 987, growth: 22 },
-            { name: 'Pradhan Mantri Awas Yojana', applications: 856, growth: 8 },
-            { name: 'National Scholarship Portal', applications: 743, growth: 31 },
-            { name: 'MUDRA Loan Scheme', applications: 621, growth: 12 },
-          ].map((scheme, i) => (
-            <div key={i} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <div className="flex items-center gap-3">
-                <span className="text-lg font-bold text-gray-400">{i + 1}</span>
-                <div>
-                  <p className="font-medium text-gray-900">{scheme.name}</p>
-                  <p className="text-sm text-gray-600">{scheme.applications} applications</p>
+          <h2 className="text-lg font-semibold text-[var(--color-ink)] mb-4">
+            Users by Employment
+          </h2>
+          <div className="space-y-2">
+            {(data?.distribution.byEmployment ?? []).slice(0, 6).map((item) => {
+              const total = data?.summary.totalUsers || 1;
+              const pctVal = Math.round((item.count / total) * 100);
+              return (
+                <div key={item.employment} className="flex items-center gap-3">
+                  <span className="text-sm text-[var(--color-ink)] w-36 truncate">
+                    {item.employment}
+                  </span>
+                  <div className="flex-1 h-2 rounded-full bg-[var(--color-surface-2)]">
+                    <div
+                      className="h-2 rounded-full bg-[var(--color-accent)]"
+                      style={{ width: `${pctVal}%` }}
+                    />
+                  </div>
+                  <span className="text-xs text-[var(--color-muted)] w-10 text-right">
+                    {item.count}
+                  </span>
                 </div>
-              </div>
-              <span className="text-sm font-medium text-green-600">+{scheme.growth}%</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* User Demographics */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="card p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">User by State</h2>
-          <div className="space-y-3">
-            {[
-              { state: 'Maharashtra', users: 456, percentage: 18 },
-              { state: 'Uttar Pradesh', users: 398, percentage: 16 },
-              { state: 'Karnataka', users: 342, percentage: 13 },
-              { state: 'Tamil Nadu', users: 289, percentage: 11 },
-              { state: 'Gujarat', users: 234, percentage: 9 },
-            ].map((item, i) => (
-              <div key={i}>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm font-medium text-gray-900">{item.state}</span>
-                  <span className="text-sm text-gray-600">{item.users} users</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div
-                    className="bg-blue-700 h-2 rounded-full"
-                    style={{ width: `${item.percentage}%` }}
-                  ></div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="card p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">User by Category</h2>
-          <div className="space-y-3">
-            {[
-              { category: 'Farmers', users: 678, percentage: 27 },
-              { category: 'Students', users: 543, percentage: 21 },
-              { category: 'Low Income Workers', users: 432, percentage: 17 },
-              { category: 'Senior Citizens', users: 321, percentage: 13 },
-              { category: 'Women', users: 289, percentage: 11 },
-            ].map((item, i) => (
-              <div key={i}>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm font-medium text-gray-900">{item.category}</span>
-                  <span className="text-sm text-gray-600">{item.users} users</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div
-                    className="bg-green-600 h-2 rounded-full"
-                    style={{ width: `${item.percentage}%` }}
-                  ></div>
-                </div>
-              </div>
-            ))}
+              );
+            })}
+            {!data?.distribution.byEmployment?.length && (
+              <p className="text-sm text-[var(--color-muted)]">No distribution data yet</p>
+            )}
           </div>
         </div>
       </div>
     </div>
   );
 }
-
-
-

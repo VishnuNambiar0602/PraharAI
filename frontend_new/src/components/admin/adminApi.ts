@@ -12,7 +12,10 @@ function getAdminKey(): string {
 
 function adminHeaders(): Record<string, string> {
   const key = getAdminKey();
-  return key ? { 'X-Admin-Key': key } : {};
+  if (key) return { 'X-Admin-Key': key };
+  // Fall back to JWT Bearer token for admin users who logged in via normal auth
+  const jwt = localStorage.getItem('accessToken');
+  return jwt ? { Authorization: `Bearer ${jwt}` } : {};
 }
 
 // ─── Authentication ──────────────────────────────────────────────────────────
@@ -84,7 +87,24 @@ export async function getAllSchemes(limit = 100) {
     headers: { ...adminHeaders() },
   });
   if (!res.ok) throw new Error('Failed to fetch schemes');
-  return res.json();
+  const data = await res.json();
+  // /api/schemes returns {id, title, ...}; normalize to the admin Scheme type
+  const raw: any[] = Array.isArray(data) ? data : (data.items ?? []);
+  return raw.map((s: any) => ({
+    scheme_id: s.id ?? s.scheme_id ?? '',
+    name: s.title ?? s.name ?? '',
+    description: s.description ?? '',
+    category:
+      Array.isArray(s.rawCategories) && s.rawCategories.length > 0
+        ? JSON.stringify(s.rawCategories)
+        : (s.category ?? ''),
+    ministry: s.ministry ?? null,
+    state: s.state ?? null,
+    tags: Array.isArray(s.tags) ? s.tags.join(', ') : (s.tags ?? ''),
+    is_active: s.is_active ?? true,
+    last_updated: s.enrichment?.enrichedAt ?? s.last_updated ?? new Date().toISOString(),
+    scheme_url: s.applicationUrl ?? s.scheme_url ?? null,
+  }));
 }
 
 export async function getSchemeById(schemeId: string) {
@@ -166,7 +186,9 @@ export async function getActivityLogs(limit = 50) {
 // ─── System Health ───────────────────────────────────────────────────────────
 
 export async function getSystemHealth() {
-  const res = await fetch(`${API_BASE}/health`);
+  const res = await fetch(`${API_BASE}/admin/health`, {
+    headers: { ...adminHeaders() },
+  });
   if (!res.ok) throw new Error('Failed to fetch system health');
   return res.json();
 }

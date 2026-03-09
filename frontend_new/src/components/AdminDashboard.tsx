@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import {
-  Shield,
   LayoutDashboard,
   Users,
   FileText,
@@ -12,6 +11,7 @@ import {
   X,
   Building2,
 } from 'lucide-react';
+import LogoMark from './LogoMark';
 import { useAuth } from '../AuthContext';
 import DashboardPage from './admin/DashboardPage';
 import UsersPage from './admin/UsersPage';
@@ -67,7 +67,7 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-[var(--color-surface)] flex">
       {/* Sidebar */}
       <aside
         className={`fixed inset-y-0 left-0 z-50 bg-white border-r border-gray-200 transition-all duration-300 ${
@@ -78,14 +78,14 @@ export default function AdminDashboard() {
         <div className="h-16 flex items-center justify-between px-4 border-b border-gray-200">
           {sidebarOpen ? (
             <div className="flex items-center gap-2">
-              <Shield className="size-8 text-blue-700" />
+              <LogoMark className="size-8 text-primary" />
               <div>
                 <h1 className="font-bold text-lg text-gray-900">Prahar AI</h1>
                 <p className="text-[10px] text-gray-500 uppercase tracking-wider">Admin Portal</p>
               </div>
             </div>
           ) : (
-            <Shield className="size-8 text-blue-700 mx-auto" />
+            <LogoMark className="size-8 text-primary mx-auto" />
           )}
         </div>
 
@@ -99,7 +99,9 @@ export default function AdminDashboard() {
                 key={item.id}
                 onClick={() => setCurrentView(item.id)}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
-                  isActive ? 'bg-blue-700 text-white' : 'text-gray-700 hover:bg-gray-100'
+                  isActive
+                    ? 'bg-[var(--color-primary)] text-white'
+                    : 'text-[var(--color-ink)] hover:bg-[var(--color-surface-2)]'
                 }`}
                 title={!sidebarOpen ? item.label : undefined}
               >
@@ -120,13 +122,13 @@ export default function AdminDashboard() {
                 </p>
                 <p className="text-xs text-gray-500 truncate">{user?.email}</p>
               </div>
-              <div className="size-10 rounded-full bg-blue-100 flex items-center justify-center">
-                <span className="text-sm font-bold text-blue-700">A</span>
+              <div className="size-10 rounded-full bg-[var(--color-primary)]/10 flex items-center justify-center">
+                <span className="text-sm font-bold text-[var(--color-primary)]">A</span>
               </div>
             </div>
           ) : (
-            <div className="size-10 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-3">
-              <span className="text-sm font-bold text-blue-700">A</span>
+            <div className="size-10 rounded-full bg-[var(--color-primary)]/10 flex items-center justify-center mx-auto mb-3">
+              <span className="text-sm font-bold text-[var(--color-primary)]">A</span>
             </div>
           )}
           <button

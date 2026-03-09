@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Activity, User, FileText, Settings, Filter, Download } from 'lucide-react';
-import { getActivityLogs } from "./adminApi";
-import type { ActivityLog } from "./adminTypes";
+import { getActivityLogs } from './adminApi';
+import type { ActivityLog } from './adminTypes';
 
 export default function ActivityPage() {
   const [logs, setLogs] = useState<ActivityLog[]>([]);
@@ -15,36 +15,13 @@ export default function ActivityPage() {
   const loadLogs = async () => {
     try {
       const data = await getActivityLogs(100);
-      setLogs(data || generateMockLogs());
+      setLogs(data || []);
     } catch (error) {
       console.error('Failed to load activity logs:', error);
-      setLogs(generateMockLogs());
+      setLogs([]);
     } finally {
       setLoading(false);
     }
-  };
-
-  const generateMockLogs = (): ActivityLog[] => {
-    const actions = [
-      { action: 'User registered', type: 'user' as const, icon: User },
-      { action: 'Scheme viewed', type: 'scheme' as const, icon: FileText },
-      { action: 'Profile updated', type: 'user' as const, icon: User },
-      { action: 'Scheme synced', type: 'system' as const, icon: Settings },
-      { action: 'Application submitted', type: 'user' as const, icon: FileText },
-    ];
-
-    return Array.from({ length: 50 }, (_, i) => {
-      const action = actions[i % actions.length];
-      return {
-        id: `log-${i}`,
-        timestamp: new Date(Date.now() - i * 60000 * 5).toISOString(),
-        action: action.action,
-        userId: `user-${Math.floor(Math.random() * 1000)}`,
-        userName: `User ${Math.floor(Math.random() * 1000)}`,
-        details: `Activity details for ${action.action.toLowerCase()}`,
-        type: action.type,
-      };
-    });
   };
 
   const filteredLogs = filter === 'all' ? logs : logs.filter((log) => log.type === filter);
@@ -65,13 +42,13 @@ export default function ActivityPage() {
   const getIconColor = (type: string) => {
     switch (type) {
       case 'user':
-        return 'bg-blue-50 text-blue-600';
+        return 'bg-[var(--color-primary)]/10 text-[var(--color-primary)]';
       case 'scheme':
-        return 'bg-green-50 text-green-600';
+        return 'bg-emerald-50 text-emerald-600';
       case 'system':
-        return 'bg-purple-50 text-purple-600';
+        return 'bg-[var(--color-accent)]/10 text-[var(--color-accent)]';
       default:
-        return 'bg-gray-50 text-gray-600';
+        return 'bg-[var(--color-surface-2)] text-[var(--color-muted)]';
     }
   };
 
@@ -134,8 +111,8 @@ export default function ActivityPage() {
                 onClick={() => setFilter(f)}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                   filter === f
-                    ? 'bg-blue-700 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    ? 'bg-[var(--color-primary)] text-white'
+                    : 'bg-[var(--color-surface-2)] text-[var(--color-ink)] hover:bg-[var(--color-border)]'
                 }`}
               >
                 {f.charAt(0).toUpperCase() + f.slice(1)}
@@ -154,7 +131,9 @@ export default function ActivityPage() {
 
             return (
               <div key={log.id} className="flex items-start gap-4">
-                <div className={`size-10 rounded-lg ${iconColor} flex items-center justify-center shrink-0`}>
+                <div
+                  className={`size-10 rounded-lg ${iconColor} flex items-center justify-center shrink-0`}
+                >
                   <Icon className="size-5" />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -188,6 +167,3 @@ export default function ActivityPage() {
     </div>
   );
 }
-
-
-

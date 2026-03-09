@@ -121,7 +121,7 @@ export default function PanchayatUsersPage() {
   };
 
   const inputClass =
-    'w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent';
+    'w-full px-3 py-2 text-sm border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/30 focus:border-[var(--color-accent)] transition';
 
   return (
     <div className="space-y-6">
@@ -147,7 +147,7 @@ export default function PanchayatUsersPage() {
               setShowForm((v) => !v);
               setFormMessage('');
             }}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-700 rounded-lg hover:bg-blue-800 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-[var(--color-primary)] rounded-lg hover:bg-[var(--color-primary)]/90 transition-colors"
           >
             <UserPlus className="size-4" />
             Add Panchayat User
@@ -301,7 +301,7 @@ export default function PanchayatUsersPage() {
               <button
                 type="submit"
                 disabled={formBusy}
-                className="flex items-center gap-2 px-5 py-2 text-sm font-medium text-white bg-blue-700 rounded-lg hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="flex items-center gap-2 px-5 py-2 text-sm font-medium text-white bg-[var(--color-primary)] rounded-lg hover:bg-[var(--color-primary)]/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {formBusy ? (
                   <>

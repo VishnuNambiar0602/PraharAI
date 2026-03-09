@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Search, Filter, Download, RefreshCw, Plus, Eye, Edit, Trash2 } from 'lucide-react';
-import { getAllSchemes, getSyncStatus, triggerSync } from "./adminApi";
-import type { Scheme, SyncStatus } from "./adminTypes";
+import { getAllSchemes, getSyncStatus, triggerSync } from './adminApi';
+import type { Scheme, SyncStatus } from './adminTypes';
 
 export default function SchemesPage() {
   const [schemes, setSchemes] = useState<Scheme[]>([]);
@@ -16,10 +16,7 @@ export default function SchemesPage() {
 
   const loadData = async () => {
     try {
-      const [schemesData, syncData] = await Promise.all([
-        getAllSchemes(1000),
-        getSyncStatus(),
-      ]);
+      const [schemesData, syncData] = await Promise.all([getAllSchemes(1000), getSyncStatus()]);
       setSchemes(schemesData);
       setSyncStatus(syncData);
     } catch (error) {
@@ -94,9 +91,7 @@ export default function SchemesPage() {
               <div>
                 <p className="text-sm text-gray-600">Last Sync</p>
                 <p className="text-sm font-medium text-gray-900">
-                  {syncStatus.lastSync
-                    ? new Date(syncStatus.lastSync).toLocaleString()
-                    : 'Never'}
+                  {syncStatus.lastSync ? new Date(syncStatus.lastSync).toLocaleString() : 'Never'}
                 </p>
               </div>
               <div className="h-8 w-px bg-gray-200"></div>
@@ -149,13 +144,13 @@ export default function SchemesPage() {
       <div className="card p-4">
         <div className="flex items-center gap-4">
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-5 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-5 text-[var(--color-muted)]" />
             <input
               type="text"
               placeholder="Search schemes by name, ID, or description..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="input pl-10"
+              className="input-base pl-10"
             />
           </div>
           <button className="btn btn-secondary">
@@ -192,7 +187,13 @@ export default function SchemesPage() {
                   <td className="font-medium max-w-xs truncate">{scheme.name}</td>
                   <td>
                     <span className="badge badge-gray">
-                      {JSON.parse(scheme.category || '[]')[0] || 'N/A'}
+                      {(() => {
+                        try {
+                          return JSON.parse(scheme.category || '[]')[0] || 'N/A';
+                        } catch {
+                          return scheme.category || 'N/A';
+                        }
+                      })()}
                     </span>
                   </td>
                   <td className="text-sm">{scheme.ministry || 'N/A'}</td>
@@ -209,22 +210,13 @@ export default function SchemesPage() {
                   </td>
                   <td>
                     <div className="flex items-center gap-2">
-                      <button
-                        className="p-1 hover:bg-gray-100 rounded"
-                        title="View details"
-                      >
+                      <button className="p-1 hover:bg-gray-100 rounded" title="View details">
                         <Eye className="size-4 text-gray-600" />
                       </button>
-                      <button
-                        className="p-1 hover:bg-gray-100 rounded"
-                        title="Edit scheme"
-                      >
+                      <button className="p-1 hover:bg-gray-100 rounded" title="Edit scheme">
                         <Edit className="size-4 text-gray-600" />
                       </button>
-                      <button
-                        className="p-1 hover:bg-red-50 rounded"
-                        title="Delete scheme"
-                      >
+                      <button className="p-1 hover:bg-red-50 rounded" title="Delete scheme">
                         <Trash2 className="size-4 text-red-600" />
                       </button>
                     </div>
@@ -243,14 +235,10 @@ export default function SchemesPage() {
 
         {filteredSchemes.length > 100 && (
           <div className="p-4 border-t border-gray-200 text-center">
-            <p className="text-sm text-gray-600">
-              Showing 100 of {filteredSchemes.length} schemes
-            </p>
+            <p className="text-sm text-gray-600">Showing 100 of {filteredSchemes.length} schemes</p>
           </div>
         )}
       </div>
     </div>
   );
 }
-
-

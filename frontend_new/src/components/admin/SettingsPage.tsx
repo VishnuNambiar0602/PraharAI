@@ -37,8 +37,8 @@ export default function SettingsPage() {
       {/* Sync Settings */}
       <div className="card p-6">
         <div className="flex items-center gap-3 mb-4">
-          <div className="size-10 rounded-lg bg-blue-50 flex items-center justify-center">
-            <RefreshCw className="size-5 text-blue-600" />
+          <div className="size-10 rounded-lg bg-[var(--color-primary)]/10 flex items-center justify-center">
+            <RefreshCw className="size-5 text-[var(--color-primary)]" />
           </div>
           <div>
             <h2 className="text-lg font-semibold text-gray-900">Sync Settings</h2>
@@ -55,9 +55,9 @@ export default function SettingsPage() {
               type="number"
               value={settings.syncInterval}
               onChange={(e) => setSettings({ ...settings, syncInterval: e.target.value })}
-              className="input max-w-xs"
+              className="input-base max-w-xs"
             />
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-[var(--color-muted)] mt-1">
               How often to sync schemes from India.gov.in
             </p>
           </div>
@@ -70,9 +70,9 @@ export default function SettingsPage() {
               type="number"
               value={settings.cacheExpiry}
               onChange={(e) => setSettings({ ...settings, cacheExpiry: e.target.value })}
-              className="input max-w-xs"
+              className="input-base max-w-xs"
             />
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-[var(--color-muted)] mt-1">
               How long to cache scheme data in Redis
             </p>
           </div>
@@ -82,8 +82,8 @@ export default function SettingsPage() {
       {/* Database Settings */}
       <div className="card p-6">
         <div className="flex items-center gap-3 mb-4">
-          <div className="size-10 rounded-lg bg-green-50 flex items-center justify-center">
-            <Database className="size-5 text-green-600" />
+          <div className="size-10 rounded-lg bg-emerald-50 flex items-center justify-center">
+            <Database className="size-5 text-emerald-600" />
           </div>
           <div>
             <h2 className="text-lg font-semibold text-gray-900">Database Settings</h2>
@@ -93,16 +93,14 @@ export default function SettingsPage() {
 
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Max Users
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Max Users</label>
             <input
               type="number"
               value={settings.maxUsers}
               onChange={(e) => setSettings({ ...settings, maxUsers: e.target.value })}
-              className="input max-w-xs"
+              className="input-base max-w-xs"
             />
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-[var(--color-muted)] mt-1">
               Maximum number of users allowed in the system
             </p>
           </div>
@@ -112,10 +110,8 @@ export default function SettingsPage() {
               type="checkbox"
               id="maintenanceMode"
               checked={settings.maintenanceMode}
-              onChange={(e) =>
-                setSettings({ ...settings, maintenanceMode: e.target.checked })
-              }
-              className="size-4 rounded border-gray-300 text-blue-700 focus:ring-blue-500"
+              onChange={(e) => setSettings({ ...settings, maintenanceMode: e.target.checked })}
+              className="size-4 rounded border-[var(--color-border)] text-[var(--color-primary)] focus:ring-[var(--color-accent)]/30"
             />
             <label htmlFor="maintenanceMode" className="text-sm font-medium text-gray-700">
               Enable Maintenance Mode
@@ -127,8 +123,8 @@ export default function SettingsPage() {
       {/* Security Settings */}
       <div className="card p-6">
         <div className="flex items-center gap-3 mb-4">
-          <div className="size-10 rounded-lg bg-purple-50 flex items-center justify-center">
-            <Shield className="size-5 text-purple-600" />
+          <div className="size-10 rounded-lg bg-[var(--color-accent)]/10 flex items-center justify-center">
+            <Shield className="size-5 text-[var(--color-accent)]" />
           </div>
           <div>
             <h2 className="text-lg font-semibold text-gray-900">Security Settings</h2>
@@ -138,24 +134,20 @@ export default function SettingsPage() {
 
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Admin Key
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Admin Key</label>
             <div className="flex items-center gap-3">
               <input
                 type="password"
                 value="••••••••••••••••"
                 readOnly
-                className="input max-w-xs"
+                className="input-base max-w-xs"
               />
-              <button className="btn btn-secondary">
+              <button className="btn btn-secondary gap-2">
                 <Key className="size-4" />
                 Regenerate
               </button>
             </div>
-            <p className="text-xs text-gray-500 mt-1">
-              Admin key for API authentication
-            </p>
+            <p className="text-xs text-gray-500 mt-1">Admin key for API authentication</p>
           </div>
         </div>
       </div>
@@ -163,8 +155,8 @@ export default function SettingsPage() {
       {/* Notification Settings */}
       <div className="card p-6">
         <div className="flex items-center gap-3 mb-4">
-          <div className="size-10 rounded-lg bg-orange-50 flex items-center justify-center">
-            <Bell className="size-5 text-orange-600" />
+          <div className="size-10 rounded-lg bg-[var(--color-primary)]/10 flex items-center justify-center">
+            <Bell className="size-5 text-[var(--color-primary)]" />
           </div>
           <div>
             <h2 className="text-lg font-semibold text-gray-900">Notification Settings</h2>
@@ -178,10 +170,8 @@ export default function SettingsPage() {
               type="checkbox"
               id="enableNotifications"
               checked={settings.enableNotifications}
-              onChange={(e) =>
-                setSettings({ ...settings, enableNotifications: e.target.checked })
-              }
-              className="size-4 rounded border-gray-300 text-blue-700 focus:ring-blue-500"
+              onChange={(e) => setSettings({ ...settings, enableNotifications: e.target.checked })}
+              className="size-4 rounded border-[var(--color-border)] text-[var(--color-primary)] focus:ring-[var(--color-accent)]/30"
             />
             <label htmlFor="enableNotifications" className="text-sm font-medium text-gray-700">
               Enable Email Notifications
@@ -193,10 +183,8 @@ export default function SettingsPage() {
               type="checkbox"
               id="enableAnalytics"
               checked={settings.enableAnalytics}
-              onChange={(e) =>
-                setSettings({ ...settings, enableAnalytics: e.target.checked })
-              }
-              className="size-4 rounded border-gray-300 text-blue-700 focus:ring-blue-500"
+              onChange={(e) => setSettings({ ...settings, enableAnalytics: e.target.checked })}
+              className="size-4 rounded border-[var(--color-border)] text-[var(--color-primary)] focus:ring-[var(--color-accent)]/30"
             />
             <label htmlFor="enableAnalytics" className="text-sm font-medium text-gray-700">
               Enable Analytics Tracking
@@ -230,6 +218,3 @@ export default function SettingsPage() {
     </div>
   );
 }
-
-
-

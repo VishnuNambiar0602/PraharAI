@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Search, Filter, Download, Trash2, Eye, UserPlus } from 'lucide-react';
-import { getAllUsers, deleteUser } from "./adminApi";
-import type { User } from "./adminTypes";
+import { getAllUsers, deleteUser } from './adminApi';
+import type { User } from './adminTypes';
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
@@ -58,7 +58,7 @@ export default function UsersPage() {
           <h1 className="text-2xl font-bold text-gray-900">Users</h1>
           <p className="text-gray-600 mt-1">Manage registered users</p>
         </div>
-        <button className="btn btn-primary">
+        <button className="btn btn-primary gap-2">
           <UserPlus className="size-4" />
           Add User
         </button>
@@ -72,15 +72,11 @@ export default function UsersPage() {
         </div>
         <div className="card p-4">
           <p className="text-sm text-gray-600">Active Today</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">
-            {Math.floor(users.length * 0.3)}
-          </p>
+          <p className="text-2xl font-bold text-gray-900 mt-1">{Math.floor(users.length * 0.3)}</p>
         </div>
         <div className="card p-4">
           <p className="text-sm text-gray-600">New This Month</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">
-            {Math.floor(users.length * 0.15)}
-          </p>
+          <p className="text-2xl font-bold text-gray-900 mt-1">{Math.floor(users.length * 0.15)}</p>
         </div>
         <div className="card p-4">
           <p className="text-sm text-gray-600">Onboarding Complete</p>
@@ -94,13 +90,13 @@ export default function UsersPage() {
       <div className="card p-4">
         <div className="flex items-center gap-4">
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-5 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-5 text-[var(--color-muted)]" />
             <input
               type="text"
               placeholder="Search users by name, email, or ID..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="input pl-10"
+              className="input-base pl-10"
             />
           </div>
           <button className="btn btn-secondary">
@@ -187,10 +183,7 @@ export default function UsersPage() {
           className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
           onClick={() => setSelectedUser(null)}
         >
-          <div
-            className="card max-w-2xl w-full p-6"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="card max-w-2xl w-full p-6" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-xl font-bold text-gray-900 mb-4">User Details</h2>
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -253,5 +246,3 @@ export default function UsersPage() {
     </div>
   );
 }
-
-

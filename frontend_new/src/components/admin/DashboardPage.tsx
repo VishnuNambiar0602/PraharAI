@@ -9,13 +9,14 @@ import {
   CheckCircle,
   Clock,
 } from 'lucide-react';
-import { getDashboardStats, getSyncStatus, getSystemHealth } from "./adminApi";
-import type { DashboardStats, SyncStatus, SystemHealth } from "./adminTypes";
+import { getDashboardStats, getSyncStatus, getSystemHealth, getActivityLogs } from './adminApi';
+import type { DashboardStats, SyncStatus, SystemHealth, ActivityLog } from './adminTypes';
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null);
   const [health, setHealth] = useState<SystemHealth | null>(null);
+  const [recentActivity, setRecentActivity] = useState<ActivityLog[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -26,7 +27,7 @@ export default function DashboardPage() {
 
   const loadData = async () => {
     try {
-      const [statsData, syncData, healthData] = await Promise.all([
+      const [statsData, syncData, healthData, activityData] = await Promise.all([
         getDashboardStats().catch(() => ({
           totalUsers: 0,
           totalSchemes: 0,
@@ -38,10 +39,12 @@ export default function DashboardPage() {
         })),
         getSyncStatus().catch(() => null),
         getSystemHealth().catch(() => null),
+        getActivityLogs(5).catch(() => []),
       ]);
       setStats(statsData);
       setSyncStatus(syncData);
       setHealth(healthData);
+      setRecentActivity(activityData || []);
     } catch (error) {
       console.error('Failed to load dashboard data:', error);
     } finally {
@@ -63,32 +66,32 @@ export default function DashboardPage() {
       value: stats?.totalUsers || 0,
       change: stats?.userGrowth || 0,
       icon: Users,
-      color: 'text-blue-600',
-      bgColor: 'bg-blue-50',
+      color: 'text-[var(--color-primary)]',
+      bgColor: 'bg-[var(--color-primary)]/10',
     },
     {
       label: 'Total Schemes',
       value: stats?.totalSchemes || 0,
       change: stats?.schemeGrowth || 0,
       icon: FileText,
-      color: 'text-green-600',
-      bgColor: 'bg-green-50',
+      color: 'text-emerald-600',
+      bgColor: 'bg-emerald-50',
     },
     {
       label: 'Active Schemes',
       value: stats?.activeSchemes || 0,
       change: 0,
       icon: CheckCircle,
-      color: 'text-purple-600',
-      bgColor: 'bg-purple-50',
+      color: 'text-[var(--color-accent)]',
+      bgColor: 'bg-[var(--color-accent)]/10',
     },
     {
       label: 'Applications',
       value: stats?.totalApplications || 0,
       change: stats?.applicationGrowth || 0,
       icon: TrendingUp,
-      color: 'text-orange-600',
-      bgColor: 'bg-orange-50',
+      color: 'text-purple-600',
+      bgColor: 'bg-purple-50',
     },
   ];
 
@@ -100,7 +103,7 @@ export default function DashboardPage() {
           <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
           <p className="text-gray-600 mt-1">Welcome to the admin portal</p>
         </div>
-        <button onClick={loadData} className="btn btn-secondary">
+        <button onClick={loadData} className="btn btn-secondary gap-2">
           <RefreshCw className="size-4" />
           Refresh
         </button>
@@ -116,8 +119,8 @@ export default function DashboardPage() {
                   health.status === 'healthy'
                     ? 'bg-green-600 animate-pulse'
                     : health.status === 'degraded'
-                    ? 'bg-amber-600'
-                    : 'bg-red-600'
+                      ? 'bg-amber-600'
+                      : 'bg-red-600'
                 }`}
               ></div>
               <span className="font-medium text-gray-900">
@@ -127,8 +130,8 @@ export default function DashboardPage() {
                     health.status === 'healthy'
                       ? 'text-green-600'
                       : health.status === 'degraded'
-                      ? 'text-amber-600'
-                      : 'text-red-600'
+                        ? 'text-amber-600'
+                        : 'text-red-600'
                   }
                 >
                   {health.status.charAt(0).toUpperCase() + health.status.slice(1)}
@@ -199,9 +202,7 @@ export default function DashboardPage() {
             <div>
               <p className="text-sm text-gray-600 mb-1">Last Sync</p>
               <p className="text-lg font-medium text-gray-900">
-                {syncStatus.lastSync
-                  ? new Date(syncStatus.lastSync).toLocaleString()
-                  : 'Never'}
+                {syncStatus.lastSync ? new Date(syncStatus.lastSync).toLocaleString() : 'Never'}
               </p>
             </div>
             <div>
@@ -238,27 +239,55 @@ export default function DashboardPage() {
       {/* Recent Activity */}
       <div className="card p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h2>
-        <div className="space-y-3">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
-              <div className="size-8 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
-                <Activity className="size-4 text-blue-700" />
+        {recentActivity.length === 0 ? (
+          <div className="text-center py-8">
+            <Activity className="size-10 text-gray-300 mx-auto mb-2" />
+            <p className="text-sm text-gray-500">No recent activity</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {recentActivity.map((log) => (
+              <div
+                key={log.id}
+                className="flex items-start gap-3 p-3 bg-[var(--color-surface)] rounded-lg"
+              >
+                <div
+                  className={`size-8 rounded-full flex items-center justify-center shrink-0 ${
+                    log.type === 'user'
+                      ? 'bg-[var(--color-primary)]/10'
+                      : log.type === 'scheme'
+                        ? 'bg-emerald-100'
+                        : 'bg-[var(--color-accent)]/10'
+                  }`}
+                >
+                  <Activity
+                    className={`size-4 ${
+                      log.type === 'user'
+                        ? 'text-[var(--color-primary)]'
+                        : log.type === 'scheme'
+                          ? 'text-emerald-700'
+                          : 'text-[var(--color-accent)]'
+                    }`}
+                  />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900">{log.action}</p>
+                  <p className="text-xs text-gray-600 mt-0.5">{log.details}</p>
+                  {log.userName && (
+                    <p className="text-xs text-gray-400 mt-0.5">by {log.userName}</p>
+                  )}
+                </div>
+                <span className="text-xs text-gray-500 shrink-0">
+                  {new Date(log.timestamp).toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </span>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900">System activity {i}</p>
-                <p className="text-xs text-gray-600 mt-0.5">
-                  Activity description goes here
-                </p>
-              </div>
-              <span className="text-xs text-gray-500 shrink-0">
-                {i} min ago
-              </span>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
 }
-
-
