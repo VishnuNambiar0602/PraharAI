@@ -33,6 +33,6 @@ jobs:
                       docker image prune -f
 
                       echo "--- Current status ---"
-                      docker compose -f docker-compose.prod.yml ps
+                      docker compose --env-file .env.production -f docker-compose.prod.yml ps
 
                       echo "--- Deployment complete! ---"
