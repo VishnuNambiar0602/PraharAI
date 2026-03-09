@@ -38,6 +38,20 @@ import LanguageSelector from './components/LanguageSelector';
 import { fetchSchemeById } from './api';
 
 /* ─────────────────────────────────────────────
+   Panchayathi Redirect
+───────────────────────────────────────────── */
+function PanchayathiRedirect() {
+  useEffect(() => {
+    window.location.href = 'http://localhost:5175';
+  }, []);
+  return (
+    <div className="min-h-[60vh] flex items-center justify-center">
+      <p className="text-muted text-sm">Redirecting to Panchayat Portal…</p>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────
    Prahar Logo Mark
 ───────────────────────────────────────────── */
 function LogoMark({ className = '' }: { className?: string }) {
@@ -558,6 +572,7 @@ function AppContent() {
                 }
               />
               <Route path="/admin" element={<Navigate to="/adminstrator" replace />} />
+              <Route path="/panchayathi" element={<PanchayathiRedirect />} />
 
               {/* Fallback */}
               <Route path="*" element={<Navigate to="/" replace />} />
