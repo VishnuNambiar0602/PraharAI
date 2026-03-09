@@ -166,20 +166,7 @@ export async function getActivityLogs(limit = 50) {
 // ─── System Health ───────────────────────────────────────────────────────────
 
 export async function getSystemHealth() {
-  const res = await fetch(`${API_BASE}/admin/health`, {
-    headers: { ...adminHeaders() },
-  });
+  const res = await fetch(`${API_BASE}/health`);
   if (!res.ok) throw new Error('Failed to fetch system health');
-  return res.json();
-}
-
-// ─── ML Circuit Breaker ───────────────────────────────────────────────────────
-
-export async function resetMLStatus() {
-  const res = await fetch(`${API_BASE}/admin/ml/reset`, {
-    method: 'POST',
-    headers: { ...adminHeaders() },
-  });
-  if (!res.ok) throw new Error('Failed to reset ML status');
   return res.json();
 }

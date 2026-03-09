@@ -5,10 +5,12 @@ import {
   TrendingUp,
   Activity,
   RefreshCw,
+  AlertCircle,
   CheckCircle,
+  Clock,
 } from 'lucide-react';
-import { getDashboardStats, getSyncStatus, getSystemHealth } from '../api';
-import type { DashboardStats, SyncStatus, SystemHealth } from '../types';
+import { getDashboardStats, getSyncStatus, getSystemHealth } from "./adminApi";
+import type { DashboardStats, SyncStatus, SystemHealth } from "./adminTypes";
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -258,3 +260,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+

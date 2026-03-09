@@ -102,14 +102,14 @@ function App() {
         <div className="h-16 flex items-center justify-between px-4 border-b border-gray-200">
           {sidebarOpen ? (
             <div className="flex items-center gap-2">
-              <Shield className="size-8 text-primary" />
+              <Shield className="size-8 text-blue-700" />
               <div>
                 <h1 className="font-bold text-lg text-gray-900">Prahar AI</h1>
                 <p className="text-xs text-gray-500">Admin Portal</p>
               </div>
             </div>
           ) : (
-            <Shield className="size-8 text-primary mx-auto" />
+            <Shield className="size-8 text-blue-700 mx-auto" />
           )}
         </div>
 
@@ -124,7 +124,7 @@ function App() {
                 onClick={() => setCurrentPage(item.id)}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
                   isActive
-                    ? 'bg-primary text-white'
+                    ? 'bg-blue-700 text-white'
                     : 'text-gray-700 hover:bg-gray-100'
                 }`}
               >
@@ -167,8 +167,8 @@ function App() {
               <p className="text-sm font-medium text-gray-900">Admin User</p>
               <p className="text-xs text-gray-500">admin@example.com</p>
             </div>
-            <div className="size-10 rounded-full bg-primary-100 flex items-center justify-center">
-              <span className="text-sm font-bold text-primary">A</span>
+            <div className="size-10 rounded-full bg-blue-100 flex items-center justify-center">
+              <span className="text-sm font-bold text-blue-700">A</span>
             </div>
           </div>
         </header>
@@ -193,3 +193,4 @@ function App() {
 }
 
 export default App;
+

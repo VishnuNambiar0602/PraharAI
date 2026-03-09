@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Shield, Lock, AlertCircle } from 'lucide-react';
-import { verifyAdminKey, saveAdminKey } from '../api';
+import { verifyAdminKey, saveAdminKey } from "./adminApi";
 
 interface LoginPageProps {
   onLogin: () => void;
@@ -108,3 +108,4 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
     </div>
   );
 }
+

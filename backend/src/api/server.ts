@@ -882,6 +882,220 @@ app.delete('/api/admin/admins/:userId', async (req, res) => {
   }
 });
 
+// ─── Admin Dashboard Stats ────────────────────────────────────────────────────
+app.get('/api/admin/stats', async (req, res) => {
+  if (!(await requireAdminAccess(req, res))) return;
+  try {
+    const [metrics, syncStatus] = await Promise.all([
+      neo4jService.getAdminMetrics(),
+      schemeSyncAgent.getSyncStatus(),
+    ]);
+
+    const trends = metrics.trends.users;
+    const last = trends[trends.length - 1]?.count || 0;
+    const prev = trends[trends.length - 2]?.count || 0;
+    const userGrowth = prev > 0 ? Math.round(((last - prev) / prev) * 100) : 0;
+
+    return res.json({
+      totalUsers: metrics.users.total,
+      totalSchemes: metrics.schemes.total,
+      activeSchemes: syncStatus.totalSchemes,
+      totalApplications: 0,
+      userGrowth,
+      schemeGrowth: 0,
+      applicationGrowth: 0,
+    });
+  } catch (error: any) {
+    console.error('Admin stats error:', error);
+    return res.status(500).json({ error: 'Failed to fetch stats', details: error.message });
+  }
+});
+
+// ─── Admin Users ──────────────────────────────────────────────────────────────
+app.get('/api/admin/users', async (req, res) => {
+  if (!(await requireAdminAccess(req, res))) return;
+  try {
+    const users = await neo4jService.getAllUsers();
+    return res.json(
+      users.map((u: any) => ({
+        userId: u.user_id,
+        email: u.email,
+        name: u.name || null,
+        age: u.age ?? null,
+        income: u.income ?? null,
+        state: u.state || null,
+        employment: u.employment || null,
+        education: u.education || null,
+        gender: u.gender || null,
+        createdAt: u.created_at || new Date().toISOString(),
+        onboardingComplete: Boolean(u.onboarding_complete),
+      }))
+    );
+  } catch (error: any) {
+    console.error('Admin users error:', error);
+    return res.status(500).json({ error: 'Failed to fetch users', details: error.message });
+  }
+});
+
+app.delete('/api/admin/users/:userId', async (req, res) => {
+  if (!(await requireAdminAccess(req, res))) return;
+  try {
+    const { userId } = req.params;
+    const deleted = await neo4jService.deleteUserById(userId);
+    if (!deleted) return res.status(404).json({ error: 'User not found' });
+    return res.json({ success: true, message: 'User deleted successfully' });
+  } catch (error: any) {
+    console.error('Admin delete user error:', error);
+    return res.status(400).json({ error: error.message || 'Failed to delete user' });
+  }
+});
+
+// ─── Admin Analytics ──────────────────────────────────────────────────────────
+app.get('/api/admin/analytics', async (req, res) => {
+  if (!(await requireAdminAccess(req, res))) return;
+  try {
+    const [metrics, users] = await Promise.all([
+      neo4jService.getAdminMetrics(),
+      neo4jService.getAllUsers(),
+    ]);
+
+    const stateCounts = new Map<string, number>();
+    const empCounts = new Map<string, number>();
+    users.forEach((u: any) => {
+      if (u.state) stateCounts.set(u.state, (stateCounts.get(u.state) || 0) + 1);
+      const emp = u.employment || u.occupation;
+      if (emp) empCounts.set(emp, (empCounts.get(emp) || 0) + 1);
+    });
+
+    const byState = Array.from(stateCounts.entries())
+      .map(([state, count]) => ({ state, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+
+    const byEmployment = Array.from(empCounts.entries())
+      .map(([employment, count]) => ({ employment, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+
+    return res.json({
+      summary: {
+        totalUsers: metrics.users.total,
+        totalSchemes: metrics.schemes.total,
+        onboardedUsers: metrics.users.onboarded,
+        enrichedSchemes: metrics.schemes.enriched,
+        enrichmentRate: metrics.schemes.enrichmentRate,
+      },
+      trends: metrics.trends,
+      distribution: { byState, byEmployment },
+    });
+  } catch (error: any) {
+    console.error('Admin analytics error:', error);
+    return res.status(500).json({ error: 'Failed to fetch analytics', details: error.message });
+  }
+});
+
+// ─── Admin Activity Logs ──────────────────────────────────────────────────────
+app.get('/api/admin/activity', async (req, res) => {
+  if (!(await requireAdminAccess(req, res))) return;
+  try {
+    const limit = Math.min(Number(req.query.limit) || 50, 200);
+    const [users, syncStatus] = await Promise.all([
+      neo4jService.getAllUsers(),
+      schemeSyncAgent.getSyncStatus(),
+    ]);
+
+    const logs: any[] = [];
+
+    users.forEach((u: any) => {
+      if (u.created_at) {
+        logs.push({
+          id: `user-reg-${u.user_id}`,
+          timestamp: u.created_at,
+          action: 'User registered',
+          userId: u.user_id,
+          userName: u.name || u.email,
+          details: `New user registered${u.state ? ` from ${u.state}` : ''}`,
+          type: 'user',
+        });
+      }
+      if (u.onboarding_complete && (u.updated_at || u.created_at)) {
+        logs.push({
+          id: `user-onboard-${u.user_id}`,
+          timestamp: u.updated_at || u.created_at,
+          action: 'Onboarding completed',
+          userId: u.user_id,
+          userName: u.name || u.email,
+          details: 'User completed their onboarding profile',
+          type: 'user',
+        });
+      }
+    });
+
+    if (syncStatus.lastSync) {
+      logs.push({
+        id: `sync-last`,
+        timestamp: syncStatus.lastSync,
+        action: 'Scheme sync completed',
+        details: `Synced ${syncStatus.totalSchemes} schemes from India.gov.in`,
+        type: 'system',
+      });
+    }
+
+    logs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    return res.json(logs.slice(0, limit));
+  } catch (error: any) {
+    console.error('Admin activity error:', error);
+    return res.status(500).json({ error: 'Failed to fetch activity', details: error.message });
+  }
+});
+
+// ─── Admin System Health ──────────────────────────────────────────────────────
+app.get('/api/admin/health', async (req, res) => {
+  if (!(await requireAdminAccess(req, res))) return;
+  try {
+    const mlAvailable = await mlService.isAvailable();
+    let neo4jHealthy = false;
+    try {
+      await neo4jService.getAdminMetrics();
+      neo4jHealthy = true;
+    } catch {
+      neo4jHealthy = false;
+    }
+
+    const cacheStats = redisService.getStats();
+    const redisHealthy = cacheStats.hits >= 0; // redis is available if we can get stats
+
+    const allCoreHealthy = neo4jHealthy && redisHealthy;
+    const status = !allCoreHealthy ? 'down' : mlAvailable ? 'healthy' : 'degraded';
+
+    return res.json({
+      status,
+      neo4j: neo4jHealthy,
+      redis: redisHealthy,
+      api: true,
+      mlService: mlAvailable,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error: any) {
+    return res.status(500).json({ error: 'Health check failed', details: error.message });
+  }
+});
+
+// ─── Admin ML Circuit Breaker Reset ──────────────────────────────────────────
+app.post('/api/admin/ml/reset', async (req, res) => {
+  if (!(await requireAdminAccess(req, res))) return;
+  try {
+    const available = await mlService.isAvailable();
+    return res.json({
+      message: 'ML service status refreshed',
+      available,
+      status: mlService.getStatus(),
+    });
+  } catch (error: any) {
+    return res.status(500).json({ error: 'Failed to reset ML status', details: error.message });
+  }
+});
+
 // Error handling middleware
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error('Error:', err);

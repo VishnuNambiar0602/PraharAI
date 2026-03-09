@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Activity, User, FileText, Settings, Filter, Download } from 'lucide-react';
-import { getActivityLogs } from '../api';
-import type { ActivityLog } from '../types';
+import { getActivityLogs } from "./adminApi";
+import type { ActivityLog } from "./adminTypes";
 
 export default function ActivityPage() {
   const [logs, setLogs] = useState<ActivityLog[]>([]);
@@ -188,4 +188,6 @@ export default function ActivityPage() {
     </div>
   );
 }
+
+
 

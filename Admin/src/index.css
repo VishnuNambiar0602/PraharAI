@@ -7,6 +7,7 @@
   --color-primary: #1e40af;
   --color-primary-50: #eff6ff;
   --color-primary-100: #dbeafe;
+  --color-primary-500: #3b82f6;
   --color-primary-600: #2563eb;
   --color-primary-700: #1d4ed8;
   --color-primary-800: #1e3a8a;
@@ -86,7 +87,7 @@
 }
 
 .btn-primary {
-  @apply bg-primary text-white hover:bg-primary-700;
+  @apply bg-blue-700 text-white hover:bg-blue-800;
 }
 
 .btn-secondary {
@@ -94,11 +95,11 @@
 }
 
 .btn-success {
-  @apply bg-success text-white hover:bg-green-700;
+  @apply bg-green-600 text-white hover:bg-green-700;
 }
 
 .btn-danger {
-  @apply bg-danger text-white hover:bg-red-700;
+  @apply bg-red-600 text-white hover:bg-red-700;
 }
 
 .btn-ghost {
@@ -111,19 +112,19 @@
 }
 
 .badge-success {
-  @apply bg-success-100 text-green-800;
+  @apply bg-green-100 text-green-800;
 }
 
 .badge-warning {
-  @apply bg-warning-100 text-amber-800;
+  @apply bg-amber-100 text-amber-800;
 }
 
 .badge-danger {
-  @apply bg-danger-100 text-red-800;
+  @apply bg-red-100 text-red-800;
 }
 
 .badge-info {
-  @apply bg-primary-100 text-blue-800;
+  @apply bg-blue-100 text-blue-800;
 }
 
 .badge-gray {
@@ -132,7 +133,7 @@
 
 /* Input styles */
 .input {
-  @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent;
+  @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent;
 }
 
 /* Table styles */
@@ -158,7 +159,7 @@
 
 /* Stat card */
 .stat-card {
-  @apply card p-6;
+  @apply bg-white rounded-lg border border-gray-200 shadow-sm p-6;
 }
 
 .stat-value {
@@ -174,9 +175,9 @@
 }
 
 .stat-change.positive {
-  @apply text-success;
+  @apply text-green-600;
 }
 
 .stat-change.negative {
-  @apply text-danger;
+  @apply text-red-600;
 }

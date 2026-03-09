@@ -31,7 +31,7 @@ import ChatAssistant from './components/ChatAssistant';
 import UserProfile from './components/UserProfile.tsx';
 import AboutPage from './components/AboutPage.tsx';
 import PartnerPortal from './components/PartnerPortal';
-import AdminPage from './components/AdminPage';
+import AdminDashboard from './components/AdminDashboard';
 import LoginPage from './components/LoginPage';
 import OnboardingWizard from './components/OnboardingWizard.tsx';
 import LanguageSelector from './components/LanguageSelector';
@@ -553,7 +553,7 @@ function AppContent() {
                 path="/adminstrator"
                 element={
                   <ProtectedRoute>
-                    {isAdminUser ? <AdminPage /> : <Navigate to="/" replace />}
+                    {isAdminUser ? <AdminDashboard /> : <Navigate to="/" replace />}
                   </ProtectedRoute>
                 }
               />
