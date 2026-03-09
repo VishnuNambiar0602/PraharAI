@@ -505,10 +505,10 @@ function AppContent() {
       </AnimatePresence>
 
       {/* Route-based page content */}
-      <main className="flex-1 pb-16 md:pb-0">
+      <main className={`flex-1 ${isPanchayat ? '' : 'pb-16 md:pb-0'}`}>
         <AnimatePresence mode="wait">
           <motion.div
-            key={location.pathname}
+            key={isPanchayat ? 'panchayat' : location.pathname}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}

@@ -44,7 +44,9 @@ export default function SettingsPage() {
             <p className="font-semibold" style={{ color: 'var(--color-ink)' }}>
               Gram Sabha — Panchayat Portal
             </p>
-            <p className="text-xs text-gray-500">AI4Bharat Welfare Scheme Management System</p>
+            <p className="text-xs" style={{ color: 'var(--color-muted)' }}>
+              AI4Bharat Welfare Scheme Management System
+            </p>
           </div>
         </div>
 
@@ -55,10 +57,15 @@ export default function SettingsPage() {
             { label: 'ML Pipeline', value: 'localhost:8000' },
           ].map(({ label, value }) => (
             <div key={label} className="space-y-0.5">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+              <p
+                className="text-[11px] font-semibold uppercase tracking-wider"
+                style={{ color: 'var(--color-muted-2)' }}
+              >
                 {label}
               </p>
-              <p className="text-sm font-mono text-gray-700">{value}</p>
+              <p className="text-sm font-mono" style={{ color: 'var(--color-ink-2)' }}>
+                {value}
+              </p>
             </div>
           ))}
         </div>
@@ -67,10 +74,12 @@ export default function SettingsPage() {
       {/* Security */}
       <div className="p-card p-5">
         <div className="flex items-center gap-2 mb-4">
-          <ShieldAlert className="size-4 text-amber-500" />
-          <h2 className="font-semibold text-gray-900">Security</h2>
+          <ShieldAlert className="size-4" style={{ color: 'var(--color-accent)' }} />
+          <h2 className="font-semibold" style={{ color: 'var(--color-ink)' }}>
+            Security
+          </h2>
         </div>
-        <p className="text-sm text-gray-600 mb-4">
+        <p className="text-sm mb-4" style={{ color: 'var(--color-muted)' }}>
           Your access key is stored locally in this browser session. Clearing it will require you to
           sign in again.
         </p>
@@ -82,8 +91,10 @@ export default function SettingsPage() {
 
       {/* Info */}
       <div className="p-card p-5">
-        <h2 className="font-semibold text-gray-900 mb-3">About This Portal</h2>
-        <div className="space-y-2 text-sm text-gray-600">
+        <h2 className="font-semibold mb-3" style={{ color: 'var(--color-ink)' }}>
+          About This Portal
+        </h2>
+        <div className="space-y-2 text-sm" style={{ color: 'var(--color-muted)' }}>
           <p>
             This portal provides Panchayat-level administrators access to the AI4Bharat welfare
             scheme matching system.
@@ -92,7 +103,7 @@ export default function SettingsPage() {
             Using ML-powered eligibility analysis, it matches registered beneficiaries to relevant
             Central and State government welfare schemes.
           </p>
-          <p className="text-xs text-gray-400 mt-3">
+          <p className="text-xs mt-3" style={{ color: 'var(--color-muted-2)' }}>
             Ministry of Panchayati Raj · Government of India
           </p>
         </div>

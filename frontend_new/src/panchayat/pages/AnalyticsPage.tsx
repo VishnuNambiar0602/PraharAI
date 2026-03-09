@@ -98,16 +98,25 @@ export default function AnalyticsPage() {
                 const pct = Math.round((item.users / max) * 100);
                 return (
                   <div key={item.month} className="flex items-center gap-3">
-                    <span className="text-xs text-gray-500 w-16 shrink-0 tabular-nums">
+                    <span
+                      className="text-xs w-16 shrink-0 tabular-nums"
+                      style={{ color: 'var(--color-muted)' }}
+                    >
                       {item.month}
                     </span>
-                    <div className="flex-1 bg-gray-100 rounded-full h-2 overflow-hidden">
+                    <div
+                      className="flex-1 rounded-full h-2 overflow-hidden"
+                      style={{ background: 'var(--color-border)' }}
+                    >
                       <div
                         className="h-2 rounded-full transition-all"
                         style={{ width: `${pct}%`, background: 'var(--color-primary-600)' }}
                       />
                     </div>
-                    <span className="text-xs font-semibold text-gray-700 w-8 text-right tabular-nums">
+                    <span
+                      className="text-xs font-semibold w-8 text-right tabular-nums"
+                      style={{ color: 'var(--color-ink-2)' }}
+                    >
                       {item.users}
                     </span>
                   </div>
@@ -135,16 +144,25 @@ export default function AnalyticsPage() {
                 const pct = Math.round((item.schemes / max) * 100);
                 return (
                   <div key={item.month} className="flex items-center gap-3">
-                    <span className="text-xs text-gray-500 w-16 shrink-0 tabular-nums">
+                    <span
+                      className="text-xs w-16 shrink-0 tabular-nums"
+                      style={{ color: 'var(--color-muted)' }}
+                    >
                       {item.month}
                     </span>
-                    <div className="flex-1 bg-gray-100 rounded-full h-2 overflow-hidden">
+                    <div
+                      className="flex-1 rounded-full h-2 overflow-hidden"
+                      style={{ background: 'var(--color-border)' }}
+                    >
                       <div
                         className="h-2 rounded-full transition-all"
                         style={{ width: `${pct}%`, background: 'var(--color-accent)' }}
                       />
                     </div>
-                    <span className="text-xs font-semibold text-gray-700 w-12 text-right tabular-nums">
+                    <span
+                      className="text-xs font-semibold w-12 text-right tabular-nums"
+                      style={{ color: 'var(--color-ink-2)' }}
+                    >
                       {item.schemes.toLocaleString('en-IN')}
                     </span>
                   </div>
@@ -166,10 +184,16 @@ export default function AnalyticsPage() {
             <div className="space-y-2.5">
               {data.stateDistribution.slice(0, 8).map((entry) => (
                 <div key={entry.label} className="flex items-center gap-3">
-                  <span className="text-xs text-gray-600 w-24 shrink-0 truncate">
+                  <span
+                    className="text-xs w-24 shrink-0 truncate"
+                    style={{ color: 'var(--color-ink-2)' }}
+                  >
                     {entry.label}
                   </span>
-                  <div className="flex-1 bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                  <div
+                    className="flex-1 rounded-full h-1.5 overflow-hidden"
+                    style={{ background: 'var(--color-border)' }}
+                  >
                     <div
                       className="h-1.5 rounded-full"
                       style={{
@@ -178,7 +202,10 @@ export default function AnalyticsPage() {
                       }}
                     />
                   </div>
-                  <span className="text-xs text-gray-500 w-8 text-right tabular-nums">
+                  <span
+                    className="text-xs w-8 text-right tabular-nums"
+                    style={{ color: 'var(--color-muted)' }}
+                  >
                     {entry.count}
                   </span>
                 </div>
@@ -199,16 +226,25 @@ export default function AnalyticsPage() {
             <div className="space-y-2.5">
               {data.employmentDistribution.map((entry) => (
                 <div key={entry.label} className="flex items-center gap-3">
-                  <span className="text-xs text-gray-600 w-24 shrink-0 truncate">
+                  <span
+                    className="text-xs w-24 shrink-0 truncate"
+                    style={{ color: 'var(--color-ink-2)' }}
+                  >
                     {entry.label || 'Unknown'}
                   </span>
-                  <div className="flex-1 bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                  <div
+                    className="flex-1 rounded-full h-1.5 overflow-hidden"
+                    style={{ background: 'var(--color-border)' }}
+                  >
                     <div
                       className="h-1.5 rounded-full"
                       style={{ width: `${entry.percentage}%`, background: 'var(--color-accent)' }}
                     />
                   </div>
-                  <span className="text-xs text-gray-500 w-8 text-right tabular-nums">
+                  <span
+                    className="text-xs w-8 text-right tabular-nums"
+                    style={{ color: 'var(--color-muted)' }}
+                  >
                     {entry.count}
                   </span>
                 </div>

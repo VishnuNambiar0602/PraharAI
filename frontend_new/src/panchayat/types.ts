@@ -24,16 +24,14 @@ export interface Beneficiary {
 }
 
 export interface Scheme {
-  scheme_id: string;
-  name: string;
+  id: string;
+  title: string;
   description: string;
   category: string;
   ministry: string | null;
   state: string | null;
-  tags: string;
-  is_active: boolean;
-  last_updated: string;
-  scheme_url: string | null;
+  tags: string[];
+  applicationUrl: string | null;
 }
 
 export interface SyncStatus {

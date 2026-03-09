@@ -71,7 +71,8 @@ export class JWTService {
     userId: string,
     email: string,
     role: 'user' | 'admin' | 'panchayat' = 'user',
-    extra?: Record<string, string>
+    extra?: Record<string, string>,
+    expiresIn?: string
   ): string {
     const payload = {
       userId,
@@ -82,7 +83,7 @@ export class JWTService {
 
     return jwt.sign(payload, this.privateKey, {
       algorithm: this.ALGORITHM as jwt.Algorithm,
-      expiresIn: this.ACCESS_TOKEN_EXPIRY,
+      expiresIn: (expiresIn ?? this.ACCESS_TOKEN_EXPIRY) as any,
     });
   }
 

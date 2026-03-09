@@ -1158,6 +1158,50 @@ app.get('/api/panchayat/me', async (req, res) => {
   }
 });
 
+app.get('/api/panchayat/analytics', async (req, res) => {
+  const userId = await requirePanchayatAuth(req, res);
+  if (!userId) return;
+  try {
+    const [metrics, users] = await Promise.all([
+      neo4jService.getAdminMetrics(),
+      neo4jService.getAllUsers(),
+    ]);
+
+    const stateCounts = new Map<string, number>();
+    const empCounts = new Map<string, number>();
+    users.forEach((u: any) => {
+      if (u.state) stateCounts.set(u.state, (stateCounts.get(u.state) || 0) + 1);
+      const emp = u.employment || u.occupation;
+      if (emp) empCounts.set(emp, (empCounts.get(emp) || 0) + 1);
+    });
+
+    const byState = Array.from(stateCounts.entries())
+      .map(([state, count]) => ({ state, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+
+    const byEmployment = Array.from(empCounts.entries())
+      .map(([employment, count]) => ({ employment, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+
+    return res.json({
+      summary: {
+        totalUsers: metrics.users.total,
+        totalSchemes: metrics.schemes.total,
+        onboardedUsers: metrics.users.onboarded,
+        enrichedSchemes: metrics.schemes.enriched,
+        enrichmentRate: metrics.schemes.enrichmentRate,
+      },
+      trends: metrics.trends,
+      distribution: { byState, byEmployment },
+    });
+  } catch (error: any) {
+    console.error('Panchayat analytics error:', error);
+    return res.status(500).json({ error: 'Failed to fetch analytics', details: error.message });
+  }
+});
+
 app.post('/api/panchayat/login', async (req, res) => {
   try {
     const { email, password } = req.body || {};
@@ -1180,6 +1224,7 @@ app.post('/api/panchayat/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
+    // Panchayat officers work full-day sessions — issue an 8-hour token.
     const token = jwtService.generateAccessToken(
       panchayatUser.userId,
       panchayatUser.email,
@@ -1188,7 +1233,8 @@ app.post('/api/panchayat/login', async (req, res) => {
         panchayatName: panchayatUser.panchayatName,
         district: panchayatUser.district,
         state: panchayatUser.state,
-      }
+      },
+      '8h'
     );
 
     return res.json({

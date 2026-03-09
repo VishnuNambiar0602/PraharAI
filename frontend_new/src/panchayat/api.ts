@@ -103,9 +103,9 @@ export async function getSchemes(params?: {
   const query = new URLSearchParams();
   if (params?.page) query.set('page', String(params.page));
   if (params?.limit) query.set('limit', String(params.limit));
-  if (params?.search) query.set('search', params.search);
+  if (params?.search) query.set('q', params.search);
   if (params?.category) query.set('category', params.category);
-  const res = await fetch(`${API_BASE}/admin/schemes?${query}`, {
+  const res = await fetch(`${API_BASE}/schemes?${query}`, {
     headers: { ...authHeaders() },
   });
   if (!res.ok) throw new Error('Failed to fetch schemes');
@@ -143,12 +143,53 @@ export async function getSystemHealth() {
 
 // ─── Analytics ────────────────────────────────────────────────
 
-export async function getAnalytics() {
-  const res = await fetch(`${API_BASE}/admin/analytics`, {
+export async function getAnalytics(): Promise<import('./types').AnalyticsData> {
+  const res = await fetch(`${API_BASE}/panchayat/analytics`, {
     headers: { ...authHeaders() },
   });
   if (!res.ok) throw new Error('Failed to fetch analytics');
-  return res.json();
+  const raw = await res.json();
+
+  // Backend shape: { summary, trends: { users[], sync[] }, distribution: { byState[], byEmployment[] } }
+  const summary = raw.summary ?? {};
+  const trends = raw.trends ?? {};
+  const dist = raw.distribution ?? {};
+
+  const totalUsers: number = summary.totalUsers ?? 0;
+  const totalSchemes: number = summary.totalSchemes ?? 0;
+
+  const toDistEntry = (arr: any[], labelKey: string): import('./types').DistributionEntry[] => {
+    const total = arr.reduce((s: number, e: any) => s + (Number(e.count) || 0), 0) || 1;
+    return arr.map((e: any) => ({
+      label: String(e[labelKey] ?? ''),
+      count: Number(e.count) || 0,
+      percentage: Math.round(((Number(e.count) || 0) / total) * 100),
+    }));
+  };
+
+  const fmtDate = (d: string) => {
+    const dt = new Date(d);
+    return isNaN(dt.getTime())
+      ? d
+      : dt.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
+  };
+
+  return {
+    totalUsers,
+    totalSchemes,
+    enrichedSchemes: summary.enrichedSchemes ?? 0,
+    activeSchemes: totalSchemes,
+    stateDistribution: toDistEntry(dist.byState ?? [], 'state'),
+    employmentDistribution: toDistEntry(dist.byEmployment ?? [], 'employment'),
+    userGrowthTrend: (trends.users ?? []).map((u: any) => ({
+      month: fmtDate(u.date),
+      users: Number(u.count) || 0,
+    })),
+    schemeSyncTrend: (trends.sync ?? []).map((s: any) => ({
+      month: fmtDate(s.date),
+      schemes: Number(s.synced) || 0,
+    })),
+  };
 }
 
 // ─── AI Scheme Recommendations for a beneficiary ─────────────
