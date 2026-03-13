@@ -62,9 +62,7 @@ class SchemeSyncAgent {
       nextIndex?: number;
       totalSchemes?: number;
       syncRunId?: string;
-    }>(
-      this.RESUME_KEY
-    );
+    }>(this.RESUME_KEY);
     if (!state) return null;
 
     const nextIndex = Number(state.nextIndex);
@@ -250,7 +248,9 @@ class SchemeSyncAgent {
           `🔁 Resuming incremental sync from index ${startIndex}/${totalSchemes} (remaining ${totalSchemes - startIndex})`
         );
       } else {
-        console.log('🔄 Starting new incremental sync run without clearing existing Scheme nodes...');
+        console.log(
+          '🔄 Starting new incremental sync run without clearing existing Scheme nodes...'
+        );
         syncRunId = `run_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
         await this.saveResumeState(0, totalSchemes, syncRunId);
       }
@@ -263,6 +263,7 @@ class SchemeSyncAgent {
 
       let processed = startIndex;
       const upsertTotals = { inserted: 0, updated: 0, unchanged: 0 };
+      const changedSchemeIds = new Set<string>();
       for (let i = startIndex; i < totalSchemes; i += this.ENRICH_BATCH_SIZE) {
         const batch = allSchemes.slice(i, i + this.ENRICH_BATCH_SIZE);
         const batchEnd = Math.min(totalSchemes, i + batch.length);
@@ -273,6 +274,9 @@ class SchemeSyncAgent {
         upsertTotals.inserted += upsertSummary.inserted;
         upsertTotals.updated += upsertSummary.updated;
         upsertTotals.unchanged += upsertSummary.unchanged;
+        for (const schemeId of upsertSummary.changedSchemeIds) {
+          changedSchemeIds.add(schemeId);
+        }
 
         processed = batchEnd;
         await this.saveResumeState(processed, totalSchemes, syncRunId);
@@ -302,7 +306,11 @@ class SchemeSyncAgent {
       // Finalize graph relationships/meta only after all batches are persisted.
       console.log('🔗 Finalizing graph links and sync metadata...');
       const finalizeStartedAt = Date.now();
-      await neo4jService.finalizeIncrementalSchemeSync(totalSchemes, syncRunId);
+      await neo4jService.finalizeIncrementalSchemeSync(
+        totalSchemes,
+        syncRunId,
+        Array.from(changedSchemeIds)
+      );
       await this.clearResumeState();
       const finalizeDurationSec = ((Date.now() - finalizeStartedAt) / 1000).toFixed(2);
       console.log(`✅ Finalization stage finished in ${finalizeDurationSec}s`);

@@ -761,8 +761,10 @@ class Neo4jDbService {
       page_enriched_at?: string | null;
     }[],
     syncRunId: string
-  ): Promise<{ inserted: number; updated: number; unchanged: number }> {
-    if (!schemes.length) return { inserted: 0, updated: 0, unchanged: 0 };
+  ): Promise<{ inserted: number; updated: number; unchanged: number; changedSchemeIds: string[] }> {
+    if (!schemes.length) {
+      return { inserted: 0, updated: 0, unchanged: 0, changedSchemeIds: [] };
+    }
 
     const seen = new Set<string>();
     const uniqueSchemes = schemes.filter((s) => {
@@ -810,6 +812,7 @@ class Neo4jDbService {
       inserted: number;
       updated: number;
       unchanged: number;
+      changedSchemeIds: string[];
     }>(
       `UNWIND $rows AS row
        MERGE (s:Scheme { scheme_id: row.scheme_id })
@@ -847,7 +850,8 @@ class Neo4jDbService {
        RETURN
          sum(CASE WHEN prev_hash = '' THEN 1 ELSE 0 END) AS inserted,
          sum(CASE WHEN prev_hash <> '' AND prev_hash <> row.source_hash THEN 1 ELSE 0 END) AS updated,
-         sum(CASE WHEN prev_hash <> '' AND prev_hash = row.source_hash THEN 1 ELSE 0 END) AS unchanged`,
+         sum(CASE WHEN prev_hash <> '' AND prev_hash = row.source_hash THEN 1 ELSE 0 END) AS unchanged,
+         [sid IN collect(CASE WHEN prev_hash = '' OR prev_hash <> row.source_hash THEN row.scheme_id ELSE NULL END) WHERE sid IS NOT NULL] AS changedSchemeIds`,
       { rows }
     );
 
@@ -858,26 +862,65 @@ class Neo4jDbService {
       inserted: Number(summary.inserted) || 0,
       updated: Number(summary.updated) || 0,
       unchanged: Number(summary.unchanged) || 0,
+      changedSchemeIds: Array.isArray(summary.changedSchemeIds)
+        ? summary.changedSchemeIds.map((sid) => String(sid)).filter((sid) => sid.length > 0)
+        : [],
     };
   }
 
   /**
    * Finalize incremental sync by linking groups, updating sync meta and clearing caches.
    */
-  async finalizeIncrementalSchemeSync(totalSchemes: number, syncRunId: string): Promise<void> {
+  private async invalidateSchemeCaches(
+    changedSchemeIds: string[],
+    deactivatedSchemeIds: string[]
+  ): Promise<void> {
+    const impacted = Array.from(
+      new Set([...changedSchemeIds, ...deactivatedSchemeIds].map((sid) => String(sid).trim()))
+    ).filter((sid) => sid.length > 0);
+
+    for (const schemeId of impacted) {
+      await redisService.del(`schemes:id:${schemeId}`);
+    }
+
+    await redisService.del('schemes:count');
+    await redisService.del('schemes:count:enriched');
+    await redisService.del('categories:all');
+
+    if (impacted.length > 0) {
+      await redisService.delPattern('schemes:all:*');
+      await redisService.delPattern('schemes:search:*');
+      await redisService.delPattern('schemes:search_count:*');
+      await redisService.delPattern('schemes:cats:*');
+      await redisService.delPattern('schemes:user:*');
+    }
+  }
+
+  async finalizeIncrementalSchemeSync(
+    totalSchemes: number,
+    syncRunId: string,
+    changedSchemeIds: string[]
+  ): Promise<void> {
     const deactivatedAt = new Date().toISOString();
-    await this.connection.executeWrite(
+    const staleRows = await this.connection.executeWrite<{ deactivatedSchemeIds: string[] }>(
       `MATCH (s:Scheme)
        WHERE coalesce(s.last_seen_run, '') <> $syncRunId
-       SET s.is_active = false,
-           s.deactivated_at = $deactivatedAt`,
+         AND coalesce(s.is_active, true) = true
+       WITH collect(s) AS stale, collect(s.scheme_id) AS staleIds
+       FOREACH (n IN stale |
+         SET n.is_active = false,
+             n.deactivated_at = $deactivatedAt)
+       RETURN [sid IN staleIds WHERE sid IS NOT NULL] AS deactivatedSchemeIds`,
       { syncRunId, deactivatedAt }
     );
 
+    const deactivatedSchemeIds = Array.isArray(staleRows[0]?.deactivatedSchemeIds)
+      ? staleRows[0].deactivatedSchemeIds.map((sid) => String(sid))
+      : [];
+
     await this.autoLinkSchemesToUserGroups();
     await this.updateSyncMeta(totalSchemes);
-    await redisService.delPattern('schemes:*');
-    await redisService.delPattern('categories:*');
+    await this.invalidateSchemeCaches(changedSchemeIds, deactivatedSchemeIds);
     console.log(`✅ Finalized incremental sync metadata for ${totalSchemes} schemes`);
   }
 
