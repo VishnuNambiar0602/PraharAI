@@ -30,6 +30,15 @@ const MAX_TOOL_FAILURES = 2;
 const MIN_INTENT_CONFIDENCE = 0.6;
 const MIN_HIGH_RISK_INTENT_CONFIDENCE = 0.7;
 const HIGH_RISK_INTENTS = new Set(['eligibility_check', 'recommendation', 'profile_update']);
+const INTENT_TOOL_ALLOWLIST: Record<string, string[]> = {
+  scheme_search: ['search_schemes', 'get_scheme_details', 'get_schemes_by_category'],
+  eligibility_check: ['search_schemes', 'check_eligibility', 'get_scheme_details'],
+  recommendation: ['get_recommendations', 'get_user_profile'],
+  application_info: ['search_schemes', 'get_scheme_details'],
+  profile_update: ['get_user_profile', 'update_user_profile'],
+  profile_query: ['get_user_profile'],
+  general: ['search_schemes', 'get_scheme_details', 'get_schemes_by_category'],
+};
 
 function createTraceId(): string {
   return `react_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -62,7 +71,7 @@ class ReActAgent {
   async process(
     message: string,
     userId: string,
-    _conversationHistory: ChatMessage[] = []
+    conversationHistory: ChatMessage[] = []
   ): Promise<AgentResponse> {
     const traceId = createTraceId();
     console.log(`\n🤖 ReAct Agent [${traceId}] processing: "${message}"`);
@@ -105,9 +114,18 @@ class ReActAgent {
       };
     }
 
+    const rewrittenMessage = this.rewriteQuery(message, intent, conversationHistory);
+    if (rewrittenMessage !== message) {
+      thoughts.push({
+        type: 'reasoning',
+        content: `Rewrote query for clearer tool routing: "${rewrittenMessage}"`,
+        timestamp: Date.now(),
+      });
+    }
+
     // Step 2: Generate plan
-    const plan = this.generatePlan(message, userId, intent);
-    const safePlan = this.validateAndNormalizePlan(plan, traceId);
+    const plan = this.generatePlan(rewrittenMessage, userId, intent);
+    const safePlan = this.validateAndNormalizePlan(plan, traceId, intent.primary);
     const planThought: AgentThought = {
       type: 'reasoning',
       content: `Plan: ${safePlan.map((s, i) => `${i + 1}) ${s.toolName}`).join(' → ')}`,
@@ -173,7 +191,8 @@ class ReActAgent {
       );
 
       try {
-        const toolResult = await this.executeTool(action.toolName, resolvedParams);
+        const rawResult = await this.executeTool(action.toolName, resolvedParams);
+        const toolResult = this.normalizeToolResult(action.toolName, rawResult);
         console.log(`📊 Result: ${toolResult.success ? '✅ Success' : '❌ Failed'}`);
 
         const interpretation = this.interpretResult(action.toolName, toolResult);
@@ -416,11 +435,26 @@ class ReActAgent {
    * Remove invalid/unavailable tools and enforce sane dependency structure.
    */
   private validateAndNormalizePlan(plan: PlanStep[], traceId: string): PlanStep[] {
+  private validateAndNormalizePlan(
+    plan: PlanStep[],
+    traceId: string,
+    primaryIntent: string
+  ): PlanStep[] {
     const sanitized: PlanStep[] = [];
+    const allowlist = new Set(
+      INTENT_TOOL_ALLOWLIST[primaryIntent] || INTENT_TOOL_ALLOWLIST.general || []
+    );
 
     for (const step of plan) {
       if (!toolRegistry.has(step.toolName)) {
         console.log(`⚠️ [${traceId}] Dropping unknown tool from plan: ${step.toolName}`);
+        continue;
+      }
+
+      if (!allowlist.has(step.toolName)) {
+        console.log(
+          `⚠️ [${traceId}] Dropping disallowed tool for intent ${primaryIntent}: ${step.toolName}`
+        );
         continue;
       }
 
@@ -453,6 +487,79 @@ class ReActAgent {
     }
 
     return sanitized;
+  }
+
+  /**
+   * Rewrite ambiguous user text into a cleaner tool-facing query.
+   */
+  private rewriteQuery(
+    message: string,
+    intent: { primary: string; confidence: number; secondary: string[] },
+    conversationHistory: ChatMessage[]
+  ): string {
+    const original = (message || '').trim();
+    if (!original) return 'schemes';
+
+    const cleaned = original
+      .replace(/\bplease\b/gi, '')
+      .replace(/\bcan you\b/gi, '')
+      .replace(/\bcould you\b/gi, '')
+      .replace(/\bshow me\b/gi, 'show')
+      .replace(/\btell me\b/gi, 'show')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    const recentUserContext = conversationHistory
+      .filter((m) => m.role === 'user')
+      .slice(-2)
+      .map((m) => m.content)
+      .join(' ')
+      .trim();
+
+    if (intent.primary === 'eligibility_check' && !/scheme|yojana|id/i.test(cleaned)) {
+      return `${cleaned} eligibility scheme`;
+    }
+
+    if (intent.primary === 'recommendation' && !/recommend|best|suitable/i.test(cleaned)) {
+      return `best schemes ${cleaned}`;
+    }
+
+    if (intent.primary === 'scheme_search' && cleaned.length < 6 && recentUserContext) {
+      return `${cleaned} ${recentUserContext}`.trim();
+    }
+
+    return cleaned;
+  }
+
+  /**
+   * Normalize tool result shape to keep the ReAct loop resilient.
+   */
+  private normalizeToolResult(toolName: string, result: any): {
+    success: boolean;
+    data?: any;
+    error?: string;
+    executionTime?: number;
+  } {
+    if (!result || typeof result !== 'object') {
+      return {
+        success: false,
+        error: `Tool "${toolName}" returned invalid result payload`,
+      };
+    }
+
+    if (typeof result.success !== 'boolean') {
+      return {
+        success: false,
+        error: `Tool "${toolName}" result missing success flag`,
+      };
+    }
+
+    return {
+      success: result.success,
+      data: result.data,
+      error: result.error,
+      executionTime: result.executionTime,
+    };
   }
 
   /**
