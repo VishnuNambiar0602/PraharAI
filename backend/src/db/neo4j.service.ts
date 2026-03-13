@@ -160,6 +160,18 @@ export interface SyncMeta {
   total_schemes: number;
 }
 
+export interface SyncRunAudit {
+  runId: string;
+  startedAt: string;
+  finishedAt: string;
+  totalSchemes: number;
+  inserted: number;
+  updated: number;
+  unchanged: number;
+  deactivated: number;
+  durationSeconds: number;
+}
+
 // ─── Category extraction (single source of truth) ───────────────────────────
 
 const CATEGORY_RULES: Record<string, Record<string, string[]>> = {
@@ -449,6 +461,7 @@ class Neo4jDbService {
       'CREATE CONSTRAINT category_key IF NOT EXISTS FOR (c:Category) REQUIRE (c.type, c.value) IS UNIQUE',
       'CREATE CONSTRAINT usergroup_name IF NOT EXISTS FOR (ug:UserGroup) REQUIRE ug.name IS UNIQUE',
       'CREATE CONSTRAINT syncmeta_id IF NOT EXISTS FOR (sm:SyncMeta) REQUIRE sm.meta_id IS UNIQUE',
+      'CREATE CONSTRAINT syncrun_id IF NOT EXISTS FOR (sr:SyncRun) REQUIRE sr.run_id IS UNIQUE',
     ];
     for (const c of constraints) {
       try {
@@ -544,6 +557,63 @@ class Neo4jDbService {
       { now, total }
     );
     await redisService.del('sync_meta');
+  }
+
+  async recordSyncRun(run: SyncRunAudit): Promise<void> {
+    await this.connection.executeWrite(
+      `MERGE (sr:SyncRun { run_id: $runId })
+       SET sr.started_at = $startedAt,
+           sr.finished_at = $finishedAt,
+           sr.total_schemes = $totalSchemes,
+           sr.inserted = $inserted,
+           sr.updated = $updated,
+           sr.unchanged = $unchanged,
+           sr.deactivated = $deactivated,
+           sr.duration_seconds = $durationSeconds`,
+      run
+    );
+  }
+
+  async getRecentSyncRuns(limit = 5): Promise<SyncRunAudit[]> {
+    const safeLimit = Math.max(1, Math.min(20, Math.floor(limit)));
+    const rows = await this.connection.executeRead<{
+      runId: string;
+      startedAt: string;
+      finishedAt: string;
+      totalSchemes: number;
+      inserted: number;
+      updated: number;
+      unchanged: number;
+      deactivated: number;
+      durationSeconds: number;
+    }>(
+      `MATCH (sr:SyncRun)
+       RETURN
+         sr.run_id AS runId,
+         sr.started_at AS startedAt,
+         sr.finished_at AS finishedAt,
+         sr.total_schemes AS totalSchemes,
+         sr.inserted AS inserted,
+         sr.updated AS updated,
+         sr.unchanged AS unchanged,
+         sr.deactivated AS deactivated,
+         sr.duration_seconds AS durationSeconds
+       ORDER BY sr.finished_at DESC
+       LIMIT toInteger($limit)`,
+      { limit: safeLimit }
+    );
+
+    return rows.map((row) => ({
+      runId: String(row.runId || ''),
+      startedAt: String(row.startedAt || ''),
+      finishedAt: String(row.finishedAt || ''),
+      totalSchemes: Number(row.totalSchemes) || 0,
+      inserted: Number(row.inserted) || 0,
+      updated: Number(row.updated) || 0,
+      unchanged: Number(row.unchanged) || 0,
+      deactivated: Number(row.deactivated) || 0,
+      durationSeconds: Number(row.durationSeconds) || 0,
+    }));
   }
 
   async isFresh(maxAgeMs: number): Promise<boolean> {
@@ -900,7 +970,7 @@ class Neo4jDbService {
     totalSchemes: number,
     syncRunId: string,
     changedSchemeIds: string[]
-  ): Promise<void> {
+  ): Promise<{ deactivatedCount: number }> {
     const deactivatedAt = new Date().toISOString();
     const staleRows = await this.connection.executeWrite<{ deactivatedSchemeIds: string[] }>(
       `MATCH (s:Scheme)
@@ -922,6 +992,7 @@ class Neo4jDbService {
     await this.updateSyncMeta(totalSchemes);
     await this.invalidateSchemeCaches(changedSchemeIds, deactivatedSchemeIds);
     console.log(`✅ Finalized incremental sync metadata for ${totalSchemes} schemes`);
+    return { deactivatedCount: deactivatedSchemeIds.length };
   }
 
   /** Create Category nodes and HAS_CATEGORY relationships from JS side */

@@ -18,6 +18,17 @@ interface SyncStatus {
   lastSync: string | null;
   nextSync: string | null;
   isSyncing: boolean;
+  recentRuns?: Array<{
+    runId: string;
+    startedAt: string;
+    finishedAt: string;
+    totalSchemes: number;
+    inserted: number;
+    updated: number;
+    unchanged: number;
+    deactivated: number;
+    durationSeconds: number;
+  }>;
 }
 
 class SchemeSyncAgent {
@@ -168,7 +179,10 @@ class SchemeSyncAgent {
    * Get current sync status
    */
   async getSyncStatus(): Promise<SyncStatus> {
-    const meta = await neo4jService.getSyncMeta();
+    const [meta, recentRuns] = await Promise.all([
+      neo4jService.getSyncMeta(),
+      neo4jService.getRecentSyncRuns(5),
+    ]);
     const nextSync = meta.last_sync
       ? new Date(
           new Date(meta.last_sync + (meta.last_sync.includes('Z') ? '' : 'Z')).getTime() +
@@ -180,6 +194,7 @@ class SchemeSyncAgent {
       lastSync: meta.last_sync,
       nextSync,
       isSyncing: this.isSyncing,
+      recentRuns,
     };
   }
 
@@ -306,7 +321,7 @@ class SchemeSyncAgent {
       // Finalize graph relationships/meta only after all batches are persisted.
       console.log('🔗 Finalizing graph links and sync metadata...');
       const finalizeStartedAt = Date.now();
-      await neo4jService.finalizeIncrementalSchemeSync(
+      const finalizeSummary = await neo4jService.finalizeIncrementalSchemeSync(
         totalSchemes,
         syncRunId,
         Array.from(changedSchemeIds)
@@ -316,6 +331,17 @@ class SchemeSyncAgent {
       console.log(`✅ Finalization stage finished in ${finalizeDurationSec}s`);
 
       const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+      await neo4jService.recordSyncRun({
+        runId: syncRunId,
+        startedAt: new Date(startTime).toISOString(),
+        finishedAt: new Date().toISOString(),
+        totalSchemes,
+        inserted: upsertTotals.inserted,
+        updated: upsertTotals.updated,
+        unchanged: upsertTotals.unchanged,
+        deactivated: finalizeSummary.deactivatedCount,
+        durationSeconds: Number(duration),
+      });
       console.log(`✅ Sync complete! ${totalSchemes} schemes persisted to Neo4j in ${duration}s`);
     } catch (error: any) {
       console.error('❌ Sync failed:', error.message || error);
