@@ -121,9 +121,23 @@ export async function getPanchayatScopedStats() {
 
 // ─── Panchayat-scoped citizens ────────────────────────────────
 
-export async function getPanchayatCitizens(q?: string): Promise<import('./types').Beneficiary[]> {
-  const url = q
-    ? `${API_BASE}/panchayat/citizens?q=${encodeURIComponent(q)}`
+export async function getPanchayatCitizens(params?: {
+  q?: string;
+  page?: number;
+  limit?: number;
+  onboarding?: 'all' | 'complete' | 'pending';
+}): Promise<import('./types').PanchayatCitizenListResponse> {
+  const query = new URLSearchParams();
+  if (params?.q) query.set('q', params.q);
+  if (params?.page) query.set('page', String(params.page));
+  if (params?.limit) query.set('limit', String(params.limit));
+  if (params?.onboarding && params.onboarding !== 'all') {
+    query.set('onboarding', params.onboarding);
+  }
+
+  const queryString = query.toString();
+  const url = queryString
+    ? `${API_BASE}/panchayat/citizens?${queryString}`
     : `${API_BASE}/panchayat/citizens`;
   const res = await panchayatFetch(url);
   if (!res.ok) throw new Error('Failed to fetch citizens');

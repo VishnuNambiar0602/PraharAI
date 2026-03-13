@@ -23,6 +23,14 @@ export interface Beneficiary {
   onboardingComplete?: boolean;
 }
 
+export interface PanchayatCitizenListResponse {
+  items: Beneficiary[];
+  total: number;
+  page: number;
+  limit: number;
+  hasMore: boolean;
+}
+
 export interface Scheme {
   id: string;
   title: string;

@@ -1434,6 +1434,9 @@ app.get('/api/panchayat/citizens', async (req, res) => {
     const q = String(req.query.q ?? '')
       .toLowerCase()
       .trim();
+    const onboarding = String(req.query.onboarding ?? 'all').toLowerCase();
+    const page = Math.max(1, Number(req.query.page ?? 1) || 1);
+    const limit = Math.min(100, Math.max(1, Number(req.query.limit ?? 20) || 20));
     let citizens = await neo4jService.getUsersByPanchayatScoped(
       userId,
       panchayatUser.state,
@@ -1447,11 +1450,38 @@ app.get('/api/panchayat/citizens', async (req, res) => {
         const email = (u.email ?? '').toLowerCase();
         const district = (u.district ?? '').toLowerCase();
         const village = (u.village ?? '').toLowerCase();
-        return name.includes(q) || email.includes(q) || district.includes(q) || village.includes(q);
+        const panchayatName = (u.panchayat_name ?? u.panchayatName ?? '').toLowerCase();
+        return (
+          name.includes(q) ||
+          email.includes(q) ||
+          district.includes(q) ||
+          village.includes(q) ||
+          panchayatName.includes(q)
+        );
       });
     }
 
-    return res.json(citizens);
+    if (onboarding === 'complete') {
+      citizens = citizens.filter((u: any) =>
+        Boolean(u.onboarding_complete ?? u.onboardingComplete)
+      );
+    } else if (onboarding === 'pending') {
+      citizens = citizens.filter(
+        (u: any) => !Boolean(u.onboarding_complete ?? u.onboardingComplete)
+      );
+    }
+
+    const total = citizens.length;
+    const start = (page - 1) * limit;
+    const items = citizens.slice(start, start + limit);
+
+    return res.json({
+      items,
+      total,
+      page,
+      limit,
+      hasMore: start + items.length < total,
+    });
   } catch (error: any) {
     console.error('Panchayat citizens error:', error);
     return res.status(500).json({ error: 'Failed to fetch citizens', details: error.message });

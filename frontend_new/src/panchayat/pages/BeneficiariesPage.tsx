@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Search,
   X,
@@ -10,6 +10,7 @@ import {
   GraduationCap,
   ChevronRight,
   PlusCircle,
+  ChevronLeft,
 } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import {
@@ -58,6 +59,11 @@ export default function BeneficiariesPage() {
   const [beneficiaries, setBeneficiaries] = useState<Beneficiary[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [onboardingFilter, setOnboardingFilter] = useState<'all' | 'complete' | 'pending'>('all');
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
   const [selected, setSelected] = useState<Beneficiary | null>(null);
   const [recs, setRecs] = useState<Recommendation[]>([]);
   const [loadingRecs, setLoadingRecs] = useState(false);
@@ -77,13 +83,56 @@ export default function BeneficiariesPage() {
   });
   const locationState = useLocation().state as { openRegister?: boolean } | null;
   const panchayatUser = getPanchayatUser();
+  const pageSize = 20;
+
+  const loadCitizens = async (options?: {
+    search?: string;
+    page?: number;
+    onboarding?: 'all' | 'complete' | 'pending';
+    preserveSelection?: boolean;
+  }) => {
+    const nextPage = options?.page ?? page;
+    const nextSearch = options?.search ?? debouncedSearch;
+    const nextOnboarding = options?.onboarding ?? onboardingFilter;
+
+    const data = await getPanchayatCitizens({
+      q: nextSearch || undefined,
+      page: nextPage,
+      limit: pageSize,
+      onboarding: nextOnboarding,
+    });
+
+    setBeneficiaries(Array.isArray(data.items) ? data.items : []);
+    setTotal(data.total || 0);
+    setHasMore(Boolean(data.hasMore));
+    setPage(data.page || nextPage);
+
+    if (!options?.preserveSelection && selected) {
+      const updatedSelection = (data.items || []).find((item) => item.userId === selected.userId);
+      if (!updatedSelection) {
+        setSelected(null);
+        setRecs([]);
+      } else {
+        setSelected(updatedSelection);
+      }
+    }
+  };
 
   useEffect(() => {
-    getPanchayatCitizens()
-      .then((data) => setBeneficiaries(Array.isArray(data) ? data : []))
+    const timeout = window.setTimeout(() => {
+      setDebouncedSearch(searchTerm.trim());
+      setPage(1);
+    }, 250);
+
+    return () => window.clearTimeout(timeout);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    setLoading(true);
+    loadCitizens({ search: debouncedSearch, page, onboarding: onboardingFilter })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  }, [debouncedSearch, onboardingFilter, page]);
 
   // Open register panel if navigated here with openRegister state
   useEffect(() => {
@@ -119,8 +168,8 @@ export default function BeneficiariesPage() {
         income: '',
         education: '',
       });
-      // Refresh list
-      getPanchayatCitizens().then((data) => setBeneficiaries(Array.isArray(data) ? data : []));
+      setPage(1);
+      await loadCitizens({ search: debouncedSearch, page: 1, onboarding: onboardingFilter });
     } catch (err) {
       setRegisterError(err instanceof Error ? err.message : 'Registration failed.');
     } finally {
@@ -148,15 +197,10 @@ export default function BeneficiariesPage() {
     }
   };
 
-  const filtered = beneficiaries.filter(
-    (u) =>
-      u.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.state?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.village?.toLowerCase().includes(searchTerm.toLowerCase())
+  const onboarded = useMemo(
+    () => beneficiaries.filter((u) => u.onboardingComplete).length,
+    [beneficiaries]
   );
-
-  const onboarded = beneficiaries.filter((u) => u.onboardingComplete).length;
 
   if (loading) {
     return (
@@ -212,13 +256,13 @@ export default function BeneficiariesPage() {
             {[
               {
                 label: 'Total Citizens',
-                value: beneficiaries.length,
+                value: total,
                 color: 'var(--color-primary-600)',
               },
               { label: 'Active', value: onboarded, color: '#059669' },
               {
-                label: 'Registered',
-                value: beneficiaries.length - onboarded,
+                label: 'Visible on page',
+                value: beneficiaries.length,
                 color: 'var(--color-accent-700)',
               },
             ].map(({ label, value, color }) => (
@@ -250,15 +294,35 @@ export default function BeneficiariesPage() {
               <Search className="size-4 shrink-0" style={{ color: 'var(--color-muted-2)' }} />
               <input
                 type="text"
-                placeholder="Search by name, email, state, or village…"
+                placeholder="Search by name, email, district, or panchayat…"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="flex-1 bg-transparent outline-none text-sm"
                 style={{ color: 'var(--color-ink)' }}
               />
+              <select
+                value={onboardingFilter}
+                onChange={(e) => {
+                  setOnboardingFilter(e.target.value as 'all' | 'complete' | 'pending');
+                  setPage(1);
+                }}
+                className="rounded-lg border px-2.5 py-1.5 text-xs font-medium"
+                style={{
+                  borderColor: 'var(--color-border)',
+                  color: 'var(--color-ink)',
+                  background: 'var(--color-parchment)',
+                }}
+              >
+                <option value="all">All statuses</option>
+                <option value="complete">Active only</option>
+                <option value="pending">Registered only</option>
+              </select>
               {searchTerm && (
                 <button
-                  onClick={() => setSearchTerm('')}
+                  onClick={() => {
+                    setSearchTerm('');
+                    setPage(1);
+                  }}
                   className="shrink-0"
                   style={{ color: 'var(--color-muted-2)' }}
                 >
@@ -282,7 +346,7 @@ export default function BeneficiariesPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.length === 0 && (
+                  {beneficiaries.length === 0 && (
                     <tr>
                       <td colSpan={5} className="text-center py-10">
                         <p className="text-sm" style={{ color: 'var(--color-muted)' }}>
@@ -291,7 +355,7 @@ export default function BeneficiariesPage() {
                       </td>
                     </tr>
                   )}
-                  {filtered.map((u) => {
+                  {beneficiaries.map((u) => {
                     const av = getAvatarStyle(u.name || '');
                     const isSelected = selected?.userId === u.userId;
                     return (
@@ -359,6 +423,39 @@ export default function BeneficiariesPage() {
                   })}
                 </tbody>
               </table>
+            </div>
+
+            <div
+              className="px-4 py-3 flex items-center justify-between gap-3 border-t"
+              style={{ borderColor: 'var(--color-border)' }}
+            >
+              <p className="text-xs" style={{ color: 'var(--color-muted)' }}>
+                Showing{' '}
+                {(beneficiaries.length === 0 ? 0 : (page - 1) * pageSize + 1).toLocaleString(
+                  'en-IN'
+                )}{' '}
+                to {Math.min(page * pageSize, total).toLocaleString('en-IN')} of{' '}
+                {total.toLocaleString('en-IN')}
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setPage((current) => Math.max(1, current - 1))}
+                  disabled={page === 1}
+                  className="p-btn p-btn-secondary px-3 py-1.5 text-xs disabled:opacity-50"
+                >
+                  <ChevronLeft className="size-3.5" /> Prev
+                </button>
+                <span className="text-xs font-semibold" style={{ color: 'var(--color-ink-2)' }}>
+                  Page {page}
+                </span>
+                <button
+                  onClick={() => setPage((current) => current + 1)}
+                  disabled={!hasMore}
+                  className="p-btn p-btn-secondary px-3 py-1.5 text-xs disabled:opacity-50"
+                >
+                  Next <ChevronRight className="size-3.5" />
+                </button>
+              </div>
             </div>
           </div>
         </div>
