@@ -1,5 +1,5 @@
 /**
- * API Service — connects frontend_new to the backend at /api (proxied via Vite)
+ * API Service — connects frontend to the backend at /api (proxied via Vite)
  */
 
 import { Scheme, SchemePageDetails } from './types';

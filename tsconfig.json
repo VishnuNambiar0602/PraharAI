@@ -11,5 +11,5 @@
     "noEmit": true
   },
   "include": ["backend/src/**/*.ts"],
-  "exclude": ["node_modules", "backend/dist", "frontend_new", "ml-pipeline"]
+  "exclude": ["node_modules", "backend/dist", "frontend", "ml-pipeline"]
 }

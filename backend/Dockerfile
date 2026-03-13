@@ -5,7 +5,7 @@ WORKDIR /app
 # Copy root workspace config
 COPY package.json package-lock.json* ./
 COPY backend/package.json backend/
-COPY frontend_new/package.json frontend_new/
+COPY frontend/package.json frontend/
 
 # Install all workspace dependencies
 RUN npm ci --ignore-scripts 2>/dev/null || npm install --ignore-scripts
