@@ -277,14 +277,15 @@ class MLService {
   async recommend(
     userProfile: Record<string, any>,
     schemes: any[],
-    maxResults = 10
+    maxResults = 10,
+    minScore = 0.2
   ): Promise<RecommendResult | null> {
     if (!this.canCallML()) return null;
     const result = await postWithTimeout<RecommendResult>('/recommend', {
       user_profile: normalizeUserProfile(userProfile),
       schemes,
       max_results: maxResults,
-      min_score: 0.2,
+      min_score: minScore,
     });
     if (result) this.noteSuccess();
     else this.noteFailure();

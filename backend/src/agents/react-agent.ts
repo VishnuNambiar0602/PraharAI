@@ -26,6 +26,28 @@ import {
 import { mlService } from '../services/ml.service';
 
 const MAX_ITERATIONS = 5;
+const MAX_TOOL_FAILURES = 2;
+const MIN_INTENT_CONFIDENCE = 0.6;
+const MIN_HIGH_RISK_INTENT_CONFIDENCE = 0.7;
+const HIGH_RISK_INTENTS = new Set(['eligibility_check', 'recommendation', 'profile_update']);
+const INTENT_TOOL_ALLOWLIST: Record<string, string[]> = {
+  scheme_search: ['search_schemes', 'get_scheme_details', 'get_schemes_by_category'],
+  eligibility_check: [
+    'get_user_profile',
+    'search_schemes',
+    'check_eligibility',
+    'get_scheme_details',
+  ],
+  recommendation: ['get_user_profile', 'get_recommendations', 'search_schemes'],
+  application_info: ['search_schemes', 'get_scheme_details'],
+  profile_update: ['get_user_profile', 'update_user_profile'],
+  profile_query: ['get_user_profile'],
+  general: ['search_schemes', 'get_scheme_details', 'get_schemes_by_category'],
+};
+
+function createTraceId(): string {
+  return `react_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
 
 /** Planned step that the agent intends to execute */
 interface PlanStep {
@@ -54,9 +76,10 @@ class ReActAgent {
   async process(
     message: string,
     userId: string,
-    _conversationHistory: ChatMessage[] = []
+    conversationHistory: ChatMessage[] = []
   ): Promise<AgentResponse> {
-    console.log(`\n🤖 ReAct Agent processing: "${message}"`);
+    const traceId = createTraceId();
+    console.log(`\n🤖 ReAct Agent [${traceId}] processing: "${message}"`);
 
     const thoughts: AgentThought[] = [];
     const actions: AgentAction[] = [];
@@ -79,22 +102,85 @@ class ReActAgent {
     thoughts.push(intentThought);
     console.log(`💭 ${intentThought.content}`);
 
+    const clarification = this.getUncertaintyFallback(intent, message);
+    if (clarification) {
+      const uncertaintyThought: AgentThought = {
+        type: 'reasoning',
+        content: `Confidence too low for safe tool execution (${(intent.confidence * 100).toFixed(0)}%). Asking clarifying question instead.`,
+        timestamp: Date.now(),
+      };
+      thoughts.push(uncertaintyThought);
+      return {
+        response: clarification,
+        thinking: thoughts,
+        actionsUsed: actions,
+        observations,
+        confidence: Math.max(0.35, Math.min(0.65, intent.confidence)),
+      };
+    }
+
+    const rewrittenMessage = this.rewriteQuery(message, intent, conversationHistory);
+    if (rewrittenMessage !== message) {
+      thoughts.push({
+        type: 'reasoning',
+        content: `Rewrote query for clearer tool routing: "${rewrittenMessage}"`,
+        timestamp: Date.now(),
+      });
+    }
+
     // Step 2: Generate plan
-    const plan = this.generatePlan(message, userId, intent);
+    const plan = this.generatePlan(rewrittenMessage, userId, intent);
+    const safePlan = this.validateAndNormalizePlan(plan, traceId, intent.primary);
     const planThought: AgentThought = {
       type: 'reasoning',
-      content: `Plan: ${plan.map((s, i) => `${i + 1}) ${s.toolName}`).join(' → ')}`,
+      content: `Plan: ${safePlan.map((s, i) => `${i + 1}) ${s.toolName}`).join(' → ')}`,
       timestamp: Date.now(),
     };
     thoughts.push(planThought);
     console.log(`📋 ${planThought.content}`);
 
     // Step 3: Execute plan steps
-    for (let i = 0; i < Math.min(plan.length, MAX_ITERATIONS); i++) {
-      const step = plan[i];
+    const executionPlan = [...safePlan];
+    let failureCount = 0;
+    let recoveryUsed = false;
+    for (let i = 0; i < Math.min(executionPlan.length, MAX_ITERATIONS); i++) {
+      const step = executionPlan[i];
+
+      if (step.dependsOn !== undefined) {
+        const dependency = observations[step.dependsOn];
+        if (!dependency?.result?.success) {
+          const skippedMsg = `Skipping ${step.toolName}: dependency step ${step.dependsOn + 1} failed.`;
+          console.log(`⏭️ [${traceId}] ${skippedMsg}`);
+          observations.push({
+            toolName: step.toolName,
+            result: { success: false, error: 'Dependency failed' },
+            interpretation: skippedMsg,
+          });
+          context.errors.push(`${step.toolName}: dependency failed`);
+          continue;
+        }
+      }
 
       // Resolve dynamic parameters from context
       const resolvedParams = this.resolveParameters(step, context, userId);
+
+      const validationError = this.validateAction(step.toolName, resolvedParams);
+      if (validationError) {
+        const errMsg = `Skipping ${step.toolName}: ${validationError}`;
+        console.log(`⏭️ [${traceId}] ${errMsg}`);
+        observations.push({
+          toolName: step.toolName,
+          result: { success: false, error: validationError },
+          interpretation: errMsg,
+        });
+        context.errors.push(`${step.toolName}: ${validationError}`);
+        failureCount++;
+        if (failureCount >= MAX_TOOL_FAILURES) {
+          console.log(`🛑 [${traceId}] Tool failure budget reached (${failureCount}).`);
+          break;
+        }
+        continue;
+      }
 
       const action: AgentAction = {
         toolName: step.toolName,
@@ -102,12 +188,18 @@ class ReActAgent {
         reasoning: step.reasoning,
       };
       actions.push(action);
+      thoughts.push({
+        type: 'tool_selection',
+        content: `Using tool: ${step.toolName}`,
+        timestamp: Date.now(),
+      });
       console.log(
-        `⚡ Step ${i + 1}: ${action.toolName}(${JSON.stringify(resolvedParams).slice(0, 80)}...)`
+        `⚡ [${traceId}] Step ${i + 1}: ${action.toolName}(${JSON.stringify(resolvedParams).slice(0, 80)}...)`
       );
 
       try {
-        const toolResult = await this.executeTool(action.toolName, resolvedParams);
+        const rawResult = await this.executeTool(action.toolName, resolvedParams);
+        const toolResult = this.normalizeToolResult(action.toolName, rawResult);
         console.log(`📊 Result: ${toolResult.success ? '✅ Success' : '❌ Failed'}`);
 
         const interpretation = this.interpretResult(action.toolName, toolResult);
@@ -123,6 +215,7 @@ class ReActAgent {
           this.updateContext(context, action.toolName, toolResult.data);
         } else {
           context.errors.push(`${action.toolName}: ${toolResult.error}`);
+          failureCount++;
         }
 
         // Generate reflection after each step
@@ -132,15 +225,34 @@ class ReActAgent {
           timestamp: Date.now(),
         };
         thoughts.push(reflectionThought);
+
+        if (!recoveryUsed) {
+          const recoveryStep = this.buildRecoveryStep(step, toolResult, context, message);
+          if (recoveryStep) {
+            recoveryUsed = true;
+            executionPlan.splice(i + 1, 0, recoveryStep);
+            thoughts.push({
+              type: 'reasoning',
+              content: `Initial ${step.toolName} result was not useful. Replanning with ${recoveryStep.toolName}.`,
+              timestamp: Date.now(),
+            });
+          }
+        }
       } catch (error: any) {
-        console.error(`❌ Step ${i + 1} error: ${error.message}`);
+        console.error(`❌ [${traceId}] Step ${i + 1} error: ${error.message}`);
         context.errors.push(`${step.toolName}: ${error.message}`);
+        failureCount++;
         observations.push({
           toolName: step.toolName,
           result: { success: false, error: error.message },
           interpretation: `Skipping failed step: ${error.message}`,
         });
         // Continue to next step — don't abort the whole plan
+      }
+
+      if (failureCount >= MAX_TOOL_FAILURES) {
+        console.log(`🛑 [${traceId}] Tool failure budget reached (${failureCount}).`);
+        break;
       }
     }
 
@@ -235,6 +347,11 @@ class ReActAgent {
       case 'eligibility_check':
         return [
           {
+            toolName: 'get_user_profile',
+            parameters: { userId },
+            reasoning: 'Load the user profile before checking scheme eligibility.',
+          },
+          {
             toolName: 'search_schemes',
             parameters: { query: keywords, state, limit: 3 },
             reasoning: 'First find relevant schemes to check eligibility against.',
@@ -243,16 +360,23 @@ class ReActAgent {
             toolName: 'check_eligibility',
             parameters: { userId, schemeId: '__from_context__' },
             reasoning: 'Check eligibility for the top matching scheme.',
-            dependsOn: 0,
+            dependsOn: 1,
           },
         ];
 
       case 'recommendation':
         return [
           {
+            toolName: 'get_user_profile',
+            parameters: { userId },
+            reasoning:
+              'Load the user profile so recommendations can be interpreted and recovered if needed.',
+          },
+          {
             toolName: 'get_recommendations',
             parameters: { userId, count: 5 },
             reasoning: 'Get personalized recommendations for the user.',
+            dependsOn: 0,
           },
         ];
 
@@ -302,6 +426,194 @@ class ReActAgent {
   }
 
   /**
+   * If intent confidence is too low, avoid speculative tool calls and ask the user to clarify.
+   */
+  private getUncertaintyFallback(
+    intent: { primary: string; confidence: number; secondary: string[] },
+    message: string
+  ): string | null {
+    const threshold = HIGH_RISK_INTENTS.has(intent.primary)
+      ? MIN_HIGH_RISK_INTENT_CONFIDENCE
+      : MIN_INTENT_CONFIDENCE;
+
+    if (intent.confidence >= threshold) return null;
+
+    const msg = (message || '').toLowerCase();
+    const hasStrongKeyword =
+      msg.includes('scheme') ||
+      msg.includes('eligib') ||
+      msg.includes('recommend') ||
+      msg.includes('profile') ||
+      msg.includes('apply');
+
+    if (hasStrongKeyword && intent.confidence >= threshold - 0.1) return null;
+
+    if (intent.primary === 'eligibility_check') {
+      return 'Please share which scheme you want to check eligibility for, or describe your profile (state, age, occupation, income) and I can suggest one first.';
+    }
+
+    if (intent.primary === 'recommendation') {
+      return 'I can help with recommendations. Please tell me your state and one or two priorities (for example: education, agriculture, women, startup, pension).';
+    }
+
+    if (intent.primary === 'profile_update') {
+      return 'Please specify exactly which profile fields you want to update (for example: age, state, education, occupation, income).';
+    }
+
+    return 'Could you clarify what you want to do: search schemes, check eligibility, view your profile, or get recommendations?';
+  }
+
+  /**
+   * Remove invalid/unavailable tools and enforce sane dependency structure.
+   */
+  private validateAndNormalizePlan(
+    plan: PlanStep[],
+    traceId: string,
+    primaryIntent: string
+  ): PlanStep[] {
+    const sanitized: PlanStep[] = [];
+    const allowlist = new Set(
+      INTENT_TOOL_ALLOWLIST[primaryIntent] || INTENT_TOOL_ALLOWLIST.general || []
+    );
+
+    for (const step of plan) {
+      if (!toolRegistry.has(step.toolName)) {
+        console.log(`⚠️ [${traceId}] Dropping unknown tool from plan: ${step.toolName}`);
+        continue;
+      }
+
+      if (!allowlist.has(step.toolName)) {
+        console.log(
+          `⚠️ [${traceId}] Dropping disallowed tool for intent ${primaryIntent}: ${step.toolName}`
+        );
+        continue;
+      }
+
+      const normalizedStep: PlanStep = {
+        ...step,
+      };
+
+      if (
+        normalizedStep.dependsOn !== undefined &&
+        (normalizedStep.dependsOn < 0 || normalizedStep.dependsOn >= sanitized.length)
+      ) {
+        console.log(
+          `⚠️ [${traceId}] Removing invalid dependency for ${normalizedStep.toolName}: ${normalizedStep.dependsOn}`
+        );
+        delete normalizedStep.dependsOn;
+      }
+
+      sanitized.push(normalizedStep);
+      if (sanitized.length >= MAX_ITERATIONS) break;
+    }
+
+    if (sanitized.length === 0) {
+      return [
+        {
+          toolName: 'search_schemes',
+          parameters: { query: 'schemes', limit: 5 },
+          reasoning: 'Fallback plan when generated plan is empty or invalid.',
+        },
+      ];
+    }
+
+    return sanitized;
+  }
+
+  /**
+   * Rewrite ambiguous user text into a cleaner tool-facing query.
+   */
+  private rewriteQuery(
+    message: string,
+    intent: { primary: string; confidence: number; secondary: string[] },
+    conversationHistory: ChatMessage[]
+  ): string {
+    const original = (message || '').trim();
+    if (!original) return 'schemes';
+
+    const cleaned = original
+      .replace(/\bplease\b/gi, '')
+      .replace(/\bcan you\b/gi, '')
+      .replace(/\bcould you\b/gi, '')
+      .replace(/\bshow me\b/gi, 'show')
+      .replace(/\btell me\b/gi, 'show')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    const recentUserContext = conversationHistory
+      .filter((m) => m.role === 'user')
+      .slice(-2)
+      .map((m) => m.content)
+      .join(' ')
+      .trim();
+
+    if (intent.primary === 'eligibility_check' && !/scheme|yojana|id/i.test(cleaned)) {
+      return `${cleaned} eligibility scheme`;
+    }
+
+    if (intent.primary === 'recommendation' && !/recommend|best|suitable/i.test(cleaned)) {
+      return `best schemes ${cleaned}`;
+    }
+
+    if (intent.primary === 'scheme_search' && cleaned.length < 6 && recentUserContext) {
+      return `${cleaned} ${recentUserContext}`.trim();
+    }
+
+    return cleaned;
+  }
+
+  /**
+   * Normalize tool result shape to keep the ReAct loop resilient.
+   */
+  private normalizeToolResult(
+    toolName: string,
+    result: any
+  ): {
+    success: boolean;
+    data?: any;
+    error?: string;
+    executionTime?: number;
+  } {
+    if (!result || typeof result !== 'object') {
+      return {
+        success: false,
+        error: `Tool "${toolName}" returned invalid result payload`,
+      };
+    }
+
+    if (typeof result.success !== 'boolean') {
+      return {
+        success: false,
+        error: `Tool "${toolName}" result missing success flag`,
+      };
+    }
+
+    return {
+      success: result.success,
+      data: result.data,
+      error: result.error,
+      executionTime: result.executionTime,
+    };
+  }
+
+  /**
+   * Validate action parameters before execution to avoid noisy tool calls.
+   */
+  private validateAction(toolName: string, params: Record<string, any>): string | null {
+    const tool = toolRegistry.get(toolName);
+    if (!tool) return `Tool not found: ${toolName}`;
+
+    if (typeof tool.validate === 'function') {
+      const validation = tool.validate(params);
+      if (!validation.valid) {
+        return validation.error || 'Invalid parameters';
+      }
+    }
+
+    return null;
+  }
+
+  /**
    * Resolve dynamic parameters like __from_context__
    */
   private resolveParameters(
@@ -335,7 +647,7 @@ class ReActAgent {
     switch (toolName) {
       case 'search_schemes':
         if (data?.schemes) {
-          context.schemes.push(...data.schemes);
+          context.schemes = this.mergeUniqueById(context.schemes, data.schemes);
         }
         break;
       case 'get_scheme_details':
@@ -359,15 +671,45 @@ class ReActAgent {
         break;
       case 'get_recommendations':
         if (data?.recommendations) {
-          context.recommendations.push(...data.recommendations);
+          context.recommendations = this.mergeUniqueById(
+            context.recommendations,
+            data.recommendations
+          );
         }
         break;
       case 'get_schemes_by_category':
         if (data?.schemes) {
-          context.schemes.push(...data.schemes);
+          context.schemes = this.mergeUniqueById(context.schemes, data.schemes);
         }
         break;
     }
+  }
+
+  private mergeUniqueById(existing: any[], incoming: any[]): any[] {
+    const merged = [...existing];
+    const seen = new Map<string, number>();
+
+    merged.forEach((item, index) => {
+      const key = String(item?.id || item?.schemeId || item?.scheme_id || '');
+      if (key) seen.set(key, index);
+    });
+
+    for (const item of incoming) {
+      const key = String(item?.id || item?.schemeId || item?.scheme_id || '');
+      if (!key) {
+        merged.push(item);
+        continue;
+      }
+      const existingIndex = seen.get(key);
+      if (existingIndex === undefined) {
+        seen.set(key, merged.length);
+        merged.push(item);
+      } else {
+        merged[existingIndex] = { ...merged[existingIndex], ...item };
+      }
+    }
+
+    return merged;
   }
 
   /**
@@ -391,6 +733,9 @@ class ReActAgent {
     const data = result.data;
     switch (toolName) {
       case 'search_schemes':
+        if (!data?.count) {
+          return 'No matching schemes were found in the initial search.';
+        }
         return `Found ${data?.count || 0} matching schemes.`;
       case 'get_scheme_details':
         return `Retrieved details for: ${data?.name || 'unknown scheme'}.`;
@@ -399,6 +744,9 @@ class ReActAgent {
       case 'get_user_profile':
         return `Profile loaded for ${data?.name || 'user'}. Complete: ${data?.profileComplete ? 'Yes' : 'No'}.`;
       case 'get_recommendations':
+        if (!data?.count) {
+          return 'Personalized recommendations returned no results.';
+        }
         return `Generated ${data?.count || 0} recommendations (source: ${data?.source || 'unknown'}).`;
       case 'get_schemes_by_category':
         return `Found ${data?.count || 0} schemes in category ${data?.category || 'unknown'}.`;
@@ -481,6 +829,9 @@ class ReActAgent {
 
     // Fallback
     if (parts.length === 0) {
+      if (context.profile && !context.profile.profileComplete) {
+        return 'I need a bit more profile information to give a strong answer. Please share your state and one detail like age, occupation, income, or education.';
+      }
       return `I'm here to help you find government schemes. ${this.generateSimpleResponse(message)}`;
     }
 
@@ -602,6 +953,118 @@ class ReActAgent {
   /**
    * Calculate agent confidence
    */
+
+  private buildRecoveryStep(
+    step: PlanStep,
+    result: { success: boolean; data?: any; error?: string },
+    context: AgentContext,
+    message: string
+  ): PlanStep | null {
+    if (!result.success) {
+      return null;
+    }
+
+    if (step.toolName === 'search_schemes' && Number(result.data?.count || 0) === 0) {
+      const fallbackQuery = this.buildFallbackSearchQuery(
+        message,
+        step.parameters.query,
+        context.profile
+      );
+      if (!fallbackQuery) {
+        return null;
+      }
+
+      return {
+        toolName: 'search_schemes',
+        parameters: {
+          query: fallbackQuery,
+          state: step.parameters.state || context.profile?.state || this.extractState(message),
+          limit: step.parameters.limit || 5,
+        },
+        reasoning:
+          'Retry the search with a broader query because the first search returned no matches.',
+      };
+    }
+
+    if (step.toolName === 'get_recommendations' && Number(result.data?.count || 0) === 0) {
+      const fallbackQuery = this.buildFallbackSearchQuery(message, '', context.profile);
+      if (!fallbackQuery) {
+        return null;
+      }
+
+      return {
+        toolName: 'search_schemes',
+        parameters: {
+          query: fallbackQuery,
+          state: context.profile?.state || this.extractState(message),
+          limit: 5,
+        },
+        reasoning:
+          'Fallback to search-based discovery because personalized recommendations were empty.',
+      };
+    }
+
+    return null;
+  }
+
+  private buildFallbackSearchQuery(
+    message: string,
+    previousQuery: string,
+    profile: any | null
+  ): string | null {
+    const category = this.extractFallbackCategory(message, profile);
+    if (category && category.toLowerCase() !== String(previousQuery || '').toLowerCase()) {
+      return category;
+    }
+
+    const keywords = this.extractKeywords(message)
+      .split(' ')
+      .filter((word) => word && word.toLowerCase() !== String(previousQuery || '').toLowerCase());
+
+    if (keywords.length > 0) {
+      return keywords.slice(0, 2).join(' ');
+    }
+
+    if (profile?.employment) {
+      return String(profile.employment).toLowerCase();
+    }
+
+    return previousQuery && previousQuery !== 'schemes' ? 'schemes' : null;
+  }
+
+  private extractFallbackCategory(message: string, profile: any | null): string | null {
+    const normalized = String(message || '').toLowerCase();
+    const categories = [
+      'agriculture',
+      'education',
+      'women',
+      'startup',
+      'business',
+      'housing',
+      'health',
+      'employment',
+      'student',
+      'farmer',
+      'pension',
+      'scholarship',
+    ];
+
+    for (const category of categories) {
+      if (normalized.includes(category)) {
+        return category;
+      }
+    }
+
+    if (profile?.employment) {
+      const employment = String(profile.employment).toLowerCase();
+      if (employment.includes('farmer')) return 'agriculture';
+      if (employment.includes('student')) return 'education';
+      if (employment.includes('self-employed')) return 'business';
+      return employment;
+    }
+
+    return null;
+  }
   private calculateConfidence(_actions: AgentAction[], observations: AgentObservation[]): number {
     if (observations.length === 0) return 0.5;
     const successCount = observations.filter((o) => o.result.success).length;

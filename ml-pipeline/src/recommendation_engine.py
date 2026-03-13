@@ -13,6 +13,7 @@ import os
 # Optional: XGBoost for LTR
 try:
     import xgboost as xgb
+
     XGBOOST_AVAILABLE = True
 except ImportError:
     XGBOOST_AVAILABLE = False
@@ -20,6 +21,7 @@ except ImportError:
 # Optional: LightGBM for LTR ensemble
 try:
     import lightgbm as lgb
+
     LIGHTGBM_AVAILABLE = True
 except ImportError:
     LIGHTGBM_AVAILABLE = False
@@ -35,22 +37,22 @@ except ImportError:
 class RecommendationEngine:
     """
     Generate personalized scheme recommendations using Learning to Rank (LTR).
-    
+
     The engine:
     - Uses an XGBoost Gradient Boosted Tree to learn optimal ranking weights
     - Features inclusive of user groups, eligibility scores, and historical interactions
     - Ranks schemes by predicted likelihood of successful application
     """
-    
+
     def __init__(
         self,
         user_classifier: UserClassifier,
         eligibility_engine: EligibilityEngine,
-        model_path: Optional[str] = None
+        model_path: Optional[str] = None,
     ):
         """
         Initialize the recommendation engine.
-        
+
         Args:
             user_classifier: Trained UserClassifier instance
             eligibility_engine: EligibilityEngine instance
@@ -68,41 +70,44 @@ class RecommendationEngine:
 
         if model_path and os.path.exists(model_path):
             if XGBOOST_AVAILABLE:
-                xgb_path = model_path if model_path.endswith(".model") else \
-                    os.path.join(model_path, "xgb_ranker.model")
+                xgb_path = (
+                    model_path
+                    if model_path.endswith(".model")
+                    else os.path.join(model_path, "xgb_ranker.model")
+                )
                 if os.path.exists(xgb_path):
                     self.ranker = xgb.Booster()
                     self.ranker.load_model(xgb_path)
 
             if LIGHTGBM_AVAILABLE:
-                lgb_path = os.path.join(
-                    os.path.dirname(model_path), "lgb_ranker.txt"
-                )
+                lgb_path = os.path.join(os.path.dirname(model_path), "lgb_ranker.txt")
                 if os.path.exists(lgb_path):
                     self.lgb_ranker = lgb.Booster(model_file=lgb_path)
 
         # Scoring weights (fallback if neither LTR model is available)
         self.group_relevance_weight = 0.4
         self.eligibility_weight = 0.6
-    
+
     def generate_recommendations(
         self,
         user_profile: Dict[str, Any],
         schemes: List[Dict[str, Any]],
         min_recommendations: int = 5,
         max_recommendations: int = 20,
-        use_cache: bool = True
+        min_relevance_score: float = 0.0,
+        use_cache: bool = True,
     ) -> List[Dict[str, Any]]:
         """
         Generate personalized scheme recommendations for a user.
-        
+
         Args:
             user_profile: Dictionary containing user profile data
             schemes: List of available schemes
             min_recommendations: Minimum number of recommendations (default: 5)
             max_recommendations: Maximum number of recommendations (default: 20)
+            min_relevance_score: Minimum score threshold in [0, 1] for ML/fallback outputs
             use_cache: Whether to use cached recommendations (default: True)
-            
+
         Returns:
             List of recommendation dictionaries, each containing:
                 - scheme_id: Scheme identifier
@@ -113,100 +118,108 @@ class RecommendationEngine:
                 - explanation: Natural language explanation
                 - rank: Recommendation rank (1-based)
         """
-        user_id = user_profile.get('user_id', '')
-        
+        user_id = user_profile.get("user_id", "")
+        min_relevance_score = float(max(0.0, min(1.0, min_relevance_score)))
+
         # Check cache first
         if use_cache:
             cached = self._get_cached_recommendations(user_id)
             if cached:
-                return cached[:max_recommendations]
-        
+                filtered_cached = [
+                    rec
+                    for rec in cached
+                    if float(rec.get("relevance_score", 0.0)) >= min_relevance_score
+                ]
+                return filtered_cached[:max_recommendations]
+
         # Step 1: Classify user into groups
         classification = self.user_classifier.classify_user(user_profile)
-        user_groups = classification['groups']
-        
+        user_groups = classification["groups"]
+
         # Step 2: Retrieve candidate schemes for user's groups
         candidate_schemes = self._get_candidate_schemes(user_groups, schemes)
-        
+
         # Note: We don't enforce min_recommendations if we have fewer unique schemes
         # It's better to return fewer unique recommendations than duplicate schemes
-        
+
         # Step 3: Calculate eligibility scores for all candidates
         eligibility_results = self.eligibility_engine.batch_calculate_eligibility(
-            user_profile,
-            candidate_schemes
+            user_profile, candidate_schemes
         )
-        
+
         # Step 4: Rank candidates — LTR models if available, else rich heuristic
         scored_schemes = []
 
         if (self.use_ltr and self.ranker) or (LIGHTGBM_AVAILABLE and self.lgb_ranker):
             scored_schemes = self._rank_with_ltr(
-                candidate_schemes,
-                eligibility_results,
-                user_profile,
-                user_groups
+                candidate_schemes, eligibility_results, user_profile, user_groups
             )
         else:
             # Heuristic fallback using the 12-feature vector (first two features)
             for i, scheme in enumerate(candidate_schemes):
                 eligibility = eligibility_results[i]
-                feats = self._build_ranking_features(
-                    scheme, eligibility, user_profile, user_groups
-                )
+                feats = self._build_ranking_features(scheme, eligibility, user_profile, user_groups)
                 # Weighted sum: eligibility (0.45) + state_match (0.20) +
                 #               category_match (0.10) + group_rel (0.15) +
                 #               popularity (0.05) + age_range (0.05)
                 combined_score = (
-                    0.45 * feats[0] +
-                    0.20 * feats[2] +
-                    0.10 * feats[4] +
-                    0.15 * feats[5] +
-                    0.05 * feats[6] +
-                    0.05 * feats[7]
+                    0.45 * feats[0]
+                    + 0.20 * feats[2]
+                    + 0.10 * feats[4]
+                    + 0.15 * feats[5]
+                    + 0.05 * feats[6]
+                    + 0.05 * feats[7]
                 )
-                scored_schemes.append({
-                    "scheme": scheme,
-                    "eligibility": eligibility,
-                    "group_relevance": feats[5],
-                    "combined_score": combined_score,
-                })
+                scored_schemes.append(
+                    {
+                        "scheme": scheme,
+                        "eligibility": eligibility,
+                        "group_relevance": feats[5],
+                        "combined_score": combined_score,
+                    }
+                )
             scored_schemes.sort(key=lambda x: x["combined_score"], reverse=True)
-        
+
+        # Enforce min score while preserving ordering.
+        # If threshold removes every item, fall back to the top-scored candidate set.
+        thresholded_schemes = [
+            item
+            for item in scored_schemes
+            if float(item.get("combined_score", 0.0)) >= min_relevance_score
+        ]
+        scored_schemes = thresholded_schemes if thresholded_schemes else scored_schemes
+
         # Step 6: Take top N recommendations (between min and max)
         num_recommendations = min(
-            max(min_recommendations, len(scored_schemes)),
-            max_recommendations
+            max(min_recommendations, len(scored_schemes)), max_recommendations
         )
         top_schemes = scored_schemes[:num_recommendations]
-        
+
         # Step 7: Generate explanations for each recommendation
         recommendations = []
         for rank, item in enumerate(top_schemes, start=1):
             explanation = self._generate_explanation(
-                item['scheme'],
-                item['eligibility'],
-                user_profile
+                item["scheme"], item["eligibility"], user_profile
             )
-            
-            recommendations.append({
-                'scheme_id': item['scheme'].get('scheme_id', ''),
-                'scheme_name': item['scheme'].get('scheme_name', ''),
-                'relevance_score': float(item['combined_score']),
-                'eligibility_score': float(item['eligibility']['percentage']),
-                'matching_criteria': [
-                    c['name'] for c in item['eligibility']['met_criteria']
-                ],
-                'explanation': explanation,
-                'rank': rank,
-                'generated_at': datetime.now().isoformat()
-            })
-        
+
+            recommendations.append(
+                {
+                    "scheme_id": item["scheme"].get("scheme_id", ""),
+                    "scheme_name": item["scheme"].get("scheme_name", ""),
+                    "relevance_score": float(item["combined_score"]),
+                    "eligibility_score": float(item["eligibility"]["percentage"]),
+                    "matching_criteria": [c["name"] for c in item["eligibility"]["met_criteria"]],
+                    "explanation": explanation,
+                    "rank": rank,
+                    "generated_at": datetime.now().isoformat(),
+                }
+            )
+
         # Cache recommendations for 24 hours
         self._cache_recommendations(user_id, recommendations)
-        
+
         return recommendations
-    
+
     def _build_ranking_features(
         self,
         scheme: Dict[str, Any],
@@ -235,19 +248,27 @@ class RecommendationEngine:
         met = eligibility.get("met_criteria", [])
         total_criteria = max(len(eligibility.get("criteria", met)) or 1, 1)
 
-        state_match = 1.0 if (
-            profile.get("state") and
-            profile["state"].lower() in (scheme.get("state") or "").lower()
-        ) else 0.0
+        state_match = (
+            1.0
+            if (
+                profile.get("state")
+                and profile["state"].lower() in (scheme.get("state") or "").lower()
+            )
+            else 0.0
+        )
 
-        state_specific = 0.0 if (
-            not scheme.get("state") or
-            scheme.get("state", "").lower() in ("", "all", "national", "central")
-        ) else 1.0
+        state_specific = (
+            0.0
+            if (
+                not scheme.get("state")
+                or scheme.get("state", "").lower() in ("", "all", "national", "central")
+            )
+            else 1.0
+        )
 
         # Category / occupation match
         occ = (profile.get("employment") or profile.get("occupation") or "").lower()
-        scheme_cat = (scheme.get("category") or scheme.get("tags") or "")
+        scheme_cat = scheme.get("category") or scheme.get("tags") or ""
         if isinstance(scheme_cat, list):
             scheme_cat = " ".join(scheme_cat)
         category_match = 1.0 if occ and occ in scheme_cat.lower() else 0.0
@@ -285,14 +306,16 @@ class RecommendationEngine:
         if isinstance(tags, str):
             tags = [tags]
         tag_lower = {t.lower() for t in tags}
-        tag_overlap = (
-            len(profile_keywords & tag_lower) / max(len(profile_keywords), 1)
-        )
+        tag_overlap = len(profile_keywords & tag_lower) / max(len(profile_keywords), 1)
 
         scheme_name_lower = (scheme.get("name") or scheme.get("scheme_name") or "").lower()
-        is_central = 1.0 if any(
-            kw in scheme_name_lower for kw in ("pradhan mantri", "pm ", "national", "central")
-        ) else 0.0
+        is_central = (
+            1.0
+            if any(
+                kw in scheme_name_lower for kw in ("pradhan mantri", "pm ", "national", "central")
+            )
+            else 0.0
+        )
 
         return [
             float(elig_score),
@@ -314,7 +337,7 @@ class RecommendationEngine:
         schemes: List[Dict[str, Any]],
         eligibility: List[Dict[str, Any]],
         profile: Dict[str, Any],
-        groups: List[int]
+        groups: List[int],
     ) -> List[Dict[str, Any]]:
         """Rank candidates using XGBoost + LightGBM ensemble (or XGBoost alone)."""
         feature_matrix = [
@@ -345,188 +368,170 @@ class RecommendationEngine:
 
         results = []
         for i, score in enumerate(final_scores):
-            results.append({
-                "scheme": schemes[i],
-                "eligibility": eligibility[i],
-                "group_relevance": feature_matrix[i][5],
-                "combined_score": float(score),
-            })
+            results.append(
+                {
+                    "scheme": schemes[i],
+                    "eligibility": eligibility[i],
+                    "group_relevance": feature_matrix[i][5],
+                    "combined_score": float(score),
+                }
+            )
 
         results.sort(key=lambda x: x["combined_score"], reverse=True)
         return results
 
     def _get_candidate_schemes(
-        self,
-        user_groups: List[int],
-        all_schemes: List[Dict[str, Any]]
+        self, user_groups: List[int], all_schemes: List[Dict[str, Any]]
     ) -> List[Dict[str, Any]]:
         """
         Retrieve schemes relevant to user's groups.
-        
+
         Args:
             user_groups: List of group IDs the user belongs to
             all_schemes: List of all available schemes
-            
+
         Returns:
             List of unique candidate schemes (deduplicated by scheme_id)
         """
         # Deduplicate schemes by scheme_id
         seen_ids = set()
         unique_schemes = []
-        
+
         for scheme in all_schemes:
-            scheme_id = scheme.get('scheme_id', '')
+            scheme_id = scheme.get("scheme_id", "")
             if scheme_id not in seen_ids:
                 seen_ids.add(scheme_id)
                 unique_schemes.append(scheme)
-        
+
         # For now, return all unique schemes as candidates
         # In production, this would filter based on pre-computed group-scheme mappings
         return unique_schemes
-    
-    def _calculate_group_relevance(
-        self,
-        scheme_id: str,
-        user_groups: List[int]
-    ) -> float:
+
+    def _calculate_group_relevance(self, scheme_id: str, user_groups: List[int]) -> float:
         """
         Calculate how relevant a scheme is to user's groups.
-        
+
         Args:
             scheme_id: Scheme identifier
             user_groups: List of group IDs
-            
+
         Returns:
             Relevance score (0.0 to 1.0)
         """
         # For now, return a baseline relevance score
         # In production, this would use pre-computed group-scheme relevance scores
         # based on historical data and scheme characteristics
-        
+
         # Simple heuristic: schemes are more relevant if user is in multiple groups
         # that typically match this scheme
         base_relevance = 0.5
         group_bonus = min(len(user_groups) * 0.1, 0.5)
-        
+
         return min(base_relevance + group_bonus, 1.0)
-    
+
     def _generate_explanation(
-        self,
-        scheme: Dict[str, Any],
-        eligibility: Dict[str, Any],
-        user_profile: Dict[str, Any]
+        self, scheme: Dict[str, Any], eligibility: Dict[str, Any], user_profile: Dict[str, Any]
     ) -> str:
         """
         Generate natural language explanation for recommendation.
-        
+
         Args:
             scheme: Scheme dictionary
             eligibility: Eligibility result dictionary
             user_profile: User profile dictionary
-            
+
         Returns:
             Natural language explanation string
         """
         reasons = []
-        
+
         # Get top 3 matching criteria
-        met_criteria = eligibility.get('met_criteria', [])
-        top_criteria = sorted(
-            met_criteria,
-            key=lambda c: c.get('weight', 0),
-            reverse=True
-        )[:3]
-        
+        met_criteria = eligibility.get("met_criteria", [])
+        top_criteria = sorted(met_criteria, key=lambda c: c.get("weight", 0), reverse=True)[:3]
+
         # Format each criterion
         for criterion in top_criteria:
-            name = criterion['name']
-            user_value = criterion['user_value']
-            
-            if name == 'age':
+            name = criterion["name"]
+            user_value = criterion["user_value"]
+
+            if name == "age":
                 reasons.append(f"your age ({user_value} years) matches the requirements")
-            elif name == 'income':
+            elif name == "income":
                 reasons.append("your income level qualifies")
-            elif name == 'location':
+            elif name == "location":
                 reasons.append(f"this scheme is available in {user_value}")
-            elif name == 'occupation':
+            elif name == "occupation":
                 reasons.append(f"your occupation ({user_value}) is eligible")
-            elif name == 'education':
+            elif name == "education":
                 reasons.append(f"your education level ({user_value}) meets the criteria")
-            elif name == 'caste':
+            elif name == "caste":
                 reasons.append(f"your category ({user_value}) is eligible")
-            elif name == 'disability':
+            elif name == "disability":
                 reasons.append("your disability status matches the criteria")
-        
+
         # Build explanation
         if reasons:
             explanation = "This scheme is recommended because " + ", ".join(reasons)
         else:
             explanation = "This scheme matches your profile"
-        
+
         # Add eligibility context
-        percentage = eligibility.get('percentage', 0)
-        category = eligibility.get('category', '')
-        
-        if category == 'highly_eligible':
+        percentage = eligibility.get("percentage", 0)
+        category = eligibility.get("category", "")
+
+        if category == "highly_eligible":
             explanation += f". You are highly eligible with a {percentage:.1f}% match."
-        elif category == 'potentially_eligible':
+        elif category == "potentially_eligible":
             explanation += f". You meet most criteria with a {percentage:.1f}% match."
         else:
             explanation += f". You have a {percentage:.1f}% match."
-        
+
         return explanation
-    
+
     def invalidate_cache(self, user_id: str) -> None:
         """
         Invalidate cached recommendations for a user.
-        
+
         Should be called when user profile is updated.
-        
+
         Args:
             user_id: User identifier
         """
         if user_id in self._recommendation_cache:
             del self._recommendation_cache[user_id]
-    
-    def _get_cached_recommendations(
-        self,
-        user_id: str
-    ) -> Optional[List[Dict[str, Any]]]:
+
+    def _get_cached_recommendations(self, user_id: str) -> Optional[List[Dict[str, Any]]]:
         """
         Retrieve cached recommendations if not expired.
-        
+
         Args:
             user_id: User identifier
-            
+
         Returns:
             List of recommendations or None if cache miss/expired
         """
         if user_id not in self._recommendation_cache:
             return None
-        
+
         cached = self._recommendation_cache[user_id]
-        cached_time = datetime.fromisoformat(cached['timestamp'])
-        
+        cached_time = datetime.fromisoformat(cached["timestamp"])
+
         # Check if cache is still valid (24 hours)
         if datetime.now() - cached_time > timedelta(hours=24):
             del self._recommendation_cache[user_id]
             return None
-        
-        return cached['recommendations']
-    
-    def _cache_recommendations(
-        self,
-        user_id: str,
-        recommendations: List[Dict[str, Any]]
-    ) -> None:
+
+        return cached["recommendations"]
+
+    def _cache_recommendations(self, user_id: str, recommendations: List[Dict[str, Any]]) -> None:
         """
         Cache recommendations for 24 hours.
-        
+
         Args:
             user_id: User identifier
             recommendations: List of recommendations to cache
         """
         self._recommendation_cache[user_id] = {
-            'recommendations': recommendations,
-            'timestamp': datetime.now().isoformat()
+            "recommendations": recommendations,
+            "timestamp": datetime.now().isoformat(),
         }

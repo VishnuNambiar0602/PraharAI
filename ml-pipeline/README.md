@@ -216,6 +216,92 @@ Service health check.
 }
 ```
 
+## Recommendation Quality Workflow
+
+Use these scripts to close the loop between live feedback and offline ranking evaluation.
+
+### 1. Export feedback dataset from Neo4j
+
+```bash
+cd ml-pipeline
+python scripts/export_recommendation_feedback_dataset.py \
+  --output data/training/recommendation_feedback_dataset.csv \
+  --days-back 180 \
+  --decay-half-life-days 90
+```
+
+Environment variables used (if flags omitted):
+
+- `NEO4J_URI` (default `bolt://localhost:7687`)
+- `NEO4J_USER` or `NEO4J_USERNAME` (default `neo4j`)
+- `NEO4J_PASSWORD` (required)
+
+### 2. Evaluate ranking quality offline
+
+```bash
+cd ml-pipeline
+python scripts/evaluate_recommendation_ranking.py \
+  --dataset data/training/recommendation_feedback_dataset.csv \
+  --score-column served_score \
+  --label-column label \
+  --output-json models/recommendation_eval_metrics.json
+```
+
+Reported metrics include:
+
+- `ndcg@5`, `ndcg@10`
+- `apply_hit@5`, `apply_hit@10`
+- `engagement_hit@5`, `engagement_hit@10`
+
+### 3. Train a candidate ranker with quality gates
+
+```bash
+cd ml-pipeline
+python scripts/train_recommendation_ranker.py \
+  --dataset data/training/recommendation_feedback_dataset.csv \
+  --output-root models/recommendation_candidates \
+  --min-ndcg5 0.25 \
+  --min-ndcg10 0.35 \
+  --baseline-metrics models/recommendation_eval_metrics.json
+```
+
+Outputs:
+
+- `models/recommendation_candidates/ranker-*/xgb_ranker.model`
+- `models/recommendation_candidates/ranker-*/training_summary.json`
+
+### 4. Promote a candidate to active model
+
+```bash
+cd ml-pipeline
+python scripts/promote_recommendation_model.py \
+  --candidate-dir models/recommendation_candidates/ranker-YYYYMMDD-HHMMSS
+```
+
+Promotion writes:
+
+- `models/recommendation_active/xgb_ranker.model`
+- `models/recommendation_active/model_info.json`
+- `models/recommendation_active_model.json` (active model pointer)
+
+The ML API auto-loads this pointer on startup and uses the promoted model for `/recommend`.
+
+### 5. Run full pipeline in one command
+
+```bash
+cd ml-pipeline
+python scripts/run_recommendation_pipeline.py
+```
+
+This runs export -> evaluation -> candidate training -> promotion and exits non-zero on failures.
+
+### 6. Example cron schedule (Linux)
+
+```bash
+# Every day at 02:00
+0 2 * * * cd /path/to/PraharAI/ml-pipeline && /usr/bin/python3 scripts/run_recommendation_pipeline.py >> /var/log/praharai-reco-pipeline.log 2>&1
+```
+
 ## ML Models
 
 The service uses three main ML components:

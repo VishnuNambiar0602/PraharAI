@@ -94,7 +94,7 @@ services:
   frontend:
     build:
       context: .
-      dockerfile: frontend_new/Dockerfile
+      dockerfile: frontend/Dockerfile
     container_name: praharai-frontend
     ports:
       - "80:80"

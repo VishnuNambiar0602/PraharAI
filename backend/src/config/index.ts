@@ -63,6 +63,11 @@ export const config = {
     url: process.env.ML_SERVICE_URL || 'http://localhost:8000',
   },
 
+  // Chat Orchestration Configuration
+  chat: {
+    orchestrator: process.env.CHAT_ORCHESTRATOR || 'hybrid',
+  },
+
   // Logging
   logging: {
     level: process.env.LOG_LEVEL || 'info',

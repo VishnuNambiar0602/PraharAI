@@ -18,6 +18,7 @@ from typing import Any, Dict, List, Optional
 import logging
 import os
 import sys
+import json
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -135,9 +136,35 @@ def load_models():
     get_recommendation_engine()
     logger.info("ML models loaded")
 
+
 _intent_classifier = None
 _eligibility_engine = None
 _recommendation_engine = None
+
+
+def _resolve_recommendation_model_path() -> Optional[str]:
+    """Resolve active recommendation model path from env or local pointer."""
+    env_path = os.getenv("RECOMMENDER_MODEL_PATH", "").strip()
+    if env_path and Path(env_path).exists():
+        return env_path
+
+    pointer = Path(__file__).resolve().parent / "models" / "recommendation_active_model.json"
+    if pointer.exists():
+        try:
+            payload = json.loads(pointer.read_text(encoding="utf-8"))
+            active_path = str(payload.get("active_path", "")).strip()
+            if active_path and Path(active_path).exists():
+                return active_path
+        except Exception as e:
+            logger.warning("Failed reading recommendation model pointer: %s", e)
+
+    fallback = (
+        Path(__file__).resolve().parent / "models" / "recommendation_active" / "xgb_ranker.model"
+    )
+    if fallback.exists():
+        return str(fallback)
+
+    return None
 
 
 def get_intent_classifier():
@@ -174,8 +201,14 @@ def get_recommendation_engine():
             from eligibility_engine import EligibilityEngine
             from recommendation_engine import RecommendationEngine
 
-            _recommendation_engine = RecommendationEngine(UserClassifier(), EligibilityEngine())
-            logger.info("RecommendationEngine loaded")
+            model_path = _resolve_recommendation_model_path()
+            _recommendation_engine = RecommendationEngine(
+                UserClassifier(), EligibilityEngine(), model_path=model_path
+            )
+            if model_path:
+                logger.info("RecommendationEngine loaded with model: %s", model_path)
+            else:
+                logger.info("RecommendationEngine loaded without external LTR model")
         except Exception as e:
             logger.warning(f"RecommendationEngine not available: {e}")
     return _recommendation_engine
@@ -234,6 +267,7 @@ def recommend(req: RecommendRequest):
                 user_profile=req.user_profile,
                 schemes=req.schemes,
                 max_recommendations=req.max_results,
+                min_relevance_score=req.min_score,
             )
             return RecommendResponse(
                 recommendations=results,
@@ -244,7 +278,7 @@ def recommend(req: RecommendRequest):
 
     # Simple fallback: return schemes sorted by relevance heuristic
     schemes = req.schemes or []
-    ranked = _heuristic_rank(req.user_profile, schemes, req.max_results)
+    ranked = _heuristic_rank(req.user_profile, schemes, req.max_results, req.min_score)
     return RecommendResponse(recommendations=ranked, total=len(ranked))
 
 
@@ -348,9 +382,11 @@ def _rule_based_classify(message: str) -> ClassifyResponse:
 
 
 def _heuristic_rank(
-    user: Dict[str, Any], schemes: List[Dict[str, Any]], limit: int
+    user: Dict[str, Any], schemes: List[Dict[str, Any]], limit: int, min_score: float = 0.0
 ) -> List[Dict[str, Any]]:
     """Simple heuristic scoring for scheme ranking using all profile fields."""
+
+    min_score = max(0.0, min(1.0, float(min_score)))
 
     def score(scheme: Dict[str, Any]) -> float:
         s = 0.5  # base
@@ -382,7 +418,11 @@ def _heuristic_rank(
         return min(s, 1.0)
 
     ranked = sorted(schemes, key=score, reverse=True)
-    return [{**s, "relevanceScore": round(score(s), 2)} for s in ranked[:limit]]
+    scored = [{**s, "relevanceScore": round(score(s), 2)} for s in ranked]
+    thresholded = [s for s in scored if float(s.get("relevanceScore", 0.0)) >= min_score]
+    if not thresholded:
+        thresholded = scored
+    return thresholded[:limit]
 
 
 def _rule_based_eligibility(
@@ -440,7 +480,9 @@ def _rule_based_eligibility(
         score += 0.05
 
     # Disability
-    if user.get("is_disabled") and ("disability" in combined or "divyang" in combined or "handicap" in combined):
+    if user.get("is_disabled") and (
+        "disability" in combined or "divyang" in combined or "handicap" in combined
+    ):
         met.append("Disability status matches")
         score += 0.10
 

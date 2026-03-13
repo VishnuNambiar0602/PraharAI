@@ -8,7 +8,7 @@ This is a monorepo containing three main workspaces:
 
 - **backend**: TypeScript-based API server, MCP Server, and ReAct Agent
 - **ml-pipeline**: Python-based ML services for classification, clustering, and eligibility matching
-- **frontend_new**: React 19 user interface (Tailwind v4, Vite 6)
+- **frontend**: React 19 user interface (Tailwind v4, Vite 6)
 
 ## Technology Stack
 
@@ -81,7 +81,7 @@ source venv/bin/activate
 python src/main.py
 
 # Terminal 3: Frontend
-cd frontend_new
+cd frontend
 npm run dev
 ```
 
@@ -95,7 +95,7 @@ npm test
 
 # Run tests for specific workspace
 npm test --workspace=backend
-npm test --workspace=frontend_new
+npm test --workspace=frontend
 
 # Run Python tests
 cd ml-pipeline
@@ -147,7 +147,7 @@ npm run build --workspace=backend
 │   ├── requirements.txt
 │   └── setup.py
 │
-├── frontend_new/            # React 19 frontend (Tailwind v4)
+├── frontend/               # React 19 frontend (Tailwind v4)
 │   ├── src/
 │   │   ├── main.tsx        # Entry point
 │   │   ├── App.tsx         # Root component + navigation

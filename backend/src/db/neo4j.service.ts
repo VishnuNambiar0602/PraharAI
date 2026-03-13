@@ -2169,6 +2169,38 @@ class Neo4jDbService {
     return { eligible: score > 30, matchedCategories: matched, score };
   }
 
+  async recordRecommendationFeedback(input: {
+    userId: string;
+    schemeId: string;
+    action: string;
+    source?: string;
+    rank?: number;
+    score?: number;
+  }): Promise<void> {
+    await this.connection.executeWrite(
+      `MATCH (u:User { user_id: $userId })
+       MATCH (s:Scheme { scheme_id: $schemeId })
+       CREATE (f:RecommendationFeedback {
+         feedback_id: randomUUID(),
+         action: $action,
+         source: $source,
+         rank: $rank,
+         score: $score,
+         created_at: toString(datetime())
+       })
+       MERGE (u)-[:GAVE_FEEDBACK]->(f)
+       MERGE (f)-[:ABOUT_SCHEME]->(s)`,
+      {
+        userId: input.userId,
+        schemeId: input.schemeId,
+        action: input.action,
+        source: input.source ?? null,
+        rank: Number.isFinite(Number(input.rank)) ? Number(input.rank) : null,
+        score: Number.isFinite(Number(input.score)) ? Number(input.score) : null,
+      }
+    );
+  }
+
   // ─── Nudge helpers (stubs — to be fully implemented with Nudge node model) ──
 
   async getNudgePreferences(_userId: string): Promise<{

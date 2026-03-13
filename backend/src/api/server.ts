@@ -16,16 +16,14 @@
 
 import express from 'express';
 import cors from 'cors';
-import crypto from 'crypto';
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { ProfileExtractor } from '../utils/profile-extractor';
 import { neo4jService } from '../db/neo4j.service';
 import { redisService } from '../db/redis.service';
 import { getTranslationService } from '../services/translation.service';
 import { schemeSyncAgent } from '../agents/scheme-sync-agent';
 import { mlService } from '../services/ml.service';
-import { chatIntelligenceService, ChatTurn } from '../services/chat-intelligence.service';
+import { chatOrchestrationService } from '../services/chat-orchestration.service';
 import { JWTService } from '../auth/jwt.service';
 import { PasswordService } from '../auth/password.service';
 
@@ -48,64 +46,8 @@ try {
 
 const app = express();
 const ADMIN_KEY = process.env.ADMIN_KEY || '';
-const CHAT_INPUT_TOKEN_LIMIT = Number(process.env.CHAT_INPUT_TOKEN_LIMIT || 500);
-const CHAT_RESPONSE_TIMEOUT_MS = Number(process.env.CHAT_RESPONSE_TIMEOUT_MS || 12000);
 const jwtService = new JWTService();
 const passwordService = new PasswordService();
-
-function estimateTokens(text: string): number {
-  return Math.ceil((text || '').length / 4);
-}
-
-function detectLanguageHeuristic(text: string): string {
-  if (!text) return 'en';
-  if (/[\u0900-\u097F]/.test(text)) return 'hi';
-  if (/[\u0980-\u09FF]/.test(text)) return 'bn';
-  if (/[\u0A00-\u0A7F]/.test(text)) return 'pa';
-  if (/[\u0A80-\u0AFF]/.test(text)) return 'gu';
-  if (/[\u0B00-\u0B7F]/.test(text)) return 'or';
-  if (/[\u0B80-\u0BFF]/.test(text)) return 'ta';
-  if (/[\u0C00-\u0C7F]/.test(text)) return 'te';
-  if (/[\u0C80-\u0CFF]/.test(text)) return 'kn';
-  if (/[\u0D00-\u0D7F]/.test(text)) return 'ml';
-  if (/[\u0600-\u06FF]/.test(text)) return 'ur';
-  return 'en';
-}
-
-function isLikelyEnglish(text: string): boolean {
-  if (!text) return true;
-  const latin = (text.match(/[A-Za-z]/g) || []).length;
-  const devanagari = (text.match(/[\u0900-\u097F]/g) || []).length;
-  return latin > 20 && devanagari === 0;
-}
-
-function localizeSummary(lang: string, schemeCount: number): string {
-  if (lang === 'hi') {
-    return `मैंने आपकी रिक्वेस्ट के अनुसार योजनाएं खोज ली हैं। नीचे ${schemeCount} मिलती-जुलती योजनाएं दिख रही हैं।`;
-  }
-  return `I found ${schemeCount} matching schemes for your request.`;
-}
-
-function localizeActions(lang: string): string[] {
-  if (lang === 'hi') {
-    return ['मेरी पात्रता जांचें', 'और योजनाएं दिखाएं', 'आवेदन कैसे करें?'];
-  }
-  return ['Check my eligibility', 'Show matching schemes', 'How to apply?'];
-}
-
-function localizeUpdatePrefix(prefix: string, lang: string): string {
-  if (lang !== 'hi') return prefix;
-  return prefix
-    .replace(/Updated your state to/gi, 'आपका राज्य अपडेट किया गया:')
-    .replace(/Updated your employment status to/gi, 'रोज़गार स्थिति अपडेट की गई:')
-    .replace(/Updated your education to/gi, 'शिक्षा अपडेट की गई:')
-    .replace(/Updated your income to/gi, 'आय अपडेट की गई:')
-    .replace(/Updated your age to/gi, 'आयु अपडेट की गई:');
-}
-
-function hashText(text: string): string {
-  return crypto.createHash('sha1').update(text).digest('hex');
-}
 
 const defaultOrigins = ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000'];
 const configuredOrigins = String(process.env.CORS_ORIGINS || '')
@@ -402,6 +344,9 @@ app.get('/api/schemes/:schemeId', (req, res) => schemesController.getSchemeById(
 app.get('/api/users/:userId/recommendations', (req, res) =>
   schemesController.getRecommendations(req, res)
 );
+app.post('/api/users/:userId/recommendations/feedback', (req, res) =>
+  schemesController.postRecommendationFeedback(req, res)
+);
 
 // Mock nudges endpoint
 app.get('/api/users/:userId/nudges', (_req, res) => {
@@ -420,252 +365,13 @@ app.get('/api/users/:userId/nudges', (_req, res) => {
 
 // Chat endpoint — proxies to FastAPI ML service
 app.post('/api/chat', async (req, res) => {
-  const startedAt = Date.now();
-  const traceId = crypto.randomUUID();
-
-  try {
-    const { message, conversationHistory = [], preferredLanguage } = req.body || {};
-    const sanitizedMessage = String(message || '').trim();
-
-    if (!sanitizedMessage) {
-      return res.status(400).json({ error: 'Message is required', traceId });
-    }
-
-    if (estimateTokens(sanitizedMessage) > CHAT_INPUT_TOKEN_LIMIT) {
-      return res.status(400).json({
-        error: `Message exceeds token limit (${CHAT_INPUT_TOKEN_LIMIT}). Please shorten your query.`,
-        traceId,
-      });
-    }
-
-    const detectedLang = ((await ts.detectLanguage(sanitizedMessage)) || 'en').toLowerCase();
-    const heuristicLang = detectLanguageHeuristic(sanitizedMessage);
-    const requestedLang =
-      typeof preferredLanguage === 'string' ? preferredLanguage.toLowerCase() : '';
-    const replyLanguage = requestedLang || (detectedLang === 'en' ? heuristicLang : detectedLang);
-    const languageAwareMessage =
-      replyLanguage === 'en'
-        ? sanitizedMessage
-        : `Reply strictly in language code "${replyLanguage}". Keep answer concise and practical. User message: ${sanitizedMessage}`;
-
-    console.log('Chat message received:', message);
-
-    // Get user info from token; allow guest chat when token/user is unavailable.
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    const tokenUserId = token
-      ? token.replace('mock_access_token_', '').replace('mock_refresh_token_', '')
-      : null;
-    const user = tokenUserId ? await neo4jService.getUserById(tokenUserId) : null;
-    const effectiveUserId = user?.user_id || tokenUserId || 'guest';
-
-    // Extract profile data from message and update DB
-    const extraction = ProfileExtractor.extract(sanitizedMessage);
-    const updates = extraction.updates;
-    const updateMessages = extraction.messages;
-
-    const dbUpdates: Record<string, any> = {};
-    const appliedUpdates: string[] = [];
-
-    if (updates.age !== undefined) {
-      dbUpdates['age'] = updates.age;
-      appliedUpdates.push(updateMessages.find((m) => m.includes('age')) || '');
-    }
-    if (updates.income !== undefined) {
-      dbUpdates['income'] = updates.income;
-      appliedUpdates.push(updateMessages.find((m) => m.includes('income')) || '');
-    }
-    if (updates.state !== undefined) {
-      dbUpdates['state'] = updates.state;
-      appliedUpdates.push(updateMessages.find((m) => m.includes('state')) || '');
-    }
-    if (updates.employment !== undefined) {
-      dbUpdates['employment'] = updates.employment;
-      appliedUpdates.push(updateMessages.find((m) => m.includes('employment')) || '');
-    }
-    if (updates.education !== undefined) {
-      dbUpdates['education'] = updates.education;
-      appliedUpdates.push(updateMessages.find((m) => m.includes('education')) || '');
-    }
-    if (updates.disability !== undefined) {
-      dbUpdates['is_disabled'] = updates.disability;
-    }
-    if (updates.minority !== undefined) {
-      dbUpdates['is_minority'] = updates.minority;
-    }
-
-    const profileUpdated = Object.keys(dbUpdates).length > 0;
-    if (profileUpdated && user) {
-      try {
-        await neo4jService.updateUserProfile(effectiveUserId, dbUpdates);
-      } catch (e) {
-        console.error('Profile update error', e);
-      }
-    }
-
-    // Build enriched user profile from latest DB values.
-    const freshUser = user ? (await neo4jService.getUserById(effectiveUserId)) || user : null;
-    const userProfile = {
-      userId: freshUser?.user_id || effectiveUserId,
-      email: freshUser?.email || null,
-      name: freshUser?.name || 'Guest User',
-      age: freshUser?.age,
-      income: freshUser?.income,
-      state: freshUser?.state,
-      employment: freshUser?.employment,
-      education: freshUser?.education,
-      gender: freshUser?.gender,
-      interests: freshUser?.interests,
-      social_category: freshUser?.social_category,
-      is_disabled: freshUser?.is_disabled,
-      is_minority: freshUser?.is_minority,
-      marital_status: freshUser?.marital_status,
-      family_size: freshUser?.family_size,
-      rural_urban: freshUser?.rural_urban,
-      occupation: freshUser?.occupation,
-      poverty_status: freshUser?.poverty_status,
-      ration_card: freshUser?.ration_card,
-      land_ownership: freshUser?.land_ownership,
-      district: freshUser?.district,
-      disability_type: freshUser?.disability_type,
-      minority_community: freshUser?.minority_community,
-      ...dbUpdates,
-    };
-
-    const normalizedHistory: ChatTurn[] = Array.isArray(conversationHistory)
-      ? conversationHistory
-          .filter((entry: any) => entry && typeof entry.content === 'string')
-          .map((entry: any) => ({
-            role: entry.role === 'assistant' ? 'assistant' : 'user',
-            content: String(entry.content).slice(0, 1200),
-          }))
-      : [];
-
-    // Token-budget context memory with rolling summary persisted per user.
-    const { modelHistory, summary } = await chatIntelligenceService.getContext(
-      effectiveUserId,
-      normalizedHistory
-    );
-
-    // Classify intent with short-lived cache.
-    const intentCacheKey = `chat:intent:${hashText(sanitizedMessage.toLowerCase())}`;
-    const cachedIntent = await redisService.get<{ intent: string; confidence: number }>(
-      intentCacheKey
-    );
-    const classified =
-      cachedIntent ||
-      (await mlService.classify(sanitizedMessage, effectiveUserId).then((result) => {
-        if (!result?.primary_intent) return null;
-        return { intent: result.primary_intent, confidence: result.confidence || 0 };
-      }));
-
-    if (!cachedIntent && classified) {
-      await redisService.set(intentCacheKey, classified, 120);
-    }
-
-    const intent = classified?.intent || 'scheme_search';
-
-    // Semantic retrieval + profile-weighted ranking + de-dup.
-    const retrieval = await chatIntelligenceService.retrieveSchemes(
-      sanitizedMessage,
-      userProfile,
-      6
-    );
-
-    // Enforce response time upper bound for security and predictable UX.
-    const mlRace = await Promise.race<
-      | { type: 'ok'; payload: Awaited<ReturnType<typeof mlService.chat>> }
-      | { type: 'timeout' }
-      | { type: 'error'; message: string }
-    >([
-      mlService
-        .chat(languageAwareMessage, userProfile, modelHistory)
-        .then((payload) => ({ type: 'ok' as const, payload }))
-        .catch((error: any) => ({
-          type: 'error' as const,
-          message: String(error?.message || 'ml_error'),
-        })),
-      new Promise((resolve) => {
-        setTimeout(() => resolve({ type: 'timeout' as const }), CHAT_RESPONSE_TIMEOUT_MS);
-      }),
-    ]);
-
-    const degraded = mlRace.type !== 'ok' || !mlRace.payload;
-    const degradedReason =
-      mlRace.type === 'timeout'
-        ? 'ml_timeout'
-        : mlRace.type === 'error'
-          ? mlRace.message
-          : degraded
-            ? 'ml_unavailable'
-            : null;
-
-    const structured = chatIntelligenceService.buildStructuredPayload(
-      mlRace.type === 'ok' && mlRace.payload?.response ? mlRace.payload.response : '',
-      intent,
-      retrieval.schemes,
-      degraded
-    );
-
-    if (replyLanguage !== 'en' && isLikelyEnglish(structured.summary)) {
-      structured.summary = localizeSummary(replyLanguage, structured.schemes.length);
-      structured.next_actions = localizeActions(replyLanguage);
-    }
-
-    // Prepend profile update messages if any
-    let responseText = structured.summary;
-    if (profileUpdated && appliedUpdates.length > 0) {
-      const updatePrefix = localizeUpdatePrefix(
-        appliedUpdates.filter(Boolean).join(' '),
-        replyLanguage
-      );
-      responseText = updatePrefix + '\n\n' + responseText;
-    }
-
-    // Observability trace for each chat turn.
-    const latencyMs = Date.now() - startedAt;
-    console.log(
-      JSON.stringify({
-        event: 'chat_turn',
-        traceId,
-        userId: effectiveUserId,
-        intent,
-        intentConfidence: classified?.confidence || 0,
-        latencyMs,
-        retrievalCount: retrieval.schemes.length,
-        retrievalCacheHit: retrieval.cacheHit,
-        contextSummaryChars: summary.length,
-        degraded,
-        degradedReason,
-        replyLanguage,
-      })
-    );
-
-    return res.json({
-      response: responseText,
-      suggestions:
-        mlRace.type === 'ok' && mlRace.payload?.suggestions?.length
-          ? mlRace.payload.suggestions
-          : structured.next_actions,
-      degraded,
-      structured,
-      schemes: structured.schemes,
-      trace: {
-        traceId,
-        intent,
-        latencyMs,
-        retrievalCount: structured.schemes.length,
-        degradedReason,
-        replyLanguage,
-      },
-    });
-  } catch (error: any) {
-    console.error('Chat error:', error);
-    return res.status(500).json({
-      error: 'Failed to process message',
-      details: error.message,
-      traceId,
-    });
-  }
+  const result = await chatOrchestrationService.process({
+    message: req.body?.message,
+    conversationHistory: req.body?.conversationHistory,
+    preferredLanguage: req.body?.preferredLanguage,
+    authorization: req.headers.authorization,
+  });
+  return res.status(result.statusCode).json(result.body);
 });
 
 // Health check with cache stats
@@ -694,54 +400,14 @@ app.get('/api/debug/users', async (_req, res) => {
 
 // ─── ReAct Agent Chat Endpoint (New, experimental) ────────────────────────────
 app.post('/api/react-chat', async (req, res) => {
-  try {
-    const { message, conversationHistory = [] } = req.body || {};
-    if (!message || typeof message !== 'string') {
-      return res.status(400).json({ error: 'Missing required field: message' });
-    }
-    console.log(`\n🤖 ReAct Chat: "${message}"`);
-
-    // Get user from token
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    const userId =
-      token?.replace('mock_access_token_', '').replace('mock_refresh_token_', '') || 'admin123';
-    const user = await neo4jService.getUserById(userId);
-
-    if (!user) {
-      return res.status(401).json({ error: 'User not found' });
-    }
-
-    // Extract profile updates from message
-    const extraction = ProfileExtractor.extract(message);
-    if (Object.keys(extraction.updates).length > 0) {
-      try {
-        await neo4jService.updateUserProfile(userId, extraction.updates);
-        console.log('✅ Profile auto-updated from message');
-      } catch (e) {
-        console.debug('Profile update skipped');
-      }
-    }
-
-    // Initialize tools if not already done
-    const { initializeTools, reactAgent } = await import('../agents');
-    initializeTools();
-
-    // Process with ReAct agent
-    const response = await reactAgent.process(message, userId, conversationHistory);
-
-    return res.json({
-      response: response.response,
-      thinking: response.thinking.map((t) => ({
-        type: t.type,
-        content: t.content,
-      })),
-      toolsUsed: response.actionsUsed.map((a) => a.toolName),
-      confidence: response.confidence,
-    });
-  } catch (error: any) {
-    console.error('ReAct chat error:', error);
-    return res.status(500).json({ error: 'Chat processing failed', details: error.message });
-  }
+  const result = await chatOrchestrationService.process({
+    message: req.body?.message,
+    conversationHistory: req.body?.conversationHistory,
+    preferredLanguage: req.body?.preferredLanguage,
+    authorization: req.headers.authorization,
+    forceMode: 'react',
+  });
+  return res.status(result.statusCode).json(result.body);
 });
 
 // ─── Admin Sync Endpoints (protected with X-Admin-Key or admin login) ────────
