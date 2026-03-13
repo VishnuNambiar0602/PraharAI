@@ -185,14 +185,9 @@ export async function getAnalytics(): Promise<import('./types').AnalyticsData> {
   });
   if (!res.ok) throw new Error('Failed to fetch analytics');
   const raw = await res.json();
-
-  // Backend shape: { summary, trends: { users[], sync[] }, distribution: { byState[], byEmployment[] } }
   const summary = raw.summary ?? {};
   const trends = raw.trends ?? {};
   const dist = raw.distribution ?? {};
-
-  const totalUsers: number = summary.totalUsers ?? 0;
-  const totalSchemes: number = summary.totalSchemes ?? 0;
 
   const toDistEntry = (arr: any[], labelKey: string): import('./types').DistributionEntry[] => {
     const total = arr.reduce((s: number, e: any) => s + (Number(e.count) || 0), 0) || 1;
@@ -211,19 +206,20 @@ export async function getAnalytics(): Promise<import('./types').AnalyticsData> {
   };
 
   return {
-    totalUsers,
-    totalSchemes,
+    totalCitizens: summary.totalCitizens ?? 0,
+    onboardedCitizens: summary.onboardedCitizens ?? 0,
+    pendingCitizens: summary.pendingCitizens ?? 0,
+    totalSchemes: summary.totalSchemes ?? 0,
     enrichedSchemes: summary.enrichedSchemes ?? 0,
-    activeSchemes: totalSchemes,
-    stateDistribution: toDistEntry(dist.byState ?? [], 'state'),
+    enrichmentRate: summary.enrichmentRate ?? 0,
+    state: summary.state ?? '',
+    district: summary.district ?? '',
+    panchayatName: summary.panchayatName ?? '',
     employmentDistribution: toDistEntry(dist.byEmployment ?? [], 'employment'),
-    userGrowthTrend: (trends.users ?? []).map((u: any) => ({
-      month: fmtDate(u.date),
-      users: Number(u.count) || 0,
-    })),
-    schemeSyncTrend: (trends.sync ?? []).map((s: any) => ({
-      month: fmtDate(s.date),
-      schemes: Number(s.synced) || 0,
+    genderDistribution: toDistEntry(dist.byGender ?? [], 'gender'),
+    registrationTrend: (trends.registrations ?? []).map((entry: any) => ({
+      day: fmtDate(entry.date),
+      count: Number(entry.count) || 0,
     })),
   };
 }

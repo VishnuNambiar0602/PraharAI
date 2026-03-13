@@ -66,12 +66,16 @@ export interface DistributionEntry {
 }
 
 export interface AnalyticsData {
-  totalUsers: number;
+  totalCitizens: number;
+  onboardedCitizens: number;
+  pendingCitizens: number;
   totalSchemes: number;
   enrichedSchemes: number;
-  activeSchemes: number;
-  stateDistribution: DistributionEntry[];
+  enrichmentRate: number;
+  state: string;
+  district: string;
+  panchayatName: string;
   employmentDistribution: DistributionEntry[];
-  userGrowthTrend: { month: string; users: number }[];
-  schemeSyncTrend: { month: string; schemes: number }[];
+  genderDistribution: DistributionEntry[];
+  registrationTrend: { day: string; count: number }[];
 }

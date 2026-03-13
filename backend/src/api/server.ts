@@ -1231,39 +1231,76 @@ app.get('/api/panchayat/analytics', async (req, res) => {
   const userId = await requirePanchayatAuth(req, res);
   if (!userId) return;
   try {
-    const [metrics, users] = await Promise.all([
-      neo4jService.getAdminMetrics(),
-      neo4jService.getAllUsers(),
+    const panchayatUser = await neo4jService.getPanchayatUserById(userId);
+    if (!panchayatUser) return res.status(404).json({ error: 'Panchayat user not found' });
+
+    const [citizens, totalSchemes, enrichedSchemes] = await Promise.all([
+      neo4jService.getUsersByPanchayatScoped(
+        userId,
+        panchayatUser.state,
+        panchayatUser.district,
+        panchayatUser.panchayatName
+      ),
+      neo4jService.getSchemeCount(),
+      neo4jService.getEnrichedSchemeCount(),
     ]);
 
-    const stateCounts = new Map<string, number>();
-    const empCounts = new Map<string, number>();
-    users.forEach((u: any) => {
-      if (u.state) stateCounts.set(u.state, (stateCounts.get(u.state) || 0) + 1);
-      const emp = u.employment || u.occupation;
-      if (emp) empCounts.set(emp, (empCounts.get(emp) || 0) + 1);
+    const employmentCounts = new Map<string, number>();
+    const genderCounts = new Map<string, number>();
+    const registrationsByDate = new Map<string, number>();
+
+    const today = new Date();
+    const last7Days: string[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      last7Days.push(d.toISOString().slice(0, 10));
+    }
+
+    citizens.forEach((citizen: any) => {
+      const employment = String(citizen.employment || citizen.occupation || 'Unknown').trim();
+      const gender = String(citizen.gender || 'Not specified').trim();
+      const createdAt = String(citizen.created_at || citizen.createdAt || '');
+      const createdDate = createdAt.slice(0, 10);
+
+      employmentCounts.set(employment, (employmentCounts.get(employment) || 0) + 1);
+      genderCounts.set(gender, (genderCounts.get(gender) || 0) + 1);
+      if (createdDate) {
+        registrationsByDate.set(createdDate, (registrationsByDate.get(createdDate) || 0) + 1);
+      }
     });
 
-    const byState = Array.from(stateCounts.entries())
-      .map(([state, count]) => ({ state, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 10);
-
-    const byEmployment = Array.from(empCounts.entries())
-      .map(([employment, count]) => ({ employment, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 10);
+    const totalCitizens = citizens.length;
+    const onboardedCitizens = citizens.filter((citizen: any) => citizen.onboarding_complete).length;
 
     return res.json({
       summary: {
-        totalUsers: metrics.users.total,
-        totalSchemes: metrics.schemes.total,
-        onboardedUsers: metrics.users.onboarded,
-        enrichedSchemes: metrics.schemes.enriched,
-        enrichmentRate: metrics.schemes.enrichmentRate,
+        totalCitizens,
+        onboardedCitizens,
+        pendingCitizens: totalCitizens - onboardedCitizens,
+        totalSchemes,
+        enrichedSchemes,
+        enrichmentRate:
+          totalSchemes > 0 ? Math.round((enrichedSchemes / totalSchemes) * 1000) / 10 : 0,
+        state: panchayatUser.state,
+        district: panchayatUser.district,
+        panchayatName: panchayatUser.panchayatName,
       },
-      trends: metrics.trends,
-      distribution: { byState, byEmployment },
+      trends: {
+        registrations: last7Days.map((date) => ({
+          date,
+          count: registrationsByDate.get(date) || 0,
+        })),
+      },
+      distribution: {
+        byEmployment: Array.from(employmentCounts.entries())
+          .map(([employment, count]) => ({ employment, count }))
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 10),
+        byGender: Array.from(genderCounts.entries())
+          .map(([gender, count]) => ({ gender, count }))
+          .sort((a, b) => b.count - a.count),
+      },
     });
   } catch (error: any) {
     console.error('Panchayat analytics error:', error);

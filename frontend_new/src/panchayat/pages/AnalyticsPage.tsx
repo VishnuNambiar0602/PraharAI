@@ -1,21 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Users, Briefcase, UserCheck, RefreshCw } from 'lucide-react';
-import { getPanchayatScopedStats, getPanchayatUser } from '../api';
+import { Users, Briefcase, UserCheck, RefreshCw, MapPin, LineChart } from 'lucide-react';
+import { getAnalytics, getPanchayatUser } from '../api';
+import type { AnalyticsData } from '../types';
 
-interface BreakdownEntry {
+type BreakdownEntry = {
   label: string;
   count: number;
-}
-
-interface PanchayatStats {
-  total: number;
-  onboarded: number;
-  pending: number;
-  state: string;
-  district: string;
-  employmentBreakdown: BreakdownEntry[];
-  genderBreakdown: BreakdownEntry[];
-}
+};
 
 function BarList({ items, color }: { items: BreakdownEntry[]; color: string }) {
   const max = Math.max(...items.map((i) => i.count), 1);
@@ -48,7 +39,7 @@ function BarList({ items, color }: { items: BreakdownEntry[]; color: string }) {
 }
 
 export default function AnalyticsPage() {
-  const [data, setData] = useState<PanchayatStats | null>(null);
+  const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const user = getPanchayatUser();
@@ -57,7 +48,7 @@ export default function AnalyticsPage() {
     setLoading(true);
     setError('');
     try {
-      const result = await getPanchayatScopedStats();
+      const result = await getAnalytics();
       setData(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load analytics');
@@ -97,8 +88,8 @@ export default function AnalyticsPage() {
     );
   }
 
-  const total = data?.total ?? 0;
-  const onboarded = data?.onboarded ?? 0;
+  const total = data?.totalCitizens ?? 0;
+  const onboarded = data?.onboardedCitizens ?? 0;
   const onboardingPct = total > 0 ? Math.round((onboarded / total) * 100) : 0;
 
   return (
@@ -112,7 +103,9 @@ export default function AnalyticsPage() {
             Citizen Analytics
           </h1>
           <p className="text-sm mt-0.5" style={{ color: 'var(--color-muted)' }}>
-            Citizens registered in {data?.state || user?.state || 'your state'}
+            {[data?.panchayatName, data?.district, data?.state].filter(Boolean).join(', ') ||
+              user?.state ||
+              'your panchayat'}
           </p>
         </div>
         <button onClick={loadData} className="p-btn p-btn-secondary gap-1.5">
@@ -144,8 +137,8 @@ export default function AnalyticsPage() {
         <div className="p-stat-card amber">
           <div className="flex items-start justify-between">
             <div>
-              <p className="p-stat-label">Onboarding Rate</p>
-              <p className="p-stat-value">{onboardingPct}%</p>
+              <p className="p-stat-label">Schemes Indexed</p>
+              <p className="p-stat-value">{(data?.totalSchemes ?? 0).toLocaleString('en-IN')}</p>
             </div>
             <Briefcase className="size-5 mt-0.5" style={{ color: 'var(--color-muted-2)' }} />
           </div>
@@ -176,13 +169,46 @@ export default function AnalyticsPage() {
         </div>
         <div className="flex justify-between mt-2 text-xs" style={{ color: 'var(--color-muted)' }}>
           <span>{onboardingPct}% complete</span>
-          <span>{data?.pending ?? 0} citizens pending</span>
+          <span>{data?.pendingCitizens ?? 0} citizens pending</span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="p-card p-5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="p-stat-label">Enriched Schemes</p>
+              <p className="p-stat-value">{(data?.enrichedSchemes ?? 0).toLocaleString('en-IN')}</p>
+            </div>
+            <LineChart className="size-5 mt-0.5" style={{ color: 'var(--color-muted-2)' }} />
+          </div>
+        </div>
+        <div className="p-card p-5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="p-stat-label">Scheme Enrichment Rate</p>
+              <p className="p-stat-value">{data?.enrichmentRate ?? 0}%</p>
+            </div>
+            <UserCheck className="size-5 mt-0.5" style={{ color: 'var(--color-muted-2)' }} />
+          </div>
+        </div>
+        <div className="p-card p-5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="p-stat-label">Coverage</p>
+              <p className="text-sm font-semibold mt-1" style={{ color: 'var(--color-ink)' }}>
+                {[data?.panchayatName, data?.district, data?.state].filter(Boolean).join(', ') ||
+                  'Local area'}
+              </p>
+            </div>
+            <MapPin className="size-5 mt-0.5" style={{ color: 'var(--color-muted-2)' }} />
+          </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Employment breakdown */}
-        {data?.employmentBreakdown && data.employmentBreakdown.length > 0 && (
+        {data?.employmentDistribution && data.employmentDistribution.length > 0 && (
           <div className="p-card p-5">
             <h2
               className="text-sm font-semibold mb-4"
@@ -191,14 +217,14 @@ export default function AnalyticsPage() {
               Citizens by Employment
             </h2>
             <BarList
-              items={data.employmentBreakdown.slice(0, 8)}
+              items={data.employmentDistribution.slice(0, 8)}
               color="var(--color-primary-600)"
             />
           </div>
         )}
 
         {/* Gender breakdown */}
-        {data?.genderBreakdown && data.genderBreakdown.length > 0 && (
+        {data?.genderDistribution && data.genderDistribution.length > 0 && (
           <div className="p-card p-5">
             <h2
               className="text-sm font-semibold mb-4"
@@ -206,10 +232,40 @@ export default function AnalyticsPage() {
             >
               Citizens by Gender
             </h2>
-            <BarList items={data.genderBreakdown} color="var(--color-accent)" />
+            <BarList items={data.genderDistribution} color="var(--color-accent)" />
           </div>
         )}
       </div>
+
+      {data?.registrationTrend && data.registrationTrend.length > 0 && (
+        <div className="p-card p-5">
+          <h2
+            className="text-sm font-semibold mb-4"
+            style={{ color: 'var(--color-ink)', fontFamily: 'Space Grotesk, sans-serif' }}
+          >
+            Recent Registrations
+          </h2>
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+            {data.registrationTrend.map((entry) => (
+              <div
+                key={entry.day}
+                className="rounded-xl border px-3 py-4 text-center"
+                style={{ borderColor: 'var(--color-border)', background: 'var(--color-parchment)' }}
+              >
+                <p className="text-xs font-medium" style={{ color: 'var(--color-muted)' }}>
+                  {entry.day}
+                </p>
+                <p
+                  className="text-2xl font-bold mt-1"
+                  style={{ color: 'var(--color-primary-600)' }}
+                >
+                  {entry.count}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {total === 0 && (
         <div className="p-card p-12 flex flex-col items-center text-center">
