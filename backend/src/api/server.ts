@@ -402,6 +402,9 @@ app.get('/api/schemes/:schemeId', (req, res) => schemesController.getSchemeById(
 app.get('/api/users/:userId/recommendations', (req, res) =>
   schemesController.getRecommendations(req, res)
 );
+app.post('/api/users/:userId/recommendations/feedback', (req, res) =>
+  schemesController.postRecommendationFeedback(req, res)
+);
 
 // Mock nudges endpoint
 app.get('/api/users/:userId/nudges', (_req, res) => {

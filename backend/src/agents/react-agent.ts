@@ -434,7 +434,6 @@ class ReActAgent {
   /**
    * Remove invalid/unavailable tools and enforce sane dependency structure.
    */
-  private validateAndNormalizePlan(plan: PlanStep[], traceId: string): PlanStep[] {
   private validateAndNormalizePlan(
     plan: PlanStep[],
     traceId: string,

@@ -8,6 +8,7 @@ import { Request, Response } from 'express';
 import { similarityAgent } from '../agents/similarity-agent';
 import { sampleSchemes } from './sample-schemes';
 import { neo4jService } from '../db/neo4j.service';
+import { recommendationRankingService } from '../services/recommendation-ranking.service';
 
 export class SchemesController {
   private toCleanList(value: unknown): string[] {
@@ -262,99 +263,86 @@ export class SchemesController {
 
   /**
    * GET /api/users/:userId/recommendations
-   * Get personalized scheme recommendations for a user using ML ranking.
+   * Get personalized scheme recommendations for a user.
    */
   async getRecommendations(req: Request, res: Response) {
     try {
       const { userId } = req.params;
+      const count = Math.min(20, Math.max(1, Number(req.query.count) || 10));
+      const includeMeta = String(req.query.includeMeta || '') === 'true';
 
-      // Load the real user profile from Neo4j
-      const user = await neo4jService.getUserById(userId);
-      if (!user) {
-        return res.status(404).json({ error: 'User not found' });
-      }
-
-      // Build the profile payload for the ML service
-      const userProfile: Record<string, any> = {
-        user_id: user.user_id,
-        name: user.name,
-        age: user.age,
-        income: user.income,
-        state: user.state,
-        employment: user.employment,
-        education: user.education,
-        gender: user.gender,
-        interests: user.interests,
-        social_category: user.social_category,
-        is_disabled: user.is_disabled,
-        is_minority: user.is_minority,
-        marital_status: user.marital_status,
-        family_size: user.family_size,
-        rural_urban: user.rural_urban,
-        occupation: user.occupation,
-        poverty_status: user.poverty_status,
-        ration_card: user.ration_card,
-        land_ownership: user.land_ownership,
-        district: user.district,
-        disability_type: user.disability_type,
-        minority_community: user.minority_community,
-      };
-
-      // Fetch candidate schemes from Neo4j
-      const allSchemes = await similarityAgent.findMatchingSchemes(userProfile as any, 50);
-      const candidateSchemes = allSchemes.map((s: any) => ({
-        id: s.schemeId,
-        scheme_id: s.schemeId,
-        name: s.name,
-        title: s.name,
-        description: s.description || '',
-        state: s.state || '',
-        tags: Array.isArray(s.tags) ? s.tags : [],
-        category: s.categories?.[0]?.type || 'General',
-        ministry: s.ministry || 'Government of India',
-        schemeUrl: s.schemeUrl,
+      const ranked = await recommendationRankingService.generate(userId, count);
+      const payload = ranked.recommendations.map((item) => ({
+        id: item.schemeId,
+        title: item.name,
+        description: item.description,
+        category: item.category,
+        benefits: item.benefits,
+        eligibilityScore: item.relevanceScore,
+        applicationUrl: item.applicationUrl,
+        explanation: item.explanation,
       }));
 
-      // Try ML-powered ranking
-      const { mlService } = await import('../services/ml.service');
-      const mlResult = await mlService.recommend(userProfile, candidateSchemes, 10);
+      console.log(
+        JSON.stringify({
+          event: 'recommendation_ranking',
+          userId,
+          source: ranked.meta.source,
+          segment: ranked.meta.segment,
+          metrics: ranked.meta.metrics,
+        })
+      );
 
-      if (mlResult && mlResult.recommendations && mlResult.recommendations.length > 0) {
-        // ML succeeded — return ML-ranked results
-        const ranked = mlResult.recommendations.map((rec: any) => {
-          const original = candidateSchemes.find(
-            (s: any) => s.id === rec.id || s.scheme_id === rec.id
-          );
-          return {
-            id: rec.id || original?.id,
-            title: original?.title || original?.name || rec.name || 'Unknown Scheme',
-            description: original?.description || 'No description available',
-            category: original?.category || 'General',
-            benefits: original?.ministry || 'Government of India',
-            eligibilityScore: rec.relevanceScore ?? rec.relevance_score ?? 0,
-            applicationUrl: original?.schemeUrl ?? `https://www.myscheme.gov.in/schemes/${rec.id}`,
-          };
-        });
-        return res.json(ranked);
+      if (!includeMeta) {
+        return res.json(payload);
       }
 
-      // Fallback: return similarity-ranked results without ML
-      return res.json(
-        candidateSchemes.slice(0, 10).map((s: any) => ({
-          id: s.id,
-          title: s.title || s.name,
-          description: s.description || 'No description available',
-          category: s.category || 'General',
-          benefits: s.ministry || 'Government of India',
-          eligibilityScore: 0,
-          applicationUrl: s.schemeUrl ?? `https://www.myscheme.gov.in/schemes/${s.id}`,
-        }))
-      );
+      return res.json({
+        items: payload,
+        meta: ranked.meta,
+      });
     } catch (error: any) {
       console.error('Error in getRecommendations:', error);
       return res
         .status(500)
         .json({ error: 'Failed to fetch recommendations', details: error.message });
+    }
+  }
+
+  /**
+   * POST /api/users/:userId/recommendations/feedback
+   * Capture recommendation feedback signals for future ranking improvements.
+   */
+  async postRecommendationFeedback(req: Request, res: Response) {
+    try {
+      const { userId } = req.params;
+      const { schemeId, action, source, rank, score } = req.body || {};
+
+      if (!schemeId || typeof schemeId !== 'string') {
+        return res.status(400).json({ error: 'schemeId is required' });
+      }
+
+      const allowed = new Set(['viewed', 'clicked', 'saved', 'applied', 'dismissed']);
+      const normalizedAction = String(action || '').trim().toLowerCase();
+      if (!allowed.has(normalizedAction)) {
+        return res.status(400).json({
+          error: 'action must be one of viewed, clicked, saved, applied, dismissed',
+        });
+      }
+
+      await neo4jService.recordRecommendationFeedback({
+        userId,
+        schemeId: String(schemeId).trim(),
+        action: normalizedAction,
+        source: typeof source === 'string' ? source.trim() : undefined,
+        rank: Number.isFinite(Number(rank)) ? Number(rank) : undefined,
+        score: Number.isFinite(Number(score)) ? Number(score) : undefined,
+      });
+
+      return res.status(201).json({ success: true });
+    } catch (error: any) {
+      console.error('Error in postRecommendationFeedback:', error);
+      return res.status(500).json({ error: 'Failed to record feedback', details: error.message });
     }
   }
 }
