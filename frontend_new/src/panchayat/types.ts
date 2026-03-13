@@ -16,11 +16,20 @@ export interface Beneficiary {
   state?: string;
   district?: string;
   village?: string;
+  panchayatName?: string;
   employment?: string;
   education?: string;
   gender?: string;
   createdAt: string;
   onboardingComplete?: boolean;
+}
+
+export interface PanchayatCitizenListResponse {
+  items: Beneficiary[];
+  total: number;
+  page: number;
+  limit: number;
+  hasMore: boolean;
 }
 
 export interface Scheme {
@@ -66,12 +75,16 @@ export interface DistributionEntry {
 }
 
 export interface AnalyticsData {
-  totalUsers: number;
+  totalCitizens: number;
+  onboardedCitizens: number;
+  pendingCitizens: number;
   totalSchemes: number;
   enrichedSchemes: number;
-  activeSchemes: number;
-  stateDistribution: DistributionEntry[];
+  enrichmentRate: number;
+  state: string;
+  district: string;
+  panchayatName: string;
   employmentDistribution: DistributionEntry[];
-  userGrowthTrend: { month: string; users: number }[];
-  schemeSyncTrend: { month: string; schemes: number }[];
+  genderDistribution: DistributionEntry[];
+  registrationTrend: { day: string; count: number }[];
 }

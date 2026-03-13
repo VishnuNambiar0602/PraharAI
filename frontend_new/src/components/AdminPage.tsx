@@ -12,7 +12,15 @@ import {
   Cpu,
   Trash2,
 } from 'lucide-react';
-import { AdminMetricsResponse, AdminUser, createAdmin, deleteAdmin, fetchAdminMetrics, fetchAdmins } from '../api';
+import {
+  AdminMetricsResponse,
+  AdminUser,
+  createAdmin,
+  deleteAdmin,
+  fetchAdminMetrics,
+  fetchAdmins,
+} from '../api';
+import { useDialog } from './DialogProvider';
 
 function toShortDateLabel(value: string): string {
   const date = new Date(value);
@@ -55,6 +63,7 @@ function formatUptime(seconds: number): string {
 }
 
 export default function AdminPage() {
+  const { confirm } = useDialog();
   const [metrics, setMetrics] = useState<AdminMetricsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -119,7 +128,12 @@ export default function AdminPage() {
       setAdminMessage('Add at least one more admin before deleting an admin account.');
       return;
     }
-    if (!window.confirm(`Delete admin account ${admin.email}?`)) return;
+    const ok = await confirm({
+      title: 'Delete Admin Account',
+      message: `Delete admin account for ${admin.email}? This action cannot be undone.`,
+      confirmLabel: 'Delete',
+    });
+    if (!ok) return;
     setAdminBusy(true);
     setAdminMessage('');
     try {
@@ -176,7 +190,10 @@ export default function AdminPage() {
             >
               Admin Dashboard
             </h1>
-            <p className="text-sm mt-1" style={{ color: 'var(--color-muted)', fontFamily: 'Inter, sans-serif' }}>
+            <p
+              className="text-sm mt-1"
+              style={{ color: 'var(--color-muted)', fontFamily: 'Inter, sans-serif' }}
+            >
               Monitor users, scheme ingestion, enrichment quality, and system health.
             </p>
           </div>
@@ -191,9 +208,7 @@ export default function AdminPage() {
           </button>
         </div>
 
-        {loading && (
-          <div className="card p-6">Loading admin metrics...</div>
-        )}
+        {loading && <div className="card p-6">Loading admin metrics...</div>}
 
         {!loading && error && (
           <div className="card p-6 border-red-200" style={{ color: '#B91C1C' }}>
@@ -218,7 +233,10 @@ export default function AdminPage() {
                     </span>
                     <card.icon className="size-4" style={{ color: 'var(--color-accent)' }} />
                   </div>
-                  <div className="text-3xl font-bold" style={{ color: 'var(--color-ink)', fontFamily: 'Space Grotesk, sans-serif' }}>
+                  <div
+                    className="text-3xl font-bold"
+                    style={{ color: 'var(--color-ink)', fontFamily: 'Space Grotesk, sans-serif' }}
+                  >
                     {card.value.toLocaleString()}
                   </div>
                   <div className="text-xs mt-2" style={{ color: 'var(--color-muted-2)' }}>
@@ -239,7 +257,10 @@ export default function AdminPage() {
                 <div className="grid sm:grid-cols-2 gap-3 text-sm">
                   <div className="rounded-lg p-3" style={{ background: 'var(--color-surface-2)' }}>
                     <div style={{ color: 'var(--color-muted)' }}>Sync Running</div>
-                    <div className="font-semibold mt-1" style={{ color: metrics.sync.isSyncing ? '#166534' : 'var(--color-ink)' }}>
+                    <div
+                      className="font-semibold mt-1"
+                      style={{ color: metrics.sync.isSyncing ? '#166534' : 'var(--color-ink)' }}
+                    >
                       {metrics.sync.isSyncing ? 'Yes' : 'No'}
                     </div>
                   </div>
@@ -299,18 +320,31 @@ export default function AdminPage() {
                   </span>
                 </div>
 
-                <svg viewBox="0 0 300 120" className="w-full h-32" role="img" aria-label="User growth chart">
+                <svg
+                  viewBox="0 0 300 120"
+                  className="w-full h-32"
+                  role="img"
+                  aria-label="User growth chart"
+                >
                   <polyline
                     fill="none"
                     stroke="var(--color-accent)"
                     strokeWidth="3"
-                    points={buildPolylinePoints(metrics.trends.users.map((d) => d.count), 300, 100)}
+                    points={buildPolylinePoints(
+                      metrics.trends.users.map((d) => d.count),
+                      300,
+                      100
+                    )}
                   />
                 </svg>
 
                 <div className="grid grid-cols-7 gap-1 mt-2 text-[10px]">
                   {metrics.trends.users.map((point) => (
-                    <div key={point.date} className="text-center" style={{ color: 'var(--color-muted)' }}>
+                    <div
+                      key={point.date}
+                      className="text-center"
+                      style={{ color: 'var(--color-muted)' }}
+                    >
                       <div>{toShortDateLabel(point.date)}</div>
                       <div className="font-semibold" style={{ color: 'var(--color-ink)' }}>
                         {point.count}
@@ -330,29 +364,61 @@ export default function AdminPage() {
                   </span>
                 </div>
 
-                <svg viewBox="0 0 300 120" className="w-full h-32" role="img" aria-label="Sync activity chart">
+                <svg
+                  viewBox="0 0 300 120"
+                  className="w-full h-32"
+                  role="img"
+                  aria-label="Sync activity chart"
+                >
                   <polyline
                     fill="none"
                     stroke="var(--color-primary)"
                     strokeWidth="2.5"
-                    points={buildPolylinePoints(metrics.trends.sync.map((d) => d.synced), 300, 100)}
+                    points={buildPolylinePoints(
+                      metrics.trends.sync.map((d) => d.synced),
+                      300,
+                      100
+                    )}
                   />
                   <polyline
                     fill="none"
                     stroke="var(--color-accent)"
                     strokeWidth="2.5"
-                    points={buildPolylinePoints(metrics.trends.sync.map((d) => d.enriched), 300, 100)}
+                    points={buildPolylinePoints(
+                      metrics.trends.sync.map((d) => d.enriched),
+                      300,
+                      100
+                    )}
                   />
                 </svg>
 
-                <div className="flex items-center gap-4 text-xs mb-2" style={{ color: 'var(--color-muted)' }}>
-                  <span className="flex items-center gap-1"><span className="inline-block size-2 rounded-full" style={{ background: 'var(--color-primary)' }} /> Synced</span>
-                  <span className="flex items-center gap-1"><span className="inline-block size-2 rounded-full" style={{ background: 'var(--color-accent)' }} /> Enriched</span>
+                <div
+                  className="flex items-center gap-4 text-xs mb-2"
+                  style={{ color: 'var(--color-muted)' }}
+                >
+                  <span className="flex items-center gap-1">
+                    <span
+                      className="inline-block size-2 rounded-full"
+                      style={{ background: 'var(--color-primary)' }}
+                    />{' '}
+                    Synced
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span
+                      className="inline-block size-2 rounded-full"
+                      style={{ background: 'var(--color-accent)' }}
+                    />{' '}
+                    Enriched
+                  </span>
                 </div>
 
                 <div className="grid grid-cols-7 gap-1 text-[10px]">
                   {metrics.trends.sync.map((point) => (
-                    <div key={point.date} className="text-center" style={{ color: 'var(--color-muted)' }}>
+                    <div
+                      key={point.date}
+                      className="text-center"
+                      style={{ color: 'var(--color-muted)' }}
+                    >
                       <div>{toShortDateLabel(point.date)}</div>
                       <div className="font-semibold" style={{ color: 'var(--color-ink)' }}>
                         {point.synced}/{point.enriched}
@@ -471,7 +537,11 @@ export default function AdminPage() {
               </div>
 
               <div className="flex items-center gap-3 mb-4">
-                <button className="btn btn-primary" disabled={adminBusy} onClick={handleCreateAdmin}>
+                <button
+                  className="btn btn-primary"
+                  disabled={adminBusy}
+                  onClick={handleCreateAdmin}
+                >
                   Add Admin
                 </button>
                 {adminMessage && (
@@ -491,7 +561,10 @@ export default function AdminPage() {
                       style={{ borderColor: 'var(--color-border)' }}
                     >
                       <div>
-                        <div className="text-sm font-semibold" style={{ color: 'var(--color-ink)' }}>
+                        <div
+                          className="text-sm font-semibold"
+                          style={{ color: 'var(--color-ink)' }}
+                        >
                           {admin.name || 'Admin User'}
                         </div>
                         <div className="text-xs" style={{ color: 'var(--color-muted)' }}>
@@ -500,10 +573,17 @@ export default function AdminPage() {
                       </div>
                       <button
                         className="text-xs px-2 py-1 rounded border flex items-center gap-1"
-                        style={{ borderColor: canDelete ? '#fecaca' : 'var(--color-border)', color: canDelete ? '#b91c1c' : 'var(--color-muted)' }}
+                        style={{
+                          borderColor: canDelete ? '#fecaca' : 'var(--color-border)',
+                          color: canDelete ? '#b91c1c' : 'var(--color-muted)',
+                        }}
                         disabled={adminBusy || !canDelete}
                         onClick={() => handleDeleteAdmin(admin)}
-                        title={canDelete ? 'Delete admin' : 'At least 2 admin accounts are required to enable deletion'}
+                        title={
+                          canDelete
+                            ? 'Delete admin'
+                            : 'At least 2 admin accounts are required to enable deletion'
+                        }
                       >
                         <Trash2 className="size-3.5" /> Delete
                       </button>

@@ -17,6 +17,8 @@
 import express from 'express';
 import cors from 'cors';
 import crypto from 'crypto';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { ProfileExtractor } from '../utils/profile-extractor';
 import { neo4jService } from '../db/neo4j.service';
 import { redisService } from '../db/redis.service';
@@ -26,6 +28,23 @@ import { mlService } from '../services/ml.service';
 import { chatIntelligenceService, ChatTurn } from '../services/chat-intelligence.service';
 import { JWTService } from '../auth/jwt.service';
 import { PasswordService } from '../auth/password.service';
+
+// ─── LGD state/district data ─────────────────────────────────────────────────
+interface LGDDistrict {
+  name: string;
+}
+interface LGDState {
+  name: string;
+  code: string;
+  districts: LGDDistrict[];
+}
+let lgdData: LGDState[] = [];
+try {
+  const raw = readFileSync(join(__dirname, '../../data/india-states-districts.json'), 'utf-8');
+  lgdData = JSON.parse(raw) as LGDState[];
+} catch {
+  console.warn('LGD data file not found; /api/lgd/* endpoints will return empty results');
+}
 
 const app = express();
 const ADMIN_KEY = process.env.ADMIN_KEY || '';
@@ -1118,6 +1137,56 @@ app.post('/api/admin/ml/reset', async (req, res) => {
   }
 });
 
+// ─── LGD State / District Lookups (public, no auth) ─────────────────────────
+
+app.get('/api/lgd/states', (_req, res) => {
+  return res.json(lgdData.map((s) => ({ name: s.name, code: s.code })));
+});
+
+app.get('/api/lgd/districts', (req, res) => {
+  const stateName = String(req.query.state ?? '').trim();
+  if (!stateName) return res.status(400).json({ error: 'state query param required' });
+  const found = lgdData.find((s) => s.name.toLowerCase() === stateName.toLowerCase());
+  if (!found) return res.status(404).json({ error: 'State not found' });
+  return res.json(found.districts.map((d) => d.name));
+});
+
+app.get('/api/lgd/panchayats', async (req, res) => {
+  const state = String(req.query.state ?? '').trim();
+  const district = String(req.query.district ?? '').trim();
+  const subdistrict = String(req.query.subdistrict ?? '').trim();
+  if (!state || !district) {
+    return res.status(400).json({ error: 'state and district query params required' });
+  }
+  try {
+    // Official LGD village nodes + any panchayat names from registered PanchayatUser accounts
+    const [official, registered] = await Promise.all([
+      neo4jService.listGramPanchayats(state, district, subdistrict || undefined),
+      neo4jService.listPanchayatNamesByLocation(state, district),
+    ]);
+    const merged = [...new Set([...official, ...registered])].sort();
+    return res.json(merged);
+  } catch (error: any) {
+    return res
+      .status(500)
+      .json({ error: 'Failed to fetch panchayat names', details: error.message });
+  }
+});
+
+app.get('/api/lgd/subdistricts', async (req, res) => {
+  const state = String(req.query.state ?? '').trim();
+  const district = String(req.query.district ?? '').trim();
+  if (!state || !district) {
+    return res.status(400).json({ error: 'state and district query params required' });
+  }
+  try {
+    const names = await neo4jService.listSubdistricts(state, district);
+    return res.json(names);
+  } catch (error: any) {
+    return res.status(500).json({ error: 'Failed to fetch sub-districts', details: error.message });
+  }
+});
+
 // ─── Panchayat Auth Middleware ────────────────────────────────────────────────
 
 async function requirePanchayatAuth(
@@ -1162,39 +1231,76 @@ app.get('/api/panchayat/analytics', async (req, res) => {
   const userId = await requirePanchayatAuth(req, res);
   if (!userId) return;
   try {
-    const [metrics, users] = await Promise.all([
-      neo4jService.getAdminMetrics(),
-      neo4jService.getAllUsers(),
+    const panchayatUser = await neo4jService.getPanchayatUserById(userId);
+    if (!panchayatUser) return res.status(404).json({ error: 'Panchayat user not found' });
+
+    const [citizens, totalSchemes, enrichedSchemes] = await Promise.all([
+      neo4jService.getUsersByPanchayatScoped(
+        userId,
+        panchayatUser.state,
+        panchayatUser.district,
+        panchayatUser.panchayatName
+      ),
+      neo4jService.getSchemeCount(),
+      neo4jService.getEnrichedSchemeCount(),
     ]);
 
-    const stateCounts = new Map<string, number>();
-    const empCounts = new Map<string, number>();
-    users.forEach((u: any) => {
-      if (u.state) stateCounts.set(u.state, (stateCounts.get(u.state) || 0) + 1);
-      const emp = u.employment || u.occupation;
-      if (emp) empCounts.set(emp, (empCounts.get(emp) || 0) + 1);
+    const employmentCounts = new Map<string, number>();
+    const genderCounts = new Map<string, number>();
+    const registrationsByDate = new Map<string, number>();
+
+    const today = new Date();
+    const last7Days: string[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      last7Days.push(d.toISOString().slice(0, 10));
+    }
+
+    citizens.forEach((citizen: any) => {
+      const employment = String(citizen.employment || citizen.occupation || 'Unknown').trim();
+      const gender = String(citizen.gender || 'Not specified').trim();
+      const createdAt = String(citizen.created_at || citizen.createdAt || '');
+      const createdDate = createdAt.slice(0, 10);
+
+      employmentCounts.set(employment, (employmentCounts.get(employment) || 0) + 1);
+      genderCounts.set(gender, (genderCounts.get(gender) || 0) + 1);
+      if (createdDate) {
+        registrationsByDate.set(createdDate, (registrationsByDate.get(createdDate) || 0) + 1);
+      }
     });
 
-    const byState = Array.from(stateCounts.entries())
-      .map(([state, count]) => ({ state, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 10);
-
-    const byEmployment = Array.from(empCounts.entries())
-      .map(([employment, count]) => ({ employment, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 10);
+    const totalCitizens = citizens.length;
+    const onboardedCitizens = citizens.filter((citizen: any) => citizen.onboarding_complete).length;
 
     return res.json({
       summary: {
-        totalUsers: metrics.users.total,
-        totalSchemes: metrics.schemes.total,
-        onboardedUsers: metrics.users.onboarded,
-        enrichedSchemes: metrics.schemes.enriched,
-        enrichmentRate: metrics.schemes.enrichmentRate,
+        totalCitizens,
+        onboardedCitizens,
+        pendingCitizens: totalCitizens - onboardedCitizens,
+        totalSchemes,
+        enrichedSchemes,
+        enrichmentRate:
+          totalSchemes > 0 ? Math.round((enrichedSchemes / totalSchemes) * 1000) / 10 : 0,
+        state: panchayatUser.state,
+        district: panchayatUser.district,
+        panchayatName: panchayatUser.panchayatName,
       },
-      trends: metrics.trends,
-      distribution: { byState, byEmployment },
+      trends: {
+        registrations: last7Days.map((date) => ({
+          date,
+          count: registrationsByDate.get(date) || 0,
+        })),
+      },
+      distribution: {
+        byEmployment: Array.from(employmentCounts.entries())
+          .map(([employment, count]) => ({ employment, count }))
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 10),
+        byGender: Array.from(genderCounts.entries())
+          .map(([gender, count]) => ({ gender, count }))
+          .sort((a, b) => b.count - a.count),
+      },
     });
   } catch (error: any) {
     console.error('Panchayat analytics error:', error);
@@ -1263,7 +1369,12 @@ app.get('/api/panchayat/stats', async (req, res) => {
     const panchayatUser = await neo4jService.getPanchayatUserById(userId);
     if (!panchayatUser) return res.status(404).json({ error: 'Panchayat user not found' });
 
-    const citizens = await neo4jService.getUsersByState(panchayatUser.state);
+    const citizens = await neo4jService.getUsersByPanchayatScoped(
+      userId,
+      panchayatUser.state,
+      panchayatUser.district,
+      panchayatUser.panchayatName
+    );
     const total = citizens.length;
     const onboarded = citizens.filter((u: any) => u.onboarding_complete).length;
 
@@ -1323,7 +1434,15 @@ app.get('/api/panchayat/citizens', async (req, res) => {
     const q = String(req.query.q ?? '')
       .toLowerCase()
       .trim();
-    let citizens = await neo4jService.getUsersByState(panchayatUser.state);
+    const onboarding = String(req.query.onboarding ?? 'all').toLowerCase();
+    const page = Math.max(1, Number(req.query.page ?? 1) || 1);
+    const limit = Math.min(100, Math.max(1, Number(req.query.limit ?? 20) || 20));
+    let citizens = await neo4jService.getUsersByPanchayatScoped(
+      userId,
+      panchayatUser.state,
+      panchayatUser.district,
+      panchayatUser.panchayatName
+    );
 
     if (q) {
       citizens = citizens.filter((u: any) => {
@@ -1331,11 +1450,38 @@ app.get('/api/panchayat/citizens', async (req, res) => {
         const email = (u.email ?? '').toLowerCase();
         const district = (u.district ?? '').toLowerCase();
         const village = (u.village ?? '').toLowerCase();
-        return name.includes(q) || email.includes(q) || district.includes(q) || village.includes(q);
+        const panchayatName = (u.panchayat_name ?? u.panchayatName ?? '').toLowerCase();
+        return (
+          name.includes(q) ||
+          email.includes(q) ||
+          district.includes(q) ||
+          village.includes(q) ||
+          panchayatName.includes(q)
+        );
       });
     }
 
-    return res.json(citizens);
+    if (onboarding === 'complete') {
+      citizens = citizens.filter((u: any) =>
+        Boolean(u.onboarding_complete ?? u.onboardingComplete)
+      );
+    } else if (onboarding === 'pending') {
+      citizens = citizens.filter(
+        (u: any) => !Boolean(u.onboarding_complete ?? u.onboardingComplete)
+      );
+    }
+
+    const total = citizens.length;
+    const start = (page - 1) * limit;
+    const items = citizens.slice(start, start + limit);
+
+    return res.json({
+      items,
+      total,
+      page,
+      limit,
+      hasMore: start + items.length < total,
+    });
   } catch (error: any) {
     console.error('Panchayat citizens error:', error);
     return res.status(500).json({ error: 'Failed to fetch citizens', details: error.message });
@@ -1379,12 +1525,15 @@ app.post('/api/panchayat/citizens', async (req, res) => {
       state: panchayatUser.state,
     });
 
-    // Set extra profile fields and panchayat association
+    // Set extra profile fields and panchayat association.
+    // Citizens registered by an operator still need to complete their own onboarding journey.
     await neo4jService.updateUserProfile(citizenId, {
       employment: employment || '',
       education: education || '',
       district: panchayatUser.district,
+      panchayat_name: panchayatUser.panchayatName,
       registered_by_panchayat: userId,
+      onboarding_complete: false,
     });
 
     return res.status(201).json({

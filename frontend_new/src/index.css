@@ -684,6 +684,77 @@
   color: var(--color-accent);
 }
 
+/* ── Bottom dock navigation ──────────────────────────────────── */
+.p-dock {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  background: var(--color-primary);
+  border-top: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: 0 -8px 32px rgba(16, 40, 69, 0.35);
+}
+
+.p-dock-inner {
+  max-width: 48rem;
+  margin: 0 auto;
+  display: flex;
+  align-items: stretch;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.p-dock-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 10px 4px 12px;
+  position: relative;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.38);
+  transition:
+    color 150ms,
+    background 150ms;
+}
+
+.p-dock-item::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%) scaleX(0);
+  width: 32px;
+  height: 3px;
+  border-radius: 0 0 4px 4px;
+  background: var(--color-accent);
+  transition: transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.p-dock-item:hover {
+  color: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.p-dock-item.active {
+  color: var(--color-accent);
+}
+
+.p-dock-item.active::before {
+  transform: translateX(-50%) scaleX(1);
+}
+
+.p-dock-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  line-height: 1;
+}
+
 /* ── Cards ───────────────────────────────────────────────────── */
 .p-card {
   @apply bg-white rounded-xl shadow-sm;
@@ -707,12 +778,24 @@
   background: var(--color-border-dark);
 }
 
-.p-stat-card.blue::before   { background: #3b82f6; }
-.p-stat-card.green::before  { background: var(--color-success); }
-.p-stat-card.purple::before { background: #8b5cf6; }
-.p-stat-card.amber::before  { background: var(--color-accent); }
-.p-stat-card.red::before    { background: #ef4444; }
-.p-stat-card.teal::before   { background: #14b8a6; }
+.p-stat-card.blue::before {
+  background: #3b82f6;
+}
+.p-stat-card.green::before {
+  background: var(--color-success);
+}
+.p-stat-card.purple::before {
+  background: #8b5cf6;
+}
+.p-stat-card.amber::before {
+  background: var(--color-accent);
+}
+.p-stat-card.red::before {
+  background: #ef4444;
+}
+.p-stat-card.teal::before {
+  background: #14b8a6;
+}
 
 .p-stat-label {
   @apply text-xs font-semibold uppercase tracking-wider;
@@ -724,9 +807,15 @@
   color: var(--color-ink);
 }
 
-.p-stat-change { @apply text-xs mt-1; }
-.p-stat-change.positive { @apply text-emerald-600; }
-.p-stat-change.negative { @apply text-red-500; }
+.p-stat-change {
+  @apply text-xs mt-1;
+}
+.p-stat-change.positive {
+  @apply text-emerald-600;
+}
+.p-stat-change.negative {
+  @apply text-red-500;
+}
 
 /* ── Buttons ─────────────────────────────────────────────────── */
 .p-btn {
@@ -759,7 +848,9 @@
   border-color: var(--color-accent);
   box-shadow: 0 0 0 3px rgba(217, 122, 16, 0.1);
 }
-.p-input::placeholder { color: var(--color-muted-2); }
+.p-input::placeholder {
+  color: var(--color-muted-2);
+}
 
 /* ── Badges ──────────────────────────────────────────────────── */
 .p-badge {
@@ -776,13 +867,27 @@
   opacity: 0.7;
 }
 
-.p-badge-success { @apply text-emerald-700; background-color: rgba(16, 185, 129, 0.12); }
-.p-badge-warning { @apply text-amber-700;   background-color: rgba(245, 158, 11, 0.12); }
-.p-badge-info    { @apply text-blue-700;    background-color: rgba(59, 130, 246, 0.12); }
-.p-badge-danger  { @apply text-red-700;     background-color: rgba(239, 68, 68, 0.12); }
+.p-badge-success {
+  @apply text-emerald-700;
+  background-color: rgba(16, 185, 129, 0.12);
+}
+.p-badge-warning {
+  @apply text-amber-700;
+  background-color: rgba(245, 158, 11, 0.12);
+}
+.p-badge-info {
+  @apply text-blue-700;
+  background-color: rgba(59, 130, 246, 0.12);
+}
+.p-badge-danger {
+  @apply text-red-700;
+  background-color: rgba(239, 68, 68, 0.12);
+}
 
 /* ── Table ───────────────────────────────────────────────────── */
-.p-table { @apply w-full text-sm; }
+.p-table {
+  @apply w-full text-sm;
+}
 
 .p-table thead tr {
   border-bottom: 1px solid var(--color-border);
@@ -799,8 +904,12 @@
   border-bottom: 1px solid var(--color-surface-2);
 }
 
-.p-table tbody tr { @apply transition-colors duration-100; }
-.p-table tbody tr:hover { background: var(--color-accent-50); }
+.p-table tbody tr {
+  @apply transition-colors duration-100;
+}
+.p-table tbody tr:hover {
+  background: var(--color-accent-50);
+}
 
 /* ── User avatar ─────────────────────────────────────────────── */
 .p-user-avatar {
@@ -808,10 +917,18 @@
 }
 
 /* ── Health status dot ───────────────────────────────────────── */
-.p-health-dot { @apply size-2.5 rounded-full inline-block; }
-.p-health-dot.healthy  { @apply bg-emerald-500 animate-pulse; }
-.p-health-dot.degraded { @apply bg-amber-400; }
-.p-health-dot.critical { @apply bg-red-500; }
+.p-health-dot {
+  @apply size-2.5 rounded-full inline-block;
+}
+.p-health-dot.healthy {
+  @apply bg-emerald-500 animate-pulse;
+}
+.p-health-dot.degraded {
+  @apply bg-amber-400;
+}
+.p-health-dot.critical {
+  @apply bg-red-500;
+}
 
 /* ── Eligibility score bar ───────────────────────────────────── */
 .p-score-bar {
@@ -831,7 +948,6 @@
   color: var(--color-ink);
   min-height: 100vh;
 }
-
 
 /* ══════════════════════════════════════════════════════════════
    Admin Portal — utility classes (warm amber/navy theme)

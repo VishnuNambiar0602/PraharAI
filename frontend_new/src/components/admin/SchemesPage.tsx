@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Search, RefreshCw, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
 import { getAllSchemes, getSyncStatus, triggerSync } from './adminApi';
 import type { Scheme, SyncStatus } from './adminTypes';
+import { useDialog } from '../DialogProvider';
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const;
 type PageSize = (typeof PAGE_SIZE_OPTIONS)[number];
@@ -50,6 +51,7 @@ function safeDate(iso: string) {
 }
 
 export default function SchemesPage() {
+  const { confirm, toast } = useDialog();
   const [schemes, setSchemes] = useState<Scheme[]>([]);
   const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -82,14 +84,24 @@ export default function SchemesPage() {
   };
 
   const handleSync = async () => {
-    if (!confirm('This will fetch the latest schemes from India.gov.in. Continue?')) return;
+    const ok = await confirm({
+      title: 'Sync Schemes',
+      message: 'This will fetch the latest schemes from India.gov.in. Continue?',
+      confirmLabel: 'Sync',
+      variant: 'primary',
+    });
+    if (!ok) return;
     setSyncing(true);
     try {
       await triggerSync();
-      alert('Sync started successfully. This may take a few minutes.');
+      toast({
+        message: 'Sync started successfully. This may take a few minutes.',
+        variant: 'success',
+        duration: 5000,
+      });
       setTimeout(loadData, 5000);
     } catch {
-      alert('Failed to trigger sync');
+      toast({ message: 'Failed to trigger sync', variant: 'error' });
     } finally {
       setSyncing(false);
     }

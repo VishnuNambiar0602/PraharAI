@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { Leaf, Lock, Mail, MapPin } from 'lucide-react';
-import { panchayatLogin } from '../api';
+import { panchayatLogin, PanchayatUser } from '../api';
 
 interface LoginPageProps {
-  onLogin: () => void;
+  onLogin: (user: PanchayatUser) => void;
 }
 
 export default function LoginPage({ onLogin }: LoginPageProps) {
@@ -17,8 +17,8 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
     setError('');
     setLoading(true);
     try {
-      await panchayatLogin(email.trim().toLowerCase(), password);
-      onLogin();
+      const user = await panchayatLogin(email.trim().toLowerCase(), password);
+      onLogin(user);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to connect. Please try again.');
     } finally {
@@ -92,27 +92,33 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
               <br />
               <span style={{ color: 'var(--color-accent)' }}>Service Desk</span>
             </h1>
-            <p className="text-sm mt-4 leading-relaxed max-w-sm" style={{ color: 'rgba(255,255,255,0.45)' }}>
-              Help villagers discover and apply for government welfare schemes.
-              AI-powered eligibility matching at the grassroots level.
+            <p
+              className="text-sm mt-4 leading-relaxed max-w-sm"
+              style={{ color: 'rgba(255,255,255,0.45)' }}
+            >
+              Help villagers discover and apply for government welfare schemes. AI-powered
+              eligibility matching at the grassroots level.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            {['Gram Panchayat', 'AI Scheme Matching', 'Beneficiary Tracking', 'Last-Mile Delivery'].map(
-              (tag) => (
-                <span
-                  key={tag}
-                  className="px-3 py-1 rounded-full text-xs font-semibold"
-                  style={{
-                    background: 'rgba(255,255,255,0.05)',
-                    color: 'rgba(255,255,255,0.35)',
-                    border: '1px solid rgba(255,255,255,0.08)',
-                  }}
-                >
-                  {tag}
-                </span>
-              )
-            )}
+            {[
+              'Gram Panchayat',
+              'AI Scheme Matching',
+              'Beneficiary Tracking',
+              'Last-Mile Delivery',
+            ].map((tag) => (
+              <span
+                key={tag}
+                className="px-3 py-1 rounded-full text-xs font-semibold"
+                style={{
+                  background: 'rgba(255,255,255,0.05)',
+                  color: 'rgba(255,255,255,0.35)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                }}
+              >
+                {tag}
+              </span>
+            ))}
           </div>
         </div>
 

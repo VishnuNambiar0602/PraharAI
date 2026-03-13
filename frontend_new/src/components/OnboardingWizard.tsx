@@ -10,49 +10,20 @@ import {
   Check,
   X,
 } from 'lucide-react';
-import { updateProfile } from '../api';
+import {
+  updateProfile,
+  getLGDStates,
+  getLGDDistricts,
+  getLGDSubdistricts,
+  getLGDPanchayats,
+} from '../api';
 import { useAuth } from '../AuthContext';
+import SearchableSelect from './SearchableSelect';
 
 interface Props {
   onComplete: () => void;
   onSkip: () => void;
 }
-
-const STATES = [
-  'Andhra Pradesh',
-  'Arunachal Pradesh',
-  'Assam',
-  'Bihar',
-  'Chhattisgarh',
-  'Goa',
-  'Gujarat',
-  'Haryana',
-  'Himachal Pradesh',
-  'Jharkhand',
-  'Karnataka',
-  'Kerala',
-  'Madhya Pradesh',
-  'Maharashtra',
-  'Manipur',
-  'Meghalaya',
-  'Mizoram',
-  'Nagaland',
-  'Odisha',
-  'Punjab',
-  'Rajasthan',
-  'Sikkim',
-  'Tamil Nadu',
-  'Telangana',
-  'Tripura',
-  'Uttar Pradesh',
-  'Uttarakhand',
-  'West Bengal',
-  'Delhi',
-  'Jammu & Kashmir',
-  'Ladakh',
-  'Puducherry',
-  'Chandigarh',
-];
 
 const INTERESTS = [
   'Agriculture',
@@ -97,10 +68,22 @@ export default function OnboardingWizard({ onComplete, onSkip }: Props) {
   const [name, setName] = useState(user?.name || '');
   const [age, setAge] = useState(user?.age?.toString() || '');
   const [state, setState] = useState(user?.state || '');
+  const [district, setDistrict] = useState((user as any)?.district || '');
+  const [subdistrict, setSubdistrict] = useState((user as any)?.subdistrict || '');
+  const [panchayatName, setPanchayatName] = useState((user as any)?.panchayatName || '');
   const [gender, setGender] = useState((user as any)?.gender || '');
   const [maritalStatus, setMaritalStatus] = useState((user as any)?.maritalStatus || '');
   const [familySize, setFamilySize] = useState((user as any)?.familySize?.toString() || '');
   const [residenceType, setResidenceType] = useState((user as any)?.residenceType || '');
+
+  // LGD geography data
+  const [stateOptions, setStateOptions] = useState<string[]>([]);
+  const [districtOptions, setDistrictOptions] = useState<string[]>([]);
+  const [subdistrictOptions, setSubdistrictOptions] = useState<string[]>([]);
+  const [panchayatOptions, setPanchayatOptions] = useState<string[]>([]);
+  const [loadingDistricts, setLoadingDistricts] = useState(false);
+  const [loadingSubdistricts, setLoadingSubdistricts] = useState(false);
+  const [loadingPanchayats, setLoadingPanchayats] = useState(false);
 
   const [employment, setEmployment] = useState(user?.employment || '');
   const [occupation, setOccupation] = useState((user as any)?.occupation || '');
@@ -111,13 +94,67 @@ export default function OnboardingWizard({ onComplete, onSkip }: Props) {
 
   const [education, setEducation] = useState(user?.education || '');
   const [socialCategory, setSocialCategory] = useState((user as any)?.socialCategory || '');
-  const [district, setDistrict] = useState((user as any)?.district || '');
   const [hasDisability, setHasDisability] = useState(!!(user as any)?.disability);
   const [disabilityType, setDisabilityType] = useState((user as any)?.disabilityType || '');
   const [isMinority, setIsMinority] = useState(!!(user as any)?.minority);
-  const [minorityCommunity, setMinorityCommunity] = useState((user as any)?.minorityCommunity || '');
+  const [minorityCommunity, setMinorityCommunity] = useState(
+    (user as any)?.minorityCommunity || ''
+  );
 
   const [interests, setInterests] = useState<string[]>([]);
+
+  // Load LGD states once on mount
+  useEffect(() => {
+    getLGDStates().then((states) => setStateOptions(states.map((s) => s.name)));
+  }, []);
+
+  // Reload districts whenever state changes
+  useEffect(() => {
+    if (!state) {
+      setDistrictOptions([]);
+      setDistrict('');
+      setSubdistrictOptions([]);
+      setSubdistrict('');
+      setPanchayatOptions([]);
+      setPanchayatName('');
+      return;
+    }
+    setLoadingDistricts(true);
+    getLGDDistricts(state)
+      .then((d) => setDistrictOptions(d))
+      .finally(() => setLoadingDistricts(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state]);
+
+  // Reload sub-districts whenever district changes
+  useEffect(() => {
+    if (!state || !district) {
+      setSubdistrictOptions([]);
+      setSubdistrict('');
+      setPanchayatOptions([]);
+      setPanchayatName('');
+      return;
+    }
+    setLoadingSubdistricts(true);
+    getLGDSubdistricts(state, district)
+      .then((s) => setSubdistrictOptions(s))
+      .finally(() => setLoadingSubdistricts(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [district]);
+
+  // Reload villages/panchayats whenever sub-district changes
+  useEffect(() => {
+    if (!state || !district) {
+      setPanchayatOptions([]);
+      setPanchayatName('');
+      return;
+    }
+    setLoadingPanchayats(true);
+    getLGDPanchayats(state, district, subdistrict || undefined)
+      .then((p) => setPanchayatOptions(p))
+      .finally(() => setLoadingPanchayats(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subdistrict, district]);
 
   const toggleInterest = (interest: string) => {
     setInterests((prev) =>
@@ -134,6 +171,9 @@ export default function OnboardingWizard({ onComplete, onSkip }: Props) {
         if (name) payload.name = name;
         if (age) payload.age = Number(age);
         if (state) payload.state = state;
+        if (district) payload.district = district;
+        if (subdistrict) payload.subdistrict = subdistrict;
+        if (panchayatName) payload.panchayat_name = panchayatName;
         if (gender) payload.gender = gender;
         if (maritalStatus) payload.maritalStatus = maritalStatus;
         if (familySize) payload.familySize = Number(familySize);
@@ -148,7 +188,6 @@ export default function OnboardingWizard({ onComplete, onSkip }: Props) {
       } else if (step === 3) {
         if (education) payload.education = education;
         if (socialCategory) payload.socialCategory = socialCategory;
-        if (district) payload.district = district;
         payload.disability = hasDisability;
         if (hasDisability && disabilityType) payload.disabilityType = disabilityType;
         payload.minority = isMinority;
@@ -193,7 +232,10 @@ export default function OnboardingWizard({ onComplete, onSkip }: Props) {
     onChange: (v: string) => void;
     columns?: number;
   }) => (
-    <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>
+    <div
+      className="grid gap-2"
+      style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
+    >
       {options.map((opt) => (
         <button
           key={opt}
@@ -310,7 +352,8 @@ export default function OnboardingWizard({ onComplete, onSkip }: Props) {
                       <span
                         className="size-6 rounded-full grid place-items-center"
                         style={{
-                          background: done || active ? 'var(--color-accent)' : 'rgba(255,255,255,0.16)',
+                          background:
+                            done || active ? 'var(--color-accent)' : 'rgba(255,255,255,0.16)',
                           color: '#fff',
                         }}
                       >
@@ -367,7 +410,11 @@ export default function OnboardingWizard({ onComplete, onSkip }: Props) {
                     </div>
                     <div>
                       <FieldLabel>Gender</FieldLabel>
-                      <select value={gender} onChange={(e) => setGender(e.target.value)} className="input-base h-11">
+                      <select
+                        value={gender}
+                        onChange={(e) => setGender(e.target.value)}
+                        className="input-base h-11"
+                      >
                         <option value="">Select</option>
                         <option value="Male">Male</option>
                         <option value="Female">Female</option>
@@ -378,15 +425,74 @@ export default function OnboardingWizard({ onComplete, onSkip }: Props) {
                   </div>
 
                   <div>
-                    <FieldLabel>State / UT</FieldLabel>
-                    <select value={state} onChange={(e) => setState(e.target.value)} className="input-base h-11">
-                      <option value="">Select state</option>
-                      {STATES.map((s) => (
-                        <option key={s} value={s}>
-                          {s}
-                        </option>
-                      ))}
-                    </select>
+                    <FieldLabel>State / UT *</FieldLabel>
+                    <SearchableSelect
+                      options={stateOptions}
+                      value={state}
+                      onChange={(v) => setState(v)}
+                      placeholder={stateOptions.length === 0 ? 'Loading states…' : 'Select state…'}
+                      disabled={stateOptions.length === 0}
+                    />
+                  </div>
+
+                  <div>
+                    <FieldLabel>District</FieldLabel>
+                    <SearchableSelect
+                      options={districtOptions}
+                      value={district}
+                      onChange={(v) => setDistrict(v)}
+                      placeholder={
+                        !state
+                          ? 'Select state first…'
+                          : loadingDistricts
+                            ? 'Loading…'
+                            : 'Select district…'
+                      }
+                      disabled={!state || loadingDistricts}
+                    />
+                  </div>
+
+                  <div>
+                    <FieldLabel>Block / Sub-District</FieldLabel>
+                    <SearchableSelect
+                      options={subdistrictOptions}
+                      value={subdistrict}
+                      onChange={(v) => {
+                        setSubdistrict(v);
+                        setPanchayatName('');
+                      }}
+                      placeholder={
+                        !district
+                          ? 'Select district first…'
+                          : loadingSubdistricts
+                            ? 'Loading…'
+                            : subdistrictOptions.length === 0
+                              ? 'No blocks found'
+                              : 'Select block…'
+                      }
+                      disabled={!district || loadingSubdistricts}
+                    />
+                  </div>
+
+                  <div>
+                    <FieldLabel>Village / Gram Panchayat</FieldLabel>
+                    <SearchableSelect
+                      options={panchayatOptions}
+                      value={panchayatName}
+                      onChange={(v) => setPanchayatName(v)}
+                      allowFreeText
+                      placeholder={
+                        !district
+                          ? 'Select district first…'
+                          : loadingPanchayats
+                            ? 'Loading…'
+                            : 'Search your village or GP…'
+                      }
+                      disabled={!district || loadingPanchayats}
+                    />
+                    <p className="text-xs mt-1" style={{ color: 'var(--color-muted)' }}>
+                      Helps connect you with your local panchayat services.
+                    </p>
                   </div>
 
                   <div>
@@ -433,7 +539,14 @@ export default function OnboardingWizard({ onComplete, onSkip }: Props) {
                   <div>
                     <FieldLabel>Employment Status *</FieldLabel>
                     <ChipGroup
-                      options={['Salaried', 'Self-Employed', 'Unemployed', 'Student', 'Farmer', 'Retired']}
+                      options={[
+                        'Salaried',
+                        'Self-Employed',
+                        'Unemployed',
+                        'Student',
+                        'Farmer',
+                        'Retired',
+                      ]}
                       value={employment}
                       onChange={setEmployment}
                       columns={3}
@@ -488,7 +601,13 @@ export default function OnboardingWizard({ onComplete, onSkip }: Props) {
                   <div>
                     <FieldLabel>Land Ownership</FieldLabel>
                     <ChipGroup
-                      options={['Landless', 'Marginal (< 1 ha)', 'Small (1-2 ha)', 'Large (> 2 ha)', 'N/A']}
+                      options={[
+                        'Landless',
+                        'Marginal (< 1 ha)',
+                        'Small (1-2 ha)',
+                        'Large (> 2 ha)',
+                        'N/A',
+                      ]}
                       value={landOwnership}
                       onChange={setLandOwnership}
                       columns={2}
@@ -502,24 +621,18 @@ export default function OnboardingWizard({ onComplete, onSkip }: Props) {
                   <div>
                     <FieldLabel>Education Level *</FieldLabel>
                     <ChipGroup
-                      options={['Below 10th', '10th / SSC', '12th / HSC', 'Diploma', 'Graduate', 'Post-Graduate']}
+                      options={[
+                        'Below 10th',
+                        '10th / SSC',
+                        '12th / HSC',
+                        'Diploma',
+                        'Graduate',
+                        'Post-Graduate',
+                      ]}
                       value={education}
                       onChange={setEducation}
                       columns={3}
                     />
-                  </div>
-
-                  <div>
-                    <FieldLabel>District</FieldLabel>
-                    <input
-                      value={district}
-                      onChange={(e) => setDistrict(e.target.value)}
-                      placeholder="e.g. Lucknow, Pune, Jaipur"
-                      className="input-base h-11"
-                    />
-                    <p className="text-xs mt-1" style={{ color: 'var(--color-muted)' }}>
-                      Some schemes are district-specific.
-                    </p>
                   </div>
 
                   <div>
@@ -532,7 +645,10 @@ export default function OnboardingWizard({ onComplete, onSkip }: Props) {
                     />
                   </div>
 
-                  <div className="rounded-xl p-3.5 border" style={{ borderColor: 'var(--color-border)' }}>
+                  <div
+                    className="rounded-xl p-3.5 border"
+                    style={{ borderColor: 'var(--color-border)' }}
+                  >
                     <label className="flex items-center gap-2.5 cursor-pointer">
                       <input
                         type="checkbox"
@@ -548,9 +664,20 @@ export default function OnboardingWizard({ onComplete, onSkip }: Props) {
                       </span>
                     </label>
                     {hasDisability && (
-                      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="mt-3">
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        className="mt-3"
+                      >
                         <ChipGroup
-                          options={['Visual', 'Hearing', 'Locomotor', 'Intellectual', 'Multiple', 'Other']}
+                          options={[
+                            'Visual',
+                            'Hearing',
+                            'Locomotor',
+                            'Intellectual',
+                            'Multiple',
+                            'Other',
+                          ]}
                           value={disabilityType}
                           onChange={setDisabilityType}
                           columns={3}
@@ -559,7 +686,10 @@ export default function OnboardingWizard({ onComplete, onSkip }: Props) {
                     )}
                   </div>
 
-                  <div className="rounded-xl p-3.5 border" style={{ borderColor: 'var(--color-border)' }}>
+                  <div
+                    className="rounded-xl p-3.5 border"
+                    style={{ borderColor: 'var(--color-border)' }}
+                  >
                     <label className="flex items-center gap-2.5 cursor-pointer">
                       <input
                         type="checkbox"
@@ -575,7 +705,11 @@ export default function OnboardingWizard({ onComplete, onSkip }: Props) {
                       </span>
                     </label>
                     {isMinority && (
-                      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="mt-3">
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        className="mt-3"
+                      >
                         <ChipGroup
                           options={['Muslim', 'Christian', 'Sikh', 'Buddhist', 'Jain', 'Parsi']}
                           value={minorityCommunity}
@@ -590,7 +724,10 @@ export default function OnboardingWizard({ onComplete, onSkip }: Props) {
 
               {step === 4 && (
                 <>
-                  <div className="rounded-xl border p-3.5" style={{ borderColor: 'var(--color-border)' }}>
+                  <div
+                    className="rounded-xl border p-3.5"
+                    style={{ borderColor: 'var(--color-border)' }}
+                  >
                     <p className="text-sm" style={{ color: 'var(--color-muted)' }}>
                       Select areas you care about. This helps prioritize recommendations.
                     </p>
@@ -635,16 +772,31 @@ export default function OnboardingWizard({ onComplete, onSkip }: Props) {
             onClick={step === 1 ? onSkip : () => setStep((s) => s - 1)}
             className="btn btn-ghost"
           >
-            {step === 1 ? 'Skip For Now' : (<><ChevronLeft className="size-4" /> Back</>)}
+            {step === 1 ? (
+              'Skip For Now'
+            ) : (
+              <>
+                <ChevronLeft className="size-4" /> Back
+              </>
+            )}
           </button>
 
-          <button type="button" onClick={saveAndNext} disabled={!canProceed() || saving} className="btn btn-primary">
+          <button
+            type="button"
+            onClick={saveAndNext}
+            disabled={!canProceed() || saving}
+            className="btn btn-primary"
+          >
             {saving ? (
               <span className="animate-spin size-4 border-2 border-white/30 border-t-white rounded-full" />
             ) : step === 4 ? (
-              <><Check className="size-4" /> Complete Setup</>
+              <>
+                <Check className="size-4" /> Complete Setup
+              </>
             ) : (
-              <>Next <ChevronRight className="size-4" /></>
+              <>
+                Next <ChevronRight className="size-4" />
+              </>
             )}
           </button>
         </footer>

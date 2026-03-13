@@ -16,6 +16,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { useAuth } from '../AuthContext';
+import { useDialog } from './DialogProvider';
 import { deleteProfile, updateProfile } from '../api';
 import { View } from '../types';
 
@@ -120,21 +121,23 @@ function toEditable(user: Record<string, unknown>): EditableProfile {
     disability: Boolean(user.disability),
     disabilityType: typeof user.disabilityType === 'string' ? user.disabilityType : '',
     minority: Boolean(user.minority),
-    minorityCommunity:
-      typeof user.minorityCommunity === 'string' ? user.minorityCommunity : '',
+    minorityCommunity: typeof user.minorityCommunity === 'string' ? user.minorityCommunity : '',
     interests: typeof user.interests === 'string' ? user.interests : '',
   };
 }
 
 export default function UserProfile({ onNavigate }: UserProfileProps) {
   const { user, refreshProfile, logout } = useAuth();
+  const { confirm } = useDialog();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
 
-  const [form, setForm] = useState<EditableProfile>(() => toEditable((user || {}) as Record<string, unknown>));
+  const [form, setForm] = useState<EditableProfile>(() =>
+    toEditable((user || {}) as Record<string, unknown>)
+  );
 
   const profileCompleteness = typeof user?.completeness === 'number' ? user.completeness : 0;
   const extra = (user as (typeof user & ExtendedUser) | null) || null;
@@ -358,9 +361,12 @@ export default function UserProfile({ onNavigate }: UserProfileProps) {
   const removeProfile = async () => {
     if (!user?.userId) return;
 
-    const confirmed = window.confirm(
-      'Delete your profile permanently? This action cannot be undone.'
-    );
+    const confirmed = await confirm({
+      title: 'Delete Profile',
+      message: 'Delete your profile permanently? This action cannot be undone.',
+      confirmLabel: 'Delete',
+      cancelLabel: 'Cancel',
+    });
 
     if (!confirmed) return;
 
@@ -403,9 +409,15 @@ export default function UserProfile({ onNavigate }: UserProfileProps) {
             <div className="flex items-center gap-4">
               <div
                 className="size-16 rounded-2xl flex items-center justify-center"
-                style={{ background: 'rgba(255,255,255,0.13)', border: '1px solid rgba(255,255,255,0.22)' }}
+                style={{
+                  background: 'rgba(255,255,255,0.13)',
+                  border: '1px solid rgba(255,255,255,0.22)',
+                }}
               >
-                <span className="text-white text-2xl font-bold" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+                <span
+                  className="text-white text-2xl font-bold"
+                  style={{ fontFamily: 'Space Grotesk, sans-serif' }}
+                >
                   {(user.name || user.email || 'U').charAt(0).toUpperCase()}
                 </span>
               </div>
@@ -466,7 +478,10 @@ export default function UserProfile({ onNavigate }: UserProfileProps) {
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 pb-16 space-y-5">
         <div className="card p-5">
           <div className="flex items-center justify-between gap-4 mb-3">
-            <h2 className="text-lg font-bold" style={{ color: 'var(--color-ink)', fontFamily: 'Lora, serif' }}>
+            <h2
+              className="text-lg font-bold"
+              style={{ color: 'var(--color-ink)', fontFamily: 'Lora, serif' }}
+            >
               Profile Completeness
             </h2>
             <span className="pill pill-primary">{profileCompleteness}% complete</span>
@@ -476,14 +491,18 @@ export default function UserProfile({ onNavigate }: UserProfileProps) {
               className="h-2.5 rounded-full"
               style={{
                 width: `${Math.max(0, Math.min(100, profileCompleteness))}%`,
-                background: 'linear-gradient(90deg, var(--color-accent) 0%, var(--color-primary) 100%)',
+                background:
+                  'linear-gradient(90deg, var(--color-accent) 0%, var(--color-primary) 100%)',
               }}
             />
           </div>
         </div>
 
         {error && (
-          <div className="card p-4 flex items-start gap-3" style={{ borderColor: '#fecaca', background: '#fef2f2' }}>
+          <div
+            className="card p-4 flex items-start gap-3"
+            style={{ borderColor: '#fecaca', background: '#fef2f2' }}
+          >
             <AlertTriangle className="size-4 mt-0.5" style={{ color: '#b91c1c' }} />
             <p className="text-sm" style={{ color: '#991b1b' }}>
               {error}
@@ -492,7 +511,10 @@ export default function UserProfile({ onNavigate }: UserProfileProps) {
         )}
 
         {message && (
-          <div className="card p-4 flex items-start gap-3" style={{ borderColor: '#bbf7d0', background: '#f0fdf4' }}>
+          <div
+            className="card p-4 flex items-start gap-3"
+            style={{ borderColor: '#bbf7d0', background: '#f0fdf4' }}
+          >
             <ShieldAlert className="size-4 mt-0.5" style={{ color: '#166534' }} />
             <p className="text-sm" style={{ color: '#14532d' }}>
               {message}
@@ -503,7 +525,10 @@ export default function UserProfile({ onNavigate }: UserProfileProps) {
         {isEditing && (
           <section className="card p-5 sm:p-6">
             <div className="flex items-center justify-between gap-3 mb-5">
-              <h3 className="text-lg font-bold" style={{ color: 'var(--color-ink)', fontFamily: 'Lora, serif' }}>
+              <h3
+                className="text-lg font-bold"
+                style={{ color: 'var(--color-ink)', fontFamily: 'Lora, serif' }}
+              >
                 Edit Profile
               </h3>
               <span className="text-xs" style={{ color: 'var(--color-muted)' }}>
@@ -513,113 +538,254 @@ export default function UserProfile({ onNavigate }: UserProfileProps) {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <label className="text-sm">
-                <span className="block mb-1.5" style={{ color: 'var(--color-muted)' }}>Full Name</span>
-                <input className="input-base" value={form.name} onChange={(e) => onFieldChange('name', e.target.value)} />
+                <span className="block mb-1.5" style={{ color: 'var(--color-muted)' }}>
+                  Full Name
+                </span>
+                <input
+                  className="input-base"
+                  value={form.name}
+                  onChange={(e) => onFieldChange('name', e.target.value)}
+                />
               </label>
 
               <label className="text-sm">
-                <span className="block mb-1.5" style={{ color: 'var(--color-muted)' }}>Date of Birth</span>
-                <input className="input-base" type="date" value={form.dateOfBirth} onChange={(e) => onFieldChange('dateOfBirth', e.target.value)} />
+                <span className="block mb-1.5" style={{ color: 'var(--color-muted)' }}>
+                  Date of Birth
+                </span>
+                <input
+                  className="input-base"
+                  type="date"
+                  value={form.dateOfBirth}
+                  onChange={(e) => onFieldChange('dateOfBirth', e.target.value)}
+                />
               </label>
 
               <label className="text-sm">
-                <span className="block mb-1.5" style={{ color: 'var(--color-muted)' }}>Age</span>
-                <input className="input-base" type="number" min={1} max={120} value={form.age} onChange={(e) => onFieldChange('age', e.target.value)} />
+                <span className="block mb-1.5" style={{ color: 'var(--color-muted)' }}>
+                  Age
+                </span>
+                <input
+                  className="input-base"
+                  type="number"
+                  min={1}
+                  max={120}
+                  value={form.age}
+                  onChange={(e) => onFieldChange('age', e.target.value)}
+                />
               </label>
 
               <label className="text-sm">
-                <span className="block mb-1.5" style={{ color: 'var(--color-muted)' }}>Annual Income (INR)</span>
-                <input className="input-base" type="number" min={0} value={form.income} onChange={(e) => onFieldChange('income', e.target.value)} />
+                <span className="block mb-1.5" style={{ color: 'var(--color-muted)' }}>
+                  Annual Income (INR)
+                </span>
+                <input
+                  className="input-base"
+                  type="number"
+                  min={0}
+                  value={form.income}
+                  onChange={(e) => onFieldChange('income', e.target.value)}
+                />
               </label>
 
               <label className="text-sm">
-                <span className="block mb-1.5" style={{ color: 'var(--color-muted)' }}>Gender</span>
-                <input className="input-base" value={form.gender} onChange={(e) => onFieldChange('gender', e.target.value)} />
+                <span className="block mb-1.5" style={{ color: 'var(--color-muted)' }}>
+                  Gender
+                </span>
+                <input
+                  className="input-base"
+                  value={form.gender}
+                  onChange={(e) => onFieldChange('gender', e.target.value)}
+                />
               </label>
 
               <label className="text-sm">
-                <span className="block mb-1.5" style={{ color: 'var(--color-muted)' }}>State</span>
-                <input className="input-base" value={form.state} onChange={(e) => onFieldChange('state', e.target.value)} />
+                <span className="block mb-1.5" style={{ color: 'var(--color-muted)' }}>
+                  State
+                </span>
+                <input
+                  className="input-base"
+                  value={form.state}
+                  onChange={(e) => onFieldChange('state', e.target.value)}
+                />
               </label>
 
               <label className="text-sm">
-                <span className="block mb-1.5" style={{ color: 'var(--color-muted)' }}>District</span>
-                <input className="input-base" value={form.district} onChange={(e) => onFieldChange('district', e.target.value)} />
+                <span className="block mb-1.5" style={{ color: 'var(--color-muted)' }}>
+                  District
+                </span>
+                <input
+                  className="input-base"
+                  value={form.district}
+                  onChange={(e) => onFieldChange('district', e.target.value)}
+                />
               </label>
 
               <label className="text-sm">
-                <span className="block mb-1.5" style={{ color: 'var(--color-muted)' }}>Employment</span>
-                <input className="input-base" value={form.employment} onChange={(e) => onFieldChange('employment', e.target.value)} />
+                <span className="block mb-1.5" style={{ color: 'var(--color-muted)' }}>
+                  Employment
+                </span>
+                <input
+                  className="input-base"
+                  value={form.employment}
+                  onChange={(e) => onFieldChange('employment', e.target.value)}
+                />
               </label>
 
               <label className="text-sm">
-                <span className="block mb-1.5" style={{ color: 'var(--color-muted)' }}>Education</span>
-                <input className="input-base" value={form.education} onChange={(e) => onFieldChange('education', e.target.value)} />
+                <span className="block mb-1.5" style={{ color: 'var(--color-muted)' }}>
+                  Education
+                </span>
+                <input
+                  className="input-base"
+                  value={form.education}
+                  onChange={(e) => onFieldChange('education', e.target.value)}
+                />
               </label>
 
               <label className="text-sm">
-                <span className="block mb-1.5" style={{ color: 'var(--color-muted)' }}>Marital Status</span>
-                <input className="input-base" value={form.maritalStatus} onChange={(e) => onFieldChange('maritalStatus', e.target.value)} />
+                <span className="block mb-1.5" style={{ color: 'var(--color-muted)' }}>
+                  Marital Status
+                </span>
+                <input
+                  className="input-base"
+                  value={form.maritalStatus}
+                  onChange={(e) => onFieldChange('maritalStatus', e.target.value)}
+                />
               </label>
 
               <label className="text-sm">
-                <span className="block mb-1.5" style={{ color: 'var(--color-muted)' }}>Family Size</span>
-                <input className="input-base" type="number" min={1} max={30} value={form.familySize} onChange={(e) => onFieldChange('familySize', e.target.value)} />
+                <span className="block mb-1.5" style={{ color: 'var(--color-muted)' }}>
+                  Family Size
+                </span>
+                <input
+                  className="input-base"
+                  type="number"
+                  min={1}
+                  max={30}
+                  value={form.familySize}
+                  onChange={(e) => onFieldChange('familySize', e.target.value)}
+                />
               </label>
 
               <label className="text-sm">
-                <span className="block mb-1.5" style={{ color: 'var(--color-muted)' }}>Residence Type</span>
-                <input className="input-base" value={form.residenceType} onChange={(e) => onFieldChange('residenceType', e.target.value)} />
+                <span className="block mb-1.5" style={{ color: 'var(--color-muted)' }}>
+                  Residence Type
+                </span>
+                <input
+                  className="input-base"
+                  value={form.residenceType}
+                  onChange={(e) => onFieldChange('residenceType', e.target.value)}
+                />
               </label>
 
               <label className="text-sm">
-                <span className="block mb-1.5" style={{ color: 'var(--color-muted)' }}>Occupation</span>
-                <input className="input-base" value={form.occupation} onChange={(e) => onFieldChange('occupation', e.target.value)} />
+                <span className="block mb-1.5" style={{ color: 'var(--color-muted)' }}>
+                  Occupation
+                </span>
+                <input
+                  className="input-base"
+                  value={form.occupation}
+                  onChange={(e) => onFieldChange('occupation', e.target.value)}
+                />
               </label>
 
               <label className="text-sm">
-                <span className="block mb-1.5" style={{ color: 'var(--color-muted)' }}>Social Category</span>
-                <input className="input-base" value={form.socialCategory} onChange={(e) => onFieldChange('socialCategory', e.target.value)} />
+                <span className="block mb-1.5" style={{ color: 'var(--color-muted)' }}>
+                  Social Category
+                </span>
+                <input
+                  className="input-base"
+                  value={form.socialCategory}
+                  onChange={(e) => onFieldChange('socialCategory', e.target.value)}
+                />
               </label>
 
               <label className="text-sm">
-                <span className="block mb-1.5" style={{ color: 'var(--color-muted)' }}>Poverty Status</span>
-                <input className="input-base" value={form.povertyStatus} onChange={(e) => onFieldChange('povertyStatus', e.target.value)} />
+                <span className="block mb-1.5" style={{ color: 'var(--color-muted)' }}>
+                  Poverty Status
+                </span>
+                <input
+                  className="input-base"
+                  value={form.povertyStatus}
+                  onChange={(e) => onFieldChange('povertyStatus', e.target.value)}
+                />
               </label>
 
               <label className="text-sm">
-                <span className="block mb-1.5" style={{ color: 'var(--color-muted)' }}>Ration Card</span>
-                <input className="input-base" value={form.rationCard} onChange={(e) => onFieldChange('rationCard', e.target.value)} />
+                <span className="block mb-1.5" style={{ color: 'var(--color-muted)' }}>
+                  Ration Card
+                </span>
+                <input
+                  className="input-base"
+                  value={form.rationCard}
+                  onChange={(e) => onFieldChange('rationCard', e.target.value)}
+                />
               </label>
 
               <label className="text-sm">
-                <span className="block mb-1.5" style={{ color: 'var(--color-muted)' }}>Land Ownership</span>
-                <input className="input-base" value={form.landOwnership} onChange={(e) => onFieldChange('landOwnership', e.target.value)} />
+                <span className="block mb-1.5" style={{ color: 'var(--color-muted)' }}>
+                  Land Ownership
+                </span>
+                <input
+                  className="input-base"
+                  value={form.landOwnership}
+                  onChange={(e) => onFieldChange('landOwnership', e.target.value)}
+                />
               </label>
 
               <label className="text-sm sm:col-span-2">
-                <span className="block mb-1.5" style={{ color: 'var(--color-muted)' }}>Interests (comma separated)</span>
-                <input className="input-base" value={form.interests} onChange={(e) => onFieldChange('interests', e.target.value)} />
+                <span className="block mb-1.5" style={{ color: 'var(--color-muted)' }}>
+                  Interests (comma separated)
+                </span>
+                <input
+                  className="input-base"
+                  value={form.interests}
+                  onChange={(e) => onFieldChange('interests', e.target.value)}
+                />
               </label>
 
               <label className="text-sm flex items-center gap-2 pt-6">
-                <input type="checkbox" checked={form.disability} onChange={(e) => onFieldChange('disability', e.target.checked)} className="size-4" />
+                <input
+                  type="checkbox"
+                  checked={form.disability}
+                  onChange={(e) => onFieldChange('disability', e.target.checked)}
+                  className="size-4"
+                />
                 <span style={{ color: 'var(--color-muted)' }}>Person with Disability</span>
               </label>
 
               <label className="text-sm">
-                <span className="block mb-1.5" style={{ color: 'var(--color-muted)' }}>Disability Type</span>
-                <input className="input-base" value={form.disabilityType} onChange={(e) => onFieldChange('disabilityType', e.target.value)} disabled={!form.disability} />
+                <span className="block mb-1.5" style={{ color: 'var(--color-muted)' }}>
+                  Disability Type
+                </span>
+                <input
+                  className="input-base"
+                  value={form.disabilityType}
+                  onChange={(e) => onFieldChange('disabilityType', e.target.value)}
+                  disabled={!form.disability}
+                />
               </label>
 
               <label className="text-sm flex items-center gap-2 pt-6">
-                <input type="checkbox" checked={form.minority} onChange={(e) => onFieldChange('minority', e.target.checked)} className="size-4" />
+                <input
+                  type="checkbox"
+                  checked={form.minority}
+                  onChange={(e) => onFieldChange('minority', e.target.checked)}
+                  className="size-4"
+                />
                 <span style={{ color: 'var(--color-muted)' }}>Minority Community</span>
               </label>
 
               <label className="text-sm">
-                <span className="block mb-1.5" style={{ color: 'var(--color-muted)' }}>Minority Community Type</span>
-                <input className="input-base" value={form.minorityCommunity} onChange={(e) => onFieldChange('minorityCommunity', e.target.value)} disabled={!form.minority} />
+                <span className="block mb-1.5" style={{ color: 'var(--color-muted)' }}>
+                  Minority Community Type
+                </span>
+                <input
+                  className="input-base"
+                  value={form.minorityCommunity}
+                  onChange={(e) => onFieldChange('minorityCommunity', e.target.value)}
+                  disabled={!form.minority}
+                />
               </label>
             </div>
 
@@ -634,21 +800,26 @@ export default function UserProfile({ onNavigate }: UserProfileProps) {
           </section>
         )}
 
-        {!isEditing && <section className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {profileCards.map(({ label, value, icon: Icon }) => (
-            <div key={label} className="card p-4">
-              <div className="flex items-center justify-between gap-3 mb-2">
-                <p className="text-xs uppercase tracking-wide font-bold" style={{ color: 'var(--color-muted-2)' }}>
-                  {label}
+        {!isEditing && (
+          <section className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {profileCards.map(({ label, value, icon: Icon }) => (
+              <div key={label} className="card p-4">
+                <div className="flex items-center justify-between gap-3 mb-2">
+                  <p
+                    className="text-xs uppercase tracking-wide font-bold"
+                    style={{ color: 'var(--color-muted-2)' }}
+                  >
+                    {label}
+                  </p>
+                  <Icon className="size-4" style={{ color: 'var(--color-primary)' }} />
+                </div>
+                <p className="text-sm font-semibold" style={{ color: 'var(--color-ink)' }}>
+                  {value}
                 </p>
-                <Icon className="size-4" style={{ color: 'var(--color-primary)' }} />
               </div>
-              <p className="text-sm font-semibold" style={{ color: 'var(--color-ink)' }}>
-                {value}
-              </p>
-            </div>
-          ))}
-        </section>}
+            ))}
+          </section>
+        )}
       </main>
     </div>
   );

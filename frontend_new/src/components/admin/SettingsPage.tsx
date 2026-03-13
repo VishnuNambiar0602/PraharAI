@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { Save, RefreshCw, Database, Key, Bell, Shield } from 'lucide-react';
+import { useDialog } from '../DialogProvider';
 
 export default function SettingsPage() {
+  const { toast } = useDialog();
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState({
     syncInterval: '24',
@@ -17,7 +19,7 @@ export default function SettingsPage() {
     // Simulate save
     await new Promise((resolve) => setTimeout(resolve, 1000));
     setSaving(false);
-    alert('Settings saved successfully');
+    toast({ message: 'Settings saved successfully', variant: 'success' });
   };
 
   return (

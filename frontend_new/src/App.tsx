@@ -5,6 +5,7 @@ import { Routes, Route, useNavigate, useLocation, Navigate, useParams } from 're
 import { Home, LayoutGrid, MessageSquare, User, LogIn, LogOut, Menu, X } from 'lucide-react';
 import { View, Scheme } from './types';
 import { AuthProvider, useAuth } from './AuthContext';
+import DialogProvider from './components/DialogProvider';
 
 // Components
 import LandingPage from './components/LandingPage';
@@ -622,7 +623,9 @@ function AppContent() {
 export default function App() {
   return (
     <AuthProvider>
-      <AppContent />
+      <DialogProvider>
+        <AppContent />
+      </DialogProvider>
     </AuthProvider>
   );
 }

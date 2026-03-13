@@ -1,12 +1,20 @@
 import { useState } from 'react';
 import { clearSession } from '../api';
 import { LogOut, ShieldAlert, Leaf } from 'lucide-react';
+import { useDialog } from '../../components/DialogProvider';
 
 export default function SettingsPage() {
+  const { confirm } = useDialog();
   const [cleared, setCleared] = useState(false);
 
-  const handleClearKey = () => {
-    if (!confirm('This will log you out of the Panchayat portal. Continue?')) return;
+  const handleClearKey = async () => {
+    const ok = await confirm({
+      title: 'Log Out',
+      message: 'This will log you out of the Panchayat portal. Continue?',
+      confirmLabel: 'Log Out',
+      variant: 'primary',
+    });
+    if (!ok) return;
     clearSession();
     setCleared(true);
     setTimeout(() => {

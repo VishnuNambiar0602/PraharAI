@@ -97,7 +97,7 @@ export default function SchemesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1
             className="text-xl font-bold tracking-tight"
@@ -109,7 +109,11 @@ export default function SchemesPage() {
             Government welfare schemes for beneficiary matching
           </p>
         </div>
-        <button onClick={handleSync} disabled={syncing} className="p-btn p-btn-primary gap-1.5">
+        <button
+          onClick={handleSync}
+          disabled={syncing}
+          className="p-btn p-btn-primary gap-1.5 shrink-0"
+        >
           <RefreshCw className={`size-3.5 ${syncing ? 'animate-spin' : ''}`} />
           {syncing ? 'Refreshing…' : 'Refresh'}
         </button>

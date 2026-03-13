@@ -169,7 +169,7 @@ export default function DashboardPage() {
         >
           Quick Actions
         </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {[
             {
               icon: PlusCircle,
@@ -199,11 +199,11 @@ export default function DashboardPage() {
               border: 'var(--color-border)',
               color: 'var(--color-ink-2)',
             },
-          ].map(({ icon: Icon, label, sub, to, state: navState, bg, border, color }) => (
+          ].map(({ icon: Icon, label, sub, to, state: navState, bg, border, color }, idx) => (
             <button
               key={label}
               onClick={() => navigate(to, { state: navState })}
-              className="flex items-center justify-between p-4 rounded-xl transition-all duration-150 text-left group"
+              className={`flex items-center justify-between p-4 rounded-xl transition-all duration-150 text-left group${idx === 2 ? ' col-span-2 sm:col-span-1' : ''}`}
               style={{ background: bg, border: `1px solid ${border}` }}
             >
               <div className="flex items-center gap-3">

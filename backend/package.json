@@ -15,7 +15,8 @@
     "db:init": "tsx src/db/init-db.ts",
     "db:init:seed": "tsx src/db/init-db.ts -- --seed",
     "db:init:drop": "tsx src/db/init-db.ts -- --drop --seed",
-    "db:verify": "tsx src/db/init-db.ts -- --verify"
+    "db:verify": "tsx src/db/init-db.ts -- --verify",
+    "db:seed:gp": "tsx scripts/seed-gram-panchayats.ts"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",

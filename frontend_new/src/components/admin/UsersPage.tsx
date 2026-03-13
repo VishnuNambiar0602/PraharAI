@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react';
 import { Search, Filter, Download, Trash2, Eye, UserPlus } from 'lucide-react';
 import { getAllUsers, deleteUser } from './adminApi';
 import type { User } from './adminTypes';
+import { useDialog } from '../DialogProvider';
 
 export default function UsersPage() {
+  const { confirm, toast } = useDialog();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -25,13 +27,18 @@ export default function UsersPage() {
   };
 
   const handleDelete = async (userId: string) => {
-    if (!confirm('Are you sure you want to delete this user?')) return;
+    const ok = await confirm({
+      title: 'Delete User',
+      message: 'Are you sure you want to delete this user? This action cannot be undone.',
+      confirmLabel: 'Delete',
+    });
+    if (!ok) return;
 
     try {
       await deleteUser(userId);
       setUsers(users.filter((u) => u.userId !== userId));
     } catch (error) {
-      alert('Failed to delete user');
+      toast({ message: 'Failed to delete user', variant: 'error' });
     }
   };
 
