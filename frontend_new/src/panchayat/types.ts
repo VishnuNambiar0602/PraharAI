@@ -16,6 +16,7 @@ export interface Beneficiary {
   state?: string;
   district?: string;
   village?: string;
+  panchayatName?: string;
   employment?: string;
   education?: string;
   gender?: string;

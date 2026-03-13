@@ -58,6 +58,19 @@ async function panchayatFetch(input: string, init: RequestInit = {}): Promise<Re
   return res;
 }
 
+function normalizeBeneficiary(raw: any): import('./types').Beneficiary {
+  const panchayatName = raw.panchayatName ?? raw.panchayat_name ?? raw.village ?? undefined;
+
+  return {
+    ...raw,
+    userId: raw.userId ?? raw.user_id ?? '',
+    createdAt: raw.createdAt ?? raw.created_at ?? '',
+    onboardingComplete: Boolean(raw.onboardingComplete ?? raw.onboarding_complete),
+    village: raw.village ?? panchayatName,
+    panchayatName,
+  };
+}
+
 // ─── Authentication ───────────────────────────────────────────
 
 export async function panchayatLogin(email: string, password: string): Promise<PanchayatUser> {
@@ -141,7 +154,15 @@ export async function getPanchayatCitizens(params?: {
     : `${API_BASE}/panchayat/citizens`;
   const res = await panchayatFetch(url);
   if (!res.ok) throw new Error('Failed to fetch citizens');
-  return res.json();
+
+  const body = await res.json();
+  return {
+    items: Array.isArray(body.items) ? body.items.map(normalizeBeneficiary) : [],
+    total: Number(body.total) || 0,
+    page: Number(body.page) || params?.page || 1,
+    limit: Number(body.limit) || params?.limit || 20,
+    hasMore: Boolean(body.hasMore),
+  };
 }
 
 export async function registerCitizen(data: {

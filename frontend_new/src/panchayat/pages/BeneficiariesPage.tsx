@@ -45,6 +45,14 @@ function getInitials(name: string) {
     .toUpperCase();
 }
 
+function getLocationLabel(
+  beneficiary: Pick<Beneficiary, 'panchayatName' | 'village' | 'district' | 'state'>
+) {
+  return [beneficiary.panchayatName || beneficiary.village, beneficiary.district, beneficiary.state]
+    .filter(Boolean)
+    .join(', ');
+}
+
 interface Recommendation {
   id: string;
   title: string;
@@ -395,7 +403,7 @@ export default function BeneficiariesPage() {
                         </td>
                         <td className={selected ? 'hidden xl:table-cell' : ''}>
                           <span className="text-xs" style={{ color: 'var(--color-ink-2)' }}>
-                            {[u.village, u.district, u.state].filter(Boolean).join(', ') || '—'}
+                            {getLocationLabel(u) || '—'}
                           </span>
                         </td>
                         <td className={selected ? 'hidden xl:table-cell' : ''}>
@@ -511,10 +519,7 @@ export default function BeneficiariesPage() {
                   {
                     icon: MapPin,
                     label: 'Location',
-                    value:
-                      [selected.village, selected.district, selected.state]
-                        .filter(Boolean)
-                        .join(', ') || '—',
+                    value: getLocationLabel(selected) || '—',
                   },
                   {
                     icon: Briefcase,

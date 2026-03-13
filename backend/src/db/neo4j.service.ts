@@ -1618,6 +1618,7 @@ class Neo4jDbService {
 
   private async nodeToUser(node: any): Promise<any> {
     const p = node.properties ?? node;
+    const normalizedPanchayatName = p.panchayat_name || p.panchayatName || p.village || null;
     const raw = {
       user_id: p.user_id,
       email: p.email,
@@ -1642,6 +1643,9 @@ class Neo4jDbService {
       ration_card: p.ration_card || null,
       land_ownership: p.land_ownership || null,
       district: p.district || null,
+      village: p.village || normalizedPanchayatName,
+      panchayat_name: normalizedPanchayatName,
+      panchayatName: normalizedPanchayatName,
       disability_type: p.disability_type || null,
       minority_community: p.minority_community || null,
       is_admin: Boolean(p.is_admin),
