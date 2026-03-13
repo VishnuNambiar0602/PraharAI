@@ -23,6 +23,11 @@ export interface ProcessChatResult {
   body: Record<string, any>;
 }
 
+interface RoutedIntent {
+  primary: string;
+  confidence: number;
+}
+
 const CHAT_INPUT_TOKEN_LIMIT = Number(process.env.CHAT_INPUT_TOKEN_LIMIT || 500);
 const CHAT_RESPONSE_TIMEOUT_MS = Number(process.env.CHAT_RESPONSE_TIMEOUT_MS || 12000);
 
@@ -97,8 +102,32 @@ function fallbackActions(intent: string, lang: string): string[] {
   }
 }
 
+function clarificationActions(intent: string, lang: string): string[] {
+  if (lang === 'hi') {
+    if (intent === 'eligibility_check') {
+      return ['मेरा राज्य महाराष्ट्र है', 'मेरी उम्र 28 है', 'मैं किसान हूं'];
+    }
+    if (intent === 'recommendation') {
+      return ['मैं कर्नाटक से हूं', 'मैं छात्र हूं', 'मुझे कृषि योजनाएं चाहिए'];
+    }
+    return ['मेरा राज्य बताएं', 'मेरी आय बताएं', 'मेरी नौकरी बताएं'];
+  }
+
+  if (intent === 'eligibility_check') {
+    return ['My state is Maharashtra', 'I am 28 years old', 'I am a farmer'];
+  }
+
+  if (intent === 'recommendation') {
+    return ['I am from Karnataka', 'I am a student', 'I want agriculture schemes'];
+  }
+
+  return ['My state is Delhi', 'My income is 200000', 'I am self-employed'];
+}
+
 function normalizeConfiguredMode(): ChatMode {
-  const raw = String(config.chat.orchestrator || 'hybrid').trim().toLowerCase();
+  const raw = String(config.chat.orchestrator || 'hybrid')
+    .trim()
+    .toLowerCase();
   if (raw === 'legacy' || raw === 'react' || raw === 'hybrid') {
     return raw;
   }
@@ -109,14 +138,20 @@ export function shouldUseReactForMessage(
   message: string,
   conversationHistory: ChatTurn[] = []
 ): boolean {
-  const normalized = String(message || '').trim().toLowerCase();
+  const normalized = String(message || '')
+    .trim()
+    .toLowerCase();
   if (!normalized) return false;
 
   if (/^(hi|hello|hey|thanks|thank you|ok|okay)$/.test(normalized)) {
     return false;
   }
 
-  if (/\b(recommend|best|suitable|eligible|eligibility|qualify|apply|application|document|deadline|scheme|schemes|benefit|benefits|profile)\b/.test(normalized)) {
+  if (
+    /\b(recommend|best|suitable|eligible|eligibility|qualify|apply|application|document|deadline|scheme|schemes|benefit|benefits|profile)\b/.test(
+      normalized
+    )
+  ) {
     return true;
   }
 
@@ -250,10 +285,50 @@ class ChatOrchestrationService {
             }))
         : [];
 
+      const historyProfile = ProfileExtractor.extractFromHistory(normalizedHistory);
+      Object.assign(userProfile, historyProfile);
+
+      const routedIntent = await this.classifyForRouting(sanitizedMessage, effectiveUserId);
+      const clarification = this.getProfileClarification(
+        routedIntent.primary,
+        sanitizedMessage,
+        userProfile
+      );
+
+      if (clarification) {
+        let responseText = clarification;
+        if (profileUpdated && appliedUpdates.length > 0) {
+          const updatePrefix = localizeUpdatePrefix(
+            appliedUpdates.filter(Boolean).join(' '),
+            replyLanguage
+          );
+          responseText = `${updatePrefix}\n\n${responseText}`;
+        }
+
+        const latencyMs = Date.now() - startedAt;
+        return {
+          statusCode: 200,
+          body: {
+            response: responseText,
+            suggestions: clarificationActions(routedIntent.primary, replyLanguage),
+            degraded: false,
+            trace: {
+              traceId,
+              latencyMs,
+              modeUsed: 'clarification',
+              replyLanguage,
+              intent: routedIntent.primary,
+            },
+          },
+        };
+      }
+
       const configuredMode = input.forceMode || normalizeConfiguredMode();
       const modeUsed =
         configuredMode === 'hybrid'
-          ? (shouldUseReactForMessage(sanitizedMessage, normalizedHistory) ? 'react' : 'legacy')
+          ? shouldUseReactForMessage(sanitizedMessage, normalizedHistory)
+            ? 'react'
+            : 'legacy'
           : configuredMode;
 
       if (modeUsed === 'react') {
@@ -263,6 +338,7 @@ class ChatOrchestrationService {
           normalizedHistory,
           replyLanguage,
           effectiveUserId,
+          intent: routedIntent.primary,
           profileUpdated,
           appliedUpdates,
           startedAt,
@@ -277,6 +353,7 @@ class ChatOrchestrationService {
         replyLanguage,
         effectiveUserId,
         userProfile,
+        routedIntent,
         profileUpdated,
         appliedUpdates,
         startedAt,
@@ -301,6 +378,7 @@ class ChatOrchestrationService {
     normalizedHistory: ChatTurn[];
     replyLanguage: string;
     effectiveUserId: string;
+    intent: string;
     profileUpdated: boolean;
     appliedUpdates: string[];
     startedAt: number;
@@ -340,7 +418,7 @@ class ChatOrchestrationService {
       statusCode: 200,
       body: {
         response: responseText,
-        suggestions: fallbackActions('scheme_search', input.replyLanguage),
+        suggestions: fallbackActions(input.intent, input.replyLanguage),
         degraded: false,
         toolsUsed: response.actionsUsed.map((action) => action.toolName),
         thinking: response.thinking.map((thought) => ({
@@ -366,6 +444,7 @@ class ChatOrchestrationService {
     replyLanguage: string;
     effectiveUserId: string;
     userProfile: Record<string, any>;
+    routedIntent: RoutedIntent;
     profileUpdated: boolean;
     appliedUpdates: string[];
     startedAt: number;
@@ -377,13 +456,13 @@ class ChatOrchestrationService {
     );
 
     const intentCacheKey = `chat:intent:${hashText(input.message.toLowerCase())}`;
-    const cachedIntent = await redisService.get<{ intent: string; confidence: number }>(intentCacheKey);
-    const classified =
-      cachedIntent ||
-      (await mlService.classify(input.message, input.effectiveUserId).then((result) => {
-        if (!result?.primary_intent) return null;
-        return { intent: result.primary_intent, confidence: result.confidence || 0 };
-      }));
+    const cachedIntent = await redisService.get<{ intent: string; confidence: number }>(
+      intentCacheKey
+    );
+    const classified = cachedIntent || {
+      intent: input.routedIntent.primary,
+      confidence: input.routedIntent.confidence,
+    };
 
     if (!cachedIntent && classified) {
       await redisService.set(intentCacheKey, classified, 120);
@@ -485,6 +564,95 @@ class ChatOrchestrationService {
         },
       },
     };
+  }
+
+  private async classifyForRouting(message: string, userId: string): Promise<RoutedIntent> {
+    const normalized = String(message || '').toLowerCase();
+
+    if (normalized.includes('who am i') || normalized === 'my profile') {
+      return { primary: 'profile_query', confidence: 0.9 };
+    }
+
+    if (normalized.includes('eligible') || normalized.includes('qualify')) {
+      return { primary: 'eligibility_check', confidence: 0.8 };
+    }
+
+    if (
+      normalized.includes('recommend') ||
+      normalized.includes('suggest') ||
+      normalized.includes('best')
+    ) {
+      return { primary: 'recommendation', confidence: 0.8 };
+    }
+
+    if (normalized.includes('apply') || normalized.includes('document')) {
+      return { primary: 'application_info', confidence: 0.75 };
+    }
+
+    try {
+      const classification = await mlService.classify(message, userId);
+      if (classification?.primary_intent) {
+        return {
+          primary: classification.primary_intent,
+          confidence: classification.confidence || 0.6,
+        };
+      }
+    } catch (error) {
+      console.error('Routing classification error', error);
+    }
+
+    return { primary: 'scheme_search', confidence: 0.6 };
+  }
+
+  private getProfileClarification(
+    intent: string,
+    message: string,
+    userProfile: Record<string, any>
+  ): string | null {
+    const extractedFromMessage = ProfileExtractor.extract(message).updates;
+    const effectiveProfile: Record<string, any> = { ...userProfile, ...extractedFromMessage };
+    const hasState = Boolean(effectiveProfile.state);
+    const hasQualificationSignal = Boolean(
+      effectiveProfile.age ||
+      effectiveProfile.income ||
+      effectiveProfile.employment ||
+      effectiveProfile.education ||
+      effectiveProfile.gender ||
+      effectiveProfile.interests ||
+      effectiveProfile.social_category ||
+      effectiveProfile.is_disabled ||
+      effectiveProfile.is_minority
+    );
+
+    if (intent === 'recommendation') {
+      if (!hasState && !hasQualificationSignal) {
+        return 'I can personalize recommendations better if you share your state and one profile detail like occupation, income, age, or education.';
+      }
+      if (!hasState) {
+        return 'To narrow down recommendations, please tell me your state.';
+      }
+      if (!hasQualificationSignal) {
+        return 'To personalize the recommendations, please share one detail like your occupation, income, age, or education.';
+      }
+    }
+
+    if (intent === 'eligibility_check') {
+      if (!hasState && !hasQualificationSignal) {
+        return 'To check eligibility reliably, please share your state and one or two profile details such as age, occupation, income, or education.';
+      }
+      if (!hasState) {
+        return 'Please tell me your state so I can check eligibility against the right schemes.';
+      }
+      if (!hasQualificationSignal) {
+        return 'Please share one or two details like your age, occupation, income, or education so I can check eligibility properly.';
+      }
+    }
+
+    if (intent === 'profile_update' && Object.keys(extractedFromMessage).length === 0) {
+      return 'Please tell me which profile field you want to update, such as age, state, income, employment, or education.';
+    }
+
+    return null;
   }
 }
 

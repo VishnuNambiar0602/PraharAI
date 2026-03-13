@@ -32,8 +32,13 @@ const MIN_HIGH_RISK_INTENT_CONFIDENCE = 0.7;
 const HIGH_RISK_INTENTS = new Set(['eligibility_check', 'recommendation', 'profile_update']);
 const INTENT_TOOL_ALLOWLIST: Record<string, string[]> = {
   scheme_search: ['search_schemes', 'get_scheme_details', 'get_schemes_by_category'],
-  eligibility_check: ['search_schemes', 'check_eligibility', 'get_scheme_details'],
-  recommendation: ['get_recommendations', 'get_user_profile'],
+  eligibility_check: [
+    'get_user_profile',
+    'search_schemes',
+    'check_eligibility',
+    'get_scheme_details',
+  ],
+  recommendation: ['get_user_profile', 'get_recommendations', 'search_schemes'],
   application_info: ['search_schemes', 'get_scheme_details'],
   profile_update: ['get_user_profile', 'update_user_profile'],
   profile_query: ['get_user_profile'],
@@ -135,9 +140,11 @@ class ReActAgent {
     console.log(`📋 ${planThought.content}`);
 
     // Step 3: Execute plan steps
+    const executionPlan = [...safePlan];
     let failureCount = 0;
-    for (let i = 0; i < Math.min(safePlan.length, MAX_ITERATIONS); i++) {
-      const step = safePlan[i];
+    let recoveryUsed = false;
+    for (let i = 0; i < Math.min(executionPlan.length, MAX_ITERATIONS); i++) {
+      const step = executionPlan[i];
 
       if (step.dependsOn !== undefined) {
         const dependency = observations[step.dependsOn];
@@ -218,6 +225,19 @@ class ReActAgent {
           timestamp: Date.now(),
         };
         thoughts.push(reflectionThought);
+
+        if (!recoveryUsed) {
+          const recoveryStep = this.buildRecoveryStep(step, toolResult, context, message);
+          if (recoveryStep) {
+            recoveryUsed = true;
+            executionPlan.splice(i + 1, 0, recoveryStep);
+            thoughts.push({
+              type: 'reasoning',
+              content: `Initial ${step.toolName} result was not useful. Replanning with ${recoveryStep.toolName}.`,
+              timestamp: Date.now(),
+            });
+          }
+        }
       } catch (error: any) {
         console.error(`❌ [${traceId}] Step ${i + 1} error: ${error.message}`);
         context.errors.push(`${step.toolName}: ${error.message}`);
@@ -327,6 +347,11 @@ class ReActAgent {
       case 'eligibility_check':
         return [
           {
+            toolName: 'get_user_profile',
+            parameters: { userId },
+            reasoning: 'Load the user profile before checking scheme eligibility.',
+          },
+          {
             toolName: 'search_schemes',
             parameters: { query: keywords, state, limit: 3 },
             reasoning: 'First find relevant schemes to check eligibility against.',
@@ -335,16 +360,23 @@ class ReActAgent {
             toolName: 'check_eligibility',
             parameters: { userId, schemeId: '__from_context__' },
             reasoning: 'Check eligibility for the top matching scheme.',
-            dependsOn: 0,
+            dependsOn: 1,
           },
         ];
 
       case 'recommendation':
         return [
           {
+            toolName: 'get_user_profile',
+            parameters: { userId },
+            reasoning:
+              'Load the user profile so recommendations can be interpreted and recovered if needed.',
+          },
+          {
             toolName: 'get_recommendations',
             parameters: { userId, count: 5 },
             reasoning: 'Get personalized recommendations for the user.',
+            dependsOn: 0,
           },
         ];
 
@@ -615,7 +647,7 @@ class ReActAgent {
     switch (toolName) {
       case 'search_schemes':
         if (data?.schemes) {
-          context.schemes.push(...data.schemes);
+          context.schemes = this.mergeUniqueById(context.schemes, data.schemes);
         }
         break;
       case 'get_scheme_details':
@@ -639,15 +671,45 @@ class ReActAgent {
         break;
       case 'get_recommendations':
         if (data?.recommendations) {
-          context.recommendations.push(...data.recommendations);
+          context.recommendations = this.mergeUniqueById(
+            context.recommendations,
+            data.recommendations
+          );
         }
         break;
       case 'get_schemes_by_category':
         if (data?.schemes) {
-          context.schemes.push(...data.schemes);
+          context.schemes = this.mergeUniqueById(context.schemes, data.schemes);
         }
         break;
     }
+  }
+
+  private mergeUniqueById(existing: any[], incoming: any[]): any[] {
+    const merged = [...existing];
+    const seen = new Map<string, number>();
+
+    merged.forEach((item, index) => {
+      const key = String(item?.id || item?.schemeId || item?.scheme_id || '');
+      if (key) seen.set(key, index);
+    });
+
+    for (const item of incoming) {
+      const key = String(item?.id || item?.schemeId || item?.scheme_id || '');
+      if (!key) {
+        merged.push(item);
+        continue;
+      }
+      const existingIndex = seen.get(key);
+      if (existingIndex === undefined) {
+        seen.set(key, merged.length);
+        merged.push(item);
+      } else {
+        merged[existingIndex] = { ...merged[existingIndex], ...item };
+      }
+    }
+
+    return merged;
   }
 
   /**
@@ -671,6 +733,9 @@ class ReActAgent {
     const data = result.data;
     switch (toolName) {
       case 'search_schemes':
+        if (!data?.count) {
+          return 'No matching schemes were found in the initial search.';
+        }
         return `Found ${data?.count || 0} matching schemes.`;
       case 'get_scheme_details':
         return `Retrieved details for: ${data?.name || 'unknown scheme'}.`;
@@ -679,6 +744,9 @@ class ReActAgent {
       case 'get_user_profile':
         return `Profile loaded for ${data?.name || 'user'}. Complete: ${data?.profileComplete ? 'Yes' : 'No'}.`;
       case 'get_recommendations':
+        if (!data?.count) {
+          return 'Personalized recommendations returned no results.';
+        }
         return `Generated ${data?.count || 0} recommendations (source: ${data?.source || 'unknown'}).`;
       case 'get_schemes_by_category':
         return `Found ${data?.count || 0} schemes in category ${data?.category || 'unknown'}.`;
@@ -761,6 +829,9 @@ class ReActAgent {
 
     // Fallback
     if (parts.length === 0) {
+      if (context.profile && !context.profile.profileComplete) {
+        return 'I need a bit more profile information to give a strong answer. Please share your state and one detail like age, occupation, income, or education.';
+      }
       return `I'm here to help you find government schemes. ${this.generateSimpleResponse(message)}`;
     }
 
@@ -882,6 +953,118 @@ class ReActAgent {
   /**
    * Calculate agent confidence
    */
+
+  private buildRecoveryStep(
+    step: PlanStep,
+    result: { success: boolean; data?: any; error?: string },
+    context: AgentContext,
+    message: string
+  ): PlanStep | null {
+    if (!result.success) {
+      return null;
+    }
+
+    if (step.toolName === 'search_schemes' && Number(result.data?.count || 0) === 0) {
+      const fallbackQuery = this.buildFallbackSearchQuery(
+        message,
+        step.parameters.query,
+        context.profile
+      );
+      if (!fallbackQuery) {
+        return null;
+      }
+
+      return {
+        toolName: 'search_schemes',
+        parameters: {
+          query: fallbackQuery,
+          state: step.parameters.state || context.profile?.state || this.extractState(message),
+          limit: step.parameters.limit || 5,
+        },
+        reasoning:
+          'Retry the search with a broader query because the first search returned no matches.',
+      };
+    }
+
+    if (step.toolName === 'get_recommendations' && Number(result.data?.count || 0) === 0) {
+      const fallbackQuery = this.buildFallbackSearchQuery(message, '', context.profile);
+      if (!fallbackQuery) {
+        return null;
+      }
+
+      return {
+        toolName: 'search_schemes',
+        parameters: {
+          query: fallbackQuery,
+          state: context.profile?.state || this.extractState(message),
+          limit: 5,
+        },
+        reasoning:
+          'Fallback to search-based discovery because personalized recommendations were empty.',
+      };
+    }
+
+    return null;
+  }
+
+  private buildFallbackSearchQuery(
+    message: string,
+    previousQuery: string,
+    profile: any | null
+  ): string | null {
+    const category = this.extractFallbackCategory(message, profile);
+    if (category && category.toLowerCase() !== String(previousQuery || '').toLowerCase()) {
+      return category;
+    }
+
+    const keywords = this.extractKeywords(message)
+      .split(' ')
+      .filter((word) => word && word.toLowerCase() !== String(previousQuery || '').toLowerCase());
+
+    if (keywords.length > 0) {
+      return keywords.slice(0, 2).join(' ');
+    }
+
+    if (profile?.employment) {
+      return String(profile.employment).toLowerCase();
+    }
+
+    return previousQuery && previousQuery !== 'schemes' ? 'schemes' : null;
+  }
+
+  private extractFallbackCategory(message: string, profile: any | null): string | null {
+    const normalized = String(message || '').toLowerCase();
+    const categories = [
+      'agriculture',
+      'education',
+      'women',
+      'startup',
+      'business',
+      'housing',
+      'health',
+      'employment',
+      'student',
+      'farmer',
+      'pension',
+      'scholarship',
+    ];
+
+    for (const category of categories) {
+      if (normalized.includes(category)) {
+        return category;
+      }
+    }
+
+    if (profile?.employment) {
+      const employment = String(profile.employment).toLowerCase();
+      if (employment.includes('farmer')) return 'agriculture';
+      if (employment.includes('student')) return 'education';
+      if (employment.includes('self-employed')) return 'business';
+      return employment;
+    }
+
+    return null;
+  }
   private calculateConfidence(_actions: AgentAction[], observations: AgentObservation[]): number {
     if (observations.length === 0) return 0.5;
     const successCount = observations.filter((o) => o.result.success).length;
