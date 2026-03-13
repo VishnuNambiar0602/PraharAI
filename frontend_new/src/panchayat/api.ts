@@ -183,21 +183,6 @@ export async function registerCitizen(data: {
   return body;
 }
 
-// ─── Beneficiaries (all, admin-level – kept for backwards compat) ─────────────
-
-export async function getAllBeneficiaries() {
-  const res = await panchayatFetch(`${API_BASE}/admin/users`);
-  if (!res.ok) throw new Error('Failed to fetch beneficiaries');
-  return res.json();
-}
-
-export async function deleteBeneficiary(userId: string): Promise<void> {
-  const res = await panchayatFetch(`${API_BASE}/admin/users/${encodeURIComponent(userId)}`, {
-    method: 'DELETE',
-  });
-  if (!res.ok) throw new Error('Failed to delete beneficiary');
-}
-
 // ─── Schemes ──────────────────────────────────────────────────
 
 export async function getSchemes(params?: {
@@ -213,30 +198,6 @@ export async function getSchemes(params?: {
   if (params?.category) query.set('category', params.category);
   const res = await panchayatFetch(`${API_BASE}/schemes?${query}`);
   if (!res.ok) throw new Error('Failed to fetch schemes');
-  return res.json();
-}
-
-// ─── Sync status ──────────────────────────────────────────────
-
-export async function getSyncStatus() {
-  const res = await panchayatFetch(`${API_BASE}/admin/sync/status`);
-  if (!res.ok) throw new Error('Failed to fetch sync status');
-  return res.json();
-}
-
-export async function triggerSync() {
-  const res = await panchayatFetch(`${API_BASE}/admin/sync`, {
-    method: 'POST',
-  });
-  if (!res.ok) throw new Error('Failed to trigger sync');
-  return res.json();
-}
-
-// ─── Health (not shown in panchayat UI) ─────────────────────
-
-export async function getSystemHealth() {
-  const res = await panchayatFetch(`${API_BASE}/admin/health`);
-  if (!res.ok) throw new Error('Failed to fetch health');
   return res.json();
 }
 
@@ -292,13 +253,5 @@ export async function getRecommendationsForBeneficiary(userId: string) {
     `${API_BASE}/users/${encodeURIComponent(userId)}/recommendations`
   );
   if (!res.ok) throw new Error('Failed to get recommendations');
-  return res.json();
-}
-
-// ─── Activity logs (not used in panchayat UI) ───────────────
-
-export async function getActivityLogs() {
-  const res = await panchayatFetch(`${API_BASE}/admin/activity`);
-  if (!res.ok) throw new Error('Failed to fetch activity logs');
   return res.json();
 }
