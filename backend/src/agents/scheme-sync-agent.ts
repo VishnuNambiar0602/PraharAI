@@ -262,13 +262,17 @@ class SchemeSyncAgent {
       const enrichStartedAt = Date.now();
 
       let processed = startIndex;
+      const upsertTotals = { inserted: 0, updated: 0, unchanged: 0 };
       for (let i = startIndex; i < totalSchemes; i += this.ENRICH_BATCH_SIZE) {
         const batch = allSchemes.slice(i, i + this.ENRICH_BATCH_SIZE);
         const batchEnd = Math.min(totalSchemes, i + batch.length);
 
         console.log(`📦 Processing batch ${i + 1}-${batchEnd} of ${totalSchemes}...`);
         const enrichedBatch = await mySchemeStructuredService.enrichSchemes(batch);
-        await neo4jService.upsertSchemesBatch(enrichedBatch, syncRunId);
+        const upsertSummary = await neo4jService.upsertSchemesBatch(enrichedBatch, syncRunId);
+        upsertTotals.inserted += upsertSummary.inserted;
+        upsertTotals.updated += upsertSummary.updated;
+        upsertTotals.unchanged += upsertSummary.unchanged;
 
         processed = batchEnd;
         await this.saveResumeState(processed, totalSchemes, syncRunId);
@@ -291,6 +295,9 @@ class SchemeSyncAgent {
 
       const enrichDurationSec = ((Date.now() - enrichStartedAt) / 1000).toFixed(2);
       console.log(`✅ Incremental enrichment+persist stage finished in ${enrichDurationSec}s`);
+      console.log(
+        `📊 Diff summary: inserted=${upsertTotals.inserted}, updated=${upsertTotals.updated}, unchanged=${upsertTotals.unchanged}`
+      );
 
       // Finalize graph relationships/meta only after all batches are persisted.
       console.log('🔗 Finalizing graph links and sync metadata...');

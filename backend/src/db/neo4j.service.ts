@@ -761,8 +761,8 @@ class Neo4jDbService {
       page_enriched_at?: string | null;
     }[],
     syncRunId: string
-  ): Promise<void> {
-    if (!schemes.length) return;
+  ): Promise<{ inserted: number; updated: number; unchanged: number }> {
+    if (!schemes.length) return { inserted: 0, updated: 0, unchanged: 0 };
 
     const seen = new Set<string>();
     const uniqueSchemes = schemes.filter((s) => {
@@ -806,14 +806,19 @@ class Neo4jDbService {
       };
     });
 
-    await this.connection.executeWrite(
+    const summaryRows = await this.connection.executeWrite<{
+      inserted: number;
+      updated: number;
+      unchanged: number;
+    }>(
       `UNWIND $rows AS row
        MERGE (s:Scheme { scheme_id: row.scheme_id })
+       WITH s, row, coalesce(s.source_hash, '') AS prev_hash
        SET s.is_active = row.is_active,
            s.last_seen_at = row.last_seen_at,
            s.last_seen_run = row.sync_run_id,
            s.deactivated_at = null
-       FOREACH (_ IN CASE WHEN coalesce(s.source_hash, '') <> row.source_hash THEN [1] ELSE [] END |
+       FOREACH (_ IN CASE WHEN prev_hash <> row.source_hash THEN [1] ELSE [] END |
          SET s.name = row.name,
              s.description = row.description,
              s.category = row.category,
@@ -838,11 +843,22 @@ class Neo4jDbService {
              s.page_enriched_at = row.page_enriched_at,
              s.source_hash = row.source_hash,
              s.last_updated = row.last_updated
-       )`,
+       )
+       RETURN
+         sum(CASE WHEN prev_hash = '' THEN 1 ELSE 0 END) AS inserted,
+         sum(CASE WHEN prev_hash <> '' AND prev_hash <> row.source_hash THEN 1 ELSE 0 END) AS updated,
+         sum(CASE WHEN prev_hash <> '' AND prev_hash = row.source_hash THEN 1 ELSE 0 END) AS unchanged`,
       { rows }
     );
 
     await this.createCategoryRelationships(uniqueSchemes);
+
+    const summary = summaryRows[0] || { inserted: 0, updated: 0, unchanged: 0 };
+    return {
+      inserted: Number(summary.inserted) || 0,
+      updated: Number(summary.updated) || 0,
+      unchanged: Number(summary.unchanged) || 0,
+    };
   }
 
   /**
