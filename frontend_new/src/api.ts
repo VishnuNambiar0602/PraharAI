@@ -730,6 +730,40 @@ export async function deleteAdmin(userId: string, adminKey?: string) {
 
 // ─── Panchayat User Management (Admin only) ──────────────────────────────────
 
+// ─── LGD Geography (public, no auth) ─────────────────────────────────────────
+
+export async function getLGDStates(): Promise<{ name: string; code: string }[]> {
+  const res = await fetch(`${API_BASE}/lgd/states`);
+  if (!res.ok) return [];
+  return res.json();
+}
+
+export async function getLGDDistricts(state: string): Promise<string[]> {
+  const res = await fetch(`${API_BASE}/lgd/districts?state=${encodeURIComponent(state)}`);
+  if (!res.ok) return [];
+  return res.json();
+}
+
+export async function getLGDSubdistricts(state: string, district: string): Promise<string[]> {
+  const res = await fetch(
+    `${API_BASE}/lgd/subdistricts?state=${encodeURIComponent(state)}&district=${encodeURIComponent(district)}`
+  );
+  if (!res.ok) return [];
+  return res.json();
+}
+
+export async function getLGDPanchayats(
+  state: string,
+  district: string,
+  subdistrict?: string
+): Promise<string[]> {
+  let url = `${API_BASE}/lgd/panchayats?state=${encodeURIComponent(state)}&district=${encodeURIComponent(district)}`;
+  if (subdistrict) url += `&subdistrict=${encodeURIComponent(subdistrict)}`;
+  const res = await fetch(url);
+  if (!res.ok) return [];
+  return res.json();
+}
+
 export interface PanchayatUserRecord {
   userId: string;
   email: string;

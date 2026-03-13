@@ -88,6 +88,13 @@ async function createConstraints(
         'CREATE CONSTRAINT usergroup_groupId_unique IF NOT EXISTS FOR (g:UserGroup) REQUIRE g.groupId IS UNIQUE',
     },
 
+    // GramPanchayat constraint
+    {
+      name: 'gram_panchayat_lgd_code_unique',
+      query:
+        'CREATE CONSTRAINT gram_panchayat_lgd_code_unique IF NOT EXISTS FOR (g:GramPanchayat) REQUIRE g.lgd_code IS UNIQUE',
+    },
+
     // Nudge constraints
     {
       name: 'nudge_nudgeId_unique',
@@ -140,6 +147,13 @@ async function createIndexes(connection: Neo4jConnection, result: SchemaInitResu
     {
       name: 'user_age_index',
       query: 'CREATE INDEX user_age_index IF NOT EXISTS FOR (u:User) ON (u.age)',
+    },
+
+    // GramPanchayat lookup index
+    {
+      name: 'gram_panchayat_location_index',
+      query:
+        'CREATE INDEX gram_panchayat_location_index IF NOT EXISTS FOR (g:GramPanchayat) ON (g.state, g.district)',
     },
 
     // Scheme indexes

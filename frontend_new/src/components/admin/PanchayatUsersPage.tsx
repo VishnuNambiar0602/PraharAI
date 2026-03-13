@@ -5,47 +5,11 @@ import {
   fetchPanchayatUsers,
   createPanchayatUser,
   deletePanchayatUser,
+  getLGDStates,
+  getLGDDistricts,
 } from '../../api';
 import { useDialog } from '../DialogProvider';
-
-const INDIA_STATES = [
-  'Andhra Pradesh',
-  'Arunachal Pradesh',
-  'Assam',
-  'Bihar',
-  'Chhattisgarh',
-  'Goa',
-  'Gujarat',
-  'Haryana',
-  'Himachal Pradesh',
-  'Jharkhand',
-  'Karnataka',
-  'Kerala',
-  'Madhya Pradesh',
-  'Maharashtra',
-  'Manipur',
-  'Meghalaya',
-  'Mizoram',
-  'Nagaland',
-  'Odisha',
-  'Punjab',
-  'Rajasthan',
-  'Sikkim',
-  'Tamil Nadu',
-  'Telangana',
-  'Tripura',
-  'Uttar Pradesh',
-  'Uttarakhand',
-  'West Bengal',
-  'Andaman and Nicobar Islands',
-  'Chandigarh',
-  'Dadra and Nagar Haveli and Daman and Diu',
-  'Delhi',
-  'Jammu and Kashmir',
-  'Ladakh',
-  'Lakshadweep',
-  'Puducherry',
-];
+import SearchableSelect from '../SearchableSelect';
 
 const defaultForm = {
   name: '',
@@ -66,6 +30,11 @@ export default function PanchayatUsersPage() {
   const [formMessage, setFormMessage] = useState('');
   const [showForm, setShowForm] = useState(false);
 
+  // LGD cascading dropdowns
+  const [stateOptions, setStateOptions] = useState<string[]>([]);
+  const [districtOptions, setDistrictOptions] = useState<string[]>([]);
+  const [loadingDistricts, setLoadingDistricts] = useState(false);
+
   const loadUsers = async () => {
     try {
       setLoading(true);
@@ -81,7 +50,20 @@ export default function PanchayatUsersPage() {
 
   useEffect(() => {
     loadUsers();
+    getLGDStates().then((states) => setStateOptions(states.map((s) => s.name)));
   }, []);
+
+  // Reload districts whenever the selected state changes
+  useEffect(() => {
+    if (!form.state) {
+      setDistrictOptions([]);
+      return;
+    }
+    setLoadingDistricts(true);
+    getLGDDistricts(form.state)
+      .then(setDistrictOptions)
+      .finally(() => setLoadingDistricts(false));
+  }, [form.state]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -260,37 +242,34 @@ export default function PanchayatUsersPage() {
               <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">
                 District
               </label>
-              <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Varanasi"
-                  value={form.district}
-                  onChange={(e) => setForm({ ...form, district: e.target.value })}
-                  className={`${inputClass} pl-9`}
-                  required
-                />
-              </div>
+              <SearchableSelect
+                options={districtOptions}
+                value={form.district}
+                onChange={(v) => setForm({ ...form, district: v })}
+                placeholder={
+                  !form.state
+                    ? 'Select state first…'
+                    : loadingDistricts
+                      ? 'Loading…'
+                      : 'Select district…'
+                }
+                disabled={!form.state || loadingDistricts}
+                inputClassName={inputClass}
+              />
             </div>
 
             {/* State */}
             <div>
               <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">
-                State
+                State / UT
               </label>
-              <select
+              <SearchableSelect
+                options={stateOptions}
                 value={form.state}
-                onChange={(e) => setForm({ ...form, state: e.target.value })}
-                className={inputClass}
-                required
-              >
-                <option value="">Select state…</option>
-                {INDIA_STATES.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => setForm({ ...form, state: v, district: '' })}
+                placeholder="Select state…"
+                inputClassName={inputClass}
+              />
             </div>
 
             {/* Actions */}

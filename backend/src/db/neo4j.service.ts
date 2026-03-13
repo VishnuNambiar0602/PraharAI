@@ -913,6 +913,13 @@ class Neo4jDbService {
     return cnt;
   }
 
+  async getGramPanchayatCount(): Promise<number> {
+    const rows = await this.connection.executeRead<{ cnt: number }>(
+      'MATCH (g:GramPanchayat) RETURN count(g) AS cnt'
+    );
+    return Number(rows[0]?.cnt) || 0;
+  }
+
   async getAdminMetrics(): Promise<{
     users: {
       total: number;
@@ -1436,6 +1443,27 @@ class Neo4jDbService {
     return Promise.all(rows.map((r: any) => this.nodeToUser(r.u)));
   }
 
+  async getUsersByPanchayatScoped(
+    panchayatId: string,
+    state: string,
+    district: string,
+    panchayatName: string
+  ): Promise<any[]> {
+    const rows = await this.connection.executeRead<any>(
+      `MATCH (u:User)
+       WHERE u.registered_by_panchayat = $panchayatId
+          OR (
+            $panchayatName <> '' AND
+            toLower(coalesce(u.state, '')) = toLower($state) AND
+            toLower(coalesce(u.district, '')) = toLower($district) AND
+            toLower(coalesce(u.panchayat_name, '')) = toLower($panchayatName)
+          )
+       RETURN u ORDER BY u.created_at DESC`,
+      { panchayatId, state, district, panchayatName }
+    );
+    return Promise.all(rows.map((r: any) => this.nodeToUser(r.u)));
+  }
+
   async updateUserProfile(userId: string, fields: Record<string, any>): Promise<void> {
     const allowed = [
       'name',
@@ -1459,10 +1487,12 @@ class Neo4jDbService {
       'ration_card',
       'land_ownership',
       'district',
+      'subdistrict',
       'disability_type',
       'minority_community',
       'is_admin',
       'registered_by_panchayat',
+      'panchayat_name',
     ];
     const updates = Object.entries(fields).filter(([k]) => allowed.includes(k));
     if (updates.length === 0) return;
@@ -1713,6 +1743,92 @@ class Neo4jDbService {
     );
 
     return this.getPanchayatUserById(userId);
+  }
+
+  async listPanchayatNamesByLocation(state: string, district: string): Promise<string[]> {
+    const rows = await this.connection.executeRead<any>(
+      `MATCH (p:PanchayatUser)
+       WHERE toLower(coalesce(p.state, '')) = toLower($state)
+         AND toLower(coalesce(p.district, '')) = toLower($district)
+       RETURN DISTINCT p.panchayat_name AS name
+       ORDER BY name`,
+      { state, district }
+    );
+    return rows.map((r: any) => r.name).filter(Boolean);
+  }
+
+  /**
+   * Returns official village/GP names for a given state+district,
+   * sourced from the seeded GramPanchayat (LGD village) nodes.
+   * Optionally filtered to a sub-district (block) for shorter lists.
+   */
+  async listGramPanchayats(
+    state: string,
+    district: string,
+    subdistrict?: string
+  ): Promise<string[]> {
+    const query = subdistrict
+      ? `MATCH (g:GramPanchayat)
+         WHERE toLower(g.state) = toLower($state)
+           AND toLower(g.district) = toLower($district)
+           AND toLower(g.subdistrict) = toLower($subdistrict)
+         RETURN g.name AS name ORDER BY name`
+      : `MATCH (g:GramPanchayat)
+         WHERE toLower(g.state) = toLower($state)
+           AND toLower(g.district) = toLower($district)
+         RETURN g.name AS name ORDER BY name`;
+    const rows = await this.connection.executeRead<any>(query, {
+      state,
+      district,
+      subdistrict: subdistrict ?? '',
+    });
+    return rows.map((r: any) => r.name).filter(Boolean);
+  }
+
+  /**
+   * Returns distinct sub-district (block) names for a state+district,
+   * used to optionally add a block-level filter before showing villages.
+   */
+  async listSubdistricts(state: string, district: string): Promise<string[]> {
+    const rows = await this.connection.executeRead<any>(
+      `MATCH (g:GramPanchayat)
+       WHERE toLower(g.state) = toLower($state)
+         AND toLower(g.district) = toLower($district)
+       RETURN DISTINCT g.subdistrict AS name ORDER BY name`,
+      { state, district }
+    );
+    return rows.map((r: any) => r.name).filter(Boolean);
+  }
+
+  /**
+   * Idempotent bulk upsert of GramPanchayat (village) nodes from LGD data.
+   */
+  async bulkUpsertGramPanchayats(
+    batch: Array<{
+      lgd_code: string;
+      name: string;
+      subdistrict: string;
+      subdistrict_code: string;
+      district: string;
+      district_lgd_code: string;
+      state: string;
+      state_lgd_code: string;
+      pincode: string;
+    }>
+  ): Promise<void> {
+    await this.connection.executeWrite(
+      `UNWIND $batch AS v
+       MERGE (g:GramPanchayat { lgd_code: v.lgd_code })
+       SET g.name              = v.name,
+           g.subdistrict       = v.subdistrict,
+           g.subdistrict_code  = v.subdistrict_code,
+           g.district          = v.district,
+           g.district_lgd_code = v.district_lgd_code,
+           g.state             = v.state,
+           g.state_lgd_code    = v.state_lgd_code,
+           g.pincode           = v.pincode`,
+      { batch }
+    );
   }
 
   async listPanchayatUsers(): Promise<any[]> {
